@@ -129,3 +129,41 @@ Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md 
 
 **Instrucción para la próxima conversación:**
 Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md y empieza la Fase B de implementación."
+
+## 2026-04-17 — Sesión 6 (Fase B — Backend API + beta_report)
+**Agente:** Claude Code
+**Trabajo realizado:**
+
+### Fase B — Backend API FastAPI (completa)
+- `app/backend/main.py` — servidor FastAPI con CORS para localhost:3000/3001
+- `app/backend/api/schemas.py` — todos los modelos Pydantic (SnapshotSummary, ARRSummaryResponse, ARRByConsultantResponse, ARRLineItemOut, AlertOut, ProductOut, ConsultantOut, StripeMRROut, SyncResponse, ...)
+- `app/backend/api/routes/arr.py` — `GET /api/arr/summary` (ARR mensual con MoM), `GET /api/arr/by-consultant` (con MoM), `GET /api/arr/line-items` (paginado, filtrable)
+- `app/backend/api/routes/snapshots.py` — `GET /api/snapshots`, `GET /api/snapshots/{id}`
+- `app/backend/api/routes/sync.py` — `POST /api/sync` (mock: copia raw data del último snapshot y recalcula)
+- `app/backend/api/routes/config.py` — CRUD completo productos y consultores
+- `app/backend/api/routes/stripe.py` — `GET/PUT /api/stripe-mrr` (upsert)
+- `app/backend/api/routes/alerts.py` — `GET /api/alerts` (filtrable por reviewed/type), `PATCH /api/alerts/{id}`
+- `app/backend/core/snapshot_manager.py` — pipeline completo: raw items → ARR calculator → bulk insert raw+arr+summary+alerts → actualiza contadores en Snapshot
+- `conftest.py` (root) — establece `DATABASE_URL=sqlite://` para tests sin Docker
+- Modificación de `app/backend/db/connection.py` — pool_size/max_overflow solo para PostgreSQL (no SQLite)
+- `tests/test_api.py` — 21 tests con FastAPI TestClient + SQLite in-memory (sin Docker)
+
+### Beta testing
+- `scripts/beta_report.py` — informe completo en terminal sin Salesforce ni frontend:
+  - ARR mensual por línea de negocio (toda la serie histórica)
+  - Comparación app vs Excel mes a mes con semáforo OK/REVISAR (tolerancia 1%)
+  - ARR por consultor para el mes objetivo
+  - Top 10 oportunidades por ARR
+  - Alertas de calidad de datos sin revisar
+  - Opción `--reimport` para importar desde cero, `--output` para guardar en fichero
+
+**Tests al cerrar:**
+- `pytest tests/` → 38/38 pasan (17 calculadora + 21 API)
+
+**Puntos críticos documentados para el CFO:**
+1. `validate_vs_excel.py` no ejecutado contra BD real todavía — requiere Docker
+2. Mapeo de campos SF desconocido — crítico para Fase E
+3. Tabla de productos poblada desde Excel — puede diferir de nombres en SF
+
+**Instrucción para la próxima conversación:**
+Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md y empieza la Fase C de implementación."

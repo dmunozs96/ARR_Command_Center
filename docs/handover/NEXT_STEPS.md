@@ -3,117 +3,196 @@
 
 ---
 
-## Estado: Fase B completada — Empezar por Fase C
+## Estado actual: Fase B completada → Empezar Fase C
 
-La especificación está completa. No hay más documentación pendiente.  
-El siguiente agente (Claude Code o Codex) debe implementar la **Fase A**.
-
----
-
-## FASE A — Checklist de implementación
-
-> Leer antes de empezar: `docs/specs/08_calculation_engine_draft.md` y `docs/specs/07_data_model_draft.md`
-
-### Infraestructura base
-- [x] Crear `docker-compose.yml` con servicio PostgreSQL (puerto 5432, usuario: arruser, contraseña: arrpass, BD: arrdb)
-- [x] Crear `.env.example` con todas las variables (DATABASE_URL, SF_CLIENT_ID, SF_CLIENT_SECRET, SF_USERNAME, SF_PASSWORD, SF_SECURITY_TOKEN, SF_INSTANCE_URL)
-- [x] Crear estructura de carpetas completa (ver `docs/specs/00_project_overview.md` sección "Estructura de carpetas")
-
-### Backend Python
-- [x] `app/backend/requirements.txt` con: fastapi, uvicorn, sqlalchemy, alembic, psycopg2-binary, python-dotenv, simple-salesforce, pytest, httpx, openpyxl
-- [x] `app/backend/db/models.py` — modelos SQLAlchemy (snapshots, raw_opportunity_line_items, arr_line_items, arr_monthly_summary, snapshot_alerts, snapshot_stripe_mrr, product_classifications, consultant_countries)
-- [x] `app/backend/db/connection.py` — conexión a PostgreSQL con pool
-- [x] Alembic init + primera migración con el schema completo
-- [x] `app/backend/core/arr_calculator.py` — motor de cálculo ARR completo
-- [x] `app/backend/core/alert_checker.py` — validaciones básicas (producto no clasificado, duración anómala)
-- [x] `app/backend/config/settings.py` — carga de variables de entorno
-
-### Scripts de validación
-- [x] `scripts/import_excel_data.py` — lee `data_samples/raw_excel/ARR Oportunidad.xlsx` y carga los datos como si fueran una sync de SF (crea un snapshot de tipo "excel_import")
-- [x] `scripts/validate_vs_excel.py` — compara el ARR calculado por la app con el del Excel para cada mes y tipo de producto; reporta diferencias
-
-### Tests unitarios
-- [x] `tests/test_arr_calculator.py` con 17 tests (todos pasan):
-  - Line item con fechas completas: verifica annualized_value correcto
-  - Line item sin fecha inicio: verifica que usa close_date
-  - Line item sin fecha fin: verifica que usa start+365
-  - Line item con producto no SaaS: verifica que is_saas=False y se excluye del ARR
-  - Line item con producto no clasificado: verifica que genera alerta UNCLASSIFIED
-  - ARR mensual: verifica solapamiento correcto (activo/inactivo por mes)
-  - Paridad con Excel: 3 oportunidades conocidas del Excel
-
-### Criterio de aceptación de Fase A
-- [x] Todos los tests unitarios pasan (`pytest tests/` → 17/17)
-- [ ] `scripts/validate_vs_excel.py` pasa con diferencia < 0.01€ por línea ← **requiere docker-compose up + alembic upgrade head + import_excel_data.py**
-- [ ] La BD se levanta con `docker-compose up -d` sin errores ← ejecutar manualmente
-- [ ] `alembic upgrade head` crea todas las tablas sin errores ← ejecutar manualmente
+38/38 tests pasan. La API está lista. El siguiente agente debe implementar el **frontend Next.js**.
 
 ---
 
-## FASE B — Backend API (después de Fase A) ✅ COMPLETADA
+## FASE A — Motor de cálculo + infraestructura ✅ COMPLETADA
 
-> Leer antes de empezar: `docs/specs/09_dashboard_and_reporting_draft.md` (sección de endpoints)
+- [x] `docker-compose.yml`, `.env.example`, estructura de carpetas
+- [x] `app/backend/requirements.txt`
+- [x] `app/backend/db/models.py` — todos los modelos ORM
+- [x] `app/backend/db/connection.py`
+- [x] Alembic init + migración `0001_initial_schema.py`
+- [x] `app/backend/core/arr_calculator.py` — motor completo
+- [x] `app/backend/core/alert_checker.py`
+- [x] `app/backend/config/settings.py`
+- [x] `scripts/import_excel_data.py`
+- [x] `scripts/validate_vs_excel.py`
+- [x] `tests/test_arr_calculator.py` — 17/17 tests
 
-- [x] `app/backend/main.py` — servidor FastAPI con CORS configurado
-- [x] `app/backend/api/schemas.py` — todos los modelos Pydantic
-- [x] `app/backend/api/routes/arr.py` — endpoints GET /api/arr/summary, GET /api/arr/by-consultant, GET /api/arr/line-items
-- [x] `app/backend/api/routes/snapshots.py` — GET /api/snapshots, GET /api/snapshots/{id}
-- [x] `app/backend/api/routes/sync.py` — POST /api/sync (mock: copia snapshot existente)
-- [x] `app/backend/api/routes/config.py` — CRUD tablas maestras (products, consultants)
-- [x] `app/backend/api/routes/stripe.py` — GET/PUT /api/stripe-mrr
-- [x] `app/backend/api/routes/alerts.py` — GET /api/alerts, PATCH /api/alerts/{id}
-- [x] `app/backend/core/snapshot_manager.py` — creación completa de snapshot
-- [x] `tests/test_api.py` — 21 tests de endpoints (SQLite in-memory, sin Docker)
-- [x] `conftest.py` — root conftest para tests sin BD real
-
-Criterio: 21/21 tests de API pasan + 17/17 tests de calculadora = 38/38 total.
-
----
-
-## FASE C — Frontend (después de Fase B)
-
-> Leer antes de empezar: `docs/specs/09_dashboard_and_reporting_draft.md` (wireframes)
-
-- [ ] `app/frontend/` — proyecto Next.js inicializado con TypeScript
-- [ ] Dashboard principal con gráfico de líneas ARR y tabla de desglose
-- [ ] Filtros básicos (línea de negocio, rango de fechas)
-- [ ] Botón de sincronización con indicador de estado
-- [ ] Conexión a la API funcionando
+**Pendiente de verificación manual** (requiere Docker):
+- [ ] `validate_vs_excel.py` pasa con diferencia < 0.01€ — ejecutar una vez levantado Docker
 
 ---
 
-## FASES D–H
+## FASE B — Backend API ✅ COMPLETADA
 
-Ver `docs/specs/13_implementation_roadmap.md` para el detalle completo.
+- [x] `app/backend/main.py` — FastAPI con CORS
+- [x] `app/backend/api/schemas.py` — modelos Pydantic
+- [x] `app/backend/api/routes/arr.py` — `/api/arr/summary|by-consultant|line-items`
+- [x] `app/backend/api/routes/snapshots.py`
+- [x] `app/backend/api/routes/sync.py` — mock SF
+- [x] `app/backend/api/routes/config.py` — CRUD productos y consultores
+- [x] `app/backend/api/routes/stripe.py`
+- [x] `app/backend/api/routes/alerts.py`
+- [x] `app/backend/core/snapshot_manager.py`
+- [x] `tests/test_api.py` — 21/21 tests
+- [x] `conftest.py` — DATABASE_URL fallback para tests
+- [x] `scripts/beta_report.py` — informe terminal sin SF ni frontend
 
 ---
 
-## Convención de handover entre agentes
+## FASE C — Frontend Next.js
 
-Al **empezar** una sesión:
-1. Leer `docs/handover/CURRENT_STATE.md`
-2. Leer este archivo (`NEXT_STEPS.md`)
-3. Leer el documento de spec de la fase a implementar
+> Leer antes de empezar: `docs/specs/09_dashboard_and_reporting_draft.md` (wireframes completos)  
+> Leer también: `app/backend/api/schemas.py` para los tipos exactos de la API
 
-Al **terminar** una sesión:
-1. Actualizar `docs/handover/CURRENT_STATE.md` con lo completado
-2. Actualizar este archivo tachando las tareas completadas
-3. Añadir entrada en `docs/handover/SESSION_LOG.md`
-4. Si se tomó alguna decisión importante, crear ADR en `docs/decisions/`
-5. Hacer commit con mensaje descriptivo
+### Setup inicial
+- [ ] Inicializar proyecto Next.js 14 con TypeScript en `app/frontend/`
+  ```bash
+  cd app/frontend
+  npx create-next-app@latest . --typescript --tailwind --app --no-src-dir
+  ```
+- [ ] Instalar dependencias: `recharts` (gráficos), `@tanstack/react-query` (fetching), `axios`
+- [ ] Configurar proxy hacia `http://localhost:8000` en `next.config.js`
+- [ ] Crear `app/frontend/lib/api.ts` — cliente API tipado (usar tipos de `schemas.py`)
+
+### Páginas y componentes a crear
+
+#### Dashboard principal (`app/page.tsx`)
+- [ ] `components/KPICards.tsx` — 3 tarjetas: ARR actual, MoM €, MoM %
+- [ ] `components/ARRChart.tsx` — gráfico de líneas (recharts), una serie por línea de negocio
+  - Eje X: meses. Eje Y: €. Tooltip con ARR y MoM al hover.
+- [ ] `components/ARRBreakdownTable.tsx` — tabla por línea de negocio con ARR, MoM €, MoM %, % del total
+- [ ] `components/FilterBar.tsx` — filtros: línea de negocio, consultor, rango de fechas
+- [ ] `components/SyncButton.tsx` — botón "Actualizar SF" con spinner durante el sync
+
+#### Vista consultores (`app/consultors/page.tsx`)
+- [ ] Tabla con ARR por consultor, ordenable por columna
+- [ ] Fila expandible: clic → muestra desglose por línea de negocio
+
+#### Vista Stripe MRR (`app/stripe/page.tsx`)
+- [ ] Tabla con mes, MRR, ARR equivalente, fecha de actualización
+- [ ] Botón "Editar" por fila → modal con input numérico
+
+#### Vista alertas (`app/alerts/page.tsx`)
+- [ ] Lista de alertas agrupadas por tipo
+- [ ] Botón "Marcar como revisada" + campo de nota
+
+#### Vista configuración (`app/config/page.tsx`)
+- [ ] Tabla de productos con clasificación, editable inline
+- [ ] Tabla de consultores con país, editable inline
+
+#### Layout compartido (`app/layout.tsx`)
+- [ ] Barra lateral con navegación entre vistas
+- [ ] Indicador "Última sync: fecha" en el header
+
+### Criterios de aceptación de Fase C
+- [ ] Dashboard carga y muestra ARR total y por línea de negocio para el último mes
+- [ ] Gráfico de líneas muestra evolución histórica (al menos 12 meses)
+- [ ] Los filtros modifican los datos del gráfico y la tabla
+- [ ] El botón de sync llama a `POST /api/sync` y recarga los datos al terminar
+- [ ] La app arranca con `npm run dev` sin errores
+
+---
+
+## FASE D — Historial de snapshots en UI
+
+> Leer: `docs/specs/10_versioning_and_snapshots.md`
+
+- [ ] Página `/snapshots` con listado (fecha, ARR total, registros, alertas)
+- [ ] Selector de snapshot activo: cambiar snapshot → todos los gráficos se actualizan
+- [ ] Vista comparativa: seleccionar dos snapshots → tabla de diferencias
+- [ ] El dashboard muestra el snapshot activo seleccionado (no siempre el más reciente)
+
+---
+
+## FASE E — Integración real con Salesforce
+
+> Leer: `docs/specs/04_salesforce_integration_plan.md` y `docs/logs/salesforce_field_mapping.md`
+
+**Pre-requisitos antes de empezar:**
+1. Pedir al admin de SF que cree una Connected App con OAuth2
+2. Verificar los nombres exactos de los campos custom en la instancia de isEazy:
+   - `Subscription_Start_Date__c` (o el nombre real)
+   - `Subscription_End_Date__c`
+   - `Licence_Period_Months__c`
+   - `Tipo_de_Producto_Correcto__c`
+   - `Canal__c` o equivalente para channel_type
+3. Ejecutar `python scripts/import_excel_data.py` y `python scripts/validate_vs_excel.py` para tener baseline
+
+**Lo que hay que crear:**
+- [ ] `app/backend/core/sf_extractor.py` — extractor real con `simple-salesforce`
+  - Consulta SOQL para oportunidades ganadas con sus line items
+  - Transforma campos SF → `RawLineItem` (mismo formato que el Excel importado)
+- [ ] Sustituir el mock en `app/backend/api/routes/sync.py` por la llamada real al extractor
+- [ ] `scripts/test_sf_connection.py` — verifica conexión + muestra 5 registros de muestra
+- [ ] Documentar en `docs/logs/salesforce_field_mapping.md` los nombres reales verificados
+
+**Criterio de aceptación:**
+- ARR calculado desde SF difiere < 1% del ARR del Excel para el mismo periodo
+
+---
+
+## FASE F — Panel de alertas completo
+
+*La API de alertas ya existe (Fase B). Falta la UI y que el panel sea prominente.*
+
+- [ ] `AlertsPanel.tsx` visible en el dashboard si hay alertas no revisadas
+- [ ] Badge con número de alertas en el header
+- [ ] Página `/alerts` completa (ya descrita en Fase C, pero ampliar con filtros por tipo)
+- [ ] Workflow: alerta → click → modal con descripción + enlace a configuración + campo de nota
+
+---
+
+## FASE G — Input Stripe en UI + vista consultor completa
+
+*La API de Stripe y by-consultant ya existe (Fase B). Falta la UI.*
+
+- [ ] Página `/stripe` con tabla editable de MRR mensual
+- [ ] Alerta visible si el mes actual no tiene dato de Stripe
+- [ ] Página `/consultants` con tabla expandible ordenable y exportable
+
+---
+
+## FASE H — Endurecimiento y producción
+
+- [ ] `scripts/validate_vs_excel.py` pasa al 100% con la BD real
+- [ ] Tests e2e básicos con Playwright o Cypress
+- [ ] Loading states y mensajes de error claros en toda la UI
+- [ ] Manejo de errores en la API: SF no disponible, timeout, datos corruptos
+- [ ] Variables de entorno de producción documentadas
+- [ ] README de usuario: cómo usar la app día a día
 
 ---
 
 ## Checklist de validación pendiente con el CFO
 
-Estos assumptions están implementados en el motor pero el CFO aún no los ha confirmado explícitamente:
+Estos assumptions están implementados pero no confirmados explícitamente:
 
-- [ ] AS-01: Sin fecha inicio → usar close_date como proxy *(implementado en Excel, pendiente confirmación)*
-- [ ] AS-02: Sin fecha fin → asumir 365 días *(implementado en Excel, pendiente confirmación)*
-- [ ] AS-03: ARR = precio_diario × 365 *(implementado en Excel, confirmado implícitamente)*
-- [ ] AS-04: Normalización mensual sin prorrateo diario *(implementado en Excel)*
-- [ ] AS-05: ARR Author Online = MRR_Stripe × 12 *(implementado en Excel)*
+- [ ] AS-01: Sin fecha inicio → usar close_date como proxy
+- [ ] AS-02: Sin fecha fin → asumir 365 días
+- [ ] AS-05: ARR Author Online = MRR_Stripe × 12
 - [ ] AS-07: Renovaciones tratadas igual que nuevas oportunidades
-- [ ] Q-05: ¿TaaS debe incluirse en el ARR SaaS? *(actualmente excluido)*
+- [ ] Q-05: ¿TaaS debe incluirse en el ARR SaaS? (actualmente excluido)
 - [ ] Q-06: ¿Riesgo de doble conteo en renovaciones?
-- [ ] Q-08: ¿Cuál es la fecha de adopción de campos de suscripción en SF? (para saber desde cuándo los datos son fiables)
+- [ ] Q-08: ¿Desde qué fecha son fiables los campos de suscripción en SF?
+
+---
+
+## Convención de handover entre agentes
+
+**Al empezar una sesión:**
+1. Leer `docs/handover/CURRENT_STATE.md`
+2. Leer este archivo (`NEXT_STEPS.md`)
+3. Leer el spec de la fase a implementar (listado en cada fase)
+
+**Al terminar una sesión:**
+1. Actualizar `CURRENT_STATE.md` con lo completado
+2. Actualizar este archivo marcando tareas completadas
+3. Añadir entrada en `docs/handover/SESSION_LOG.md`
+4. Si se tomó alguna decisión importante, crear ADR en `docs/decisions/`
+5. Hacer commit con mensaje descriptivo

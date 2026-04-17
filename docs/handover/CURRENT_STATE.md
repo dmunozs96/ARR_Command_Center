@@ -1,182 +1,205 @@
 # Current State
 **Última actualización:** 2026-04-17
-**Agente:** Claude Code (sesión 5)
+**Agente:** Claude Code (sesión 6)
 
 ---
 
 ## Objetivo del proyecto
 
-Construir una aplicación web (**ARR Command Center**) para calcular, visualizar y auditar el ARR (Annual Recurring Revenue) de isEazy.
+Construir una aplicación web (**ARR Command Center**) que sustituya el proceso manual:
+> Salesforce → Excel → cálculo manual del CFO
 
-- Sustituye al proceso manual: exportación de Salesforce → Excel → cálculo manual.
-- Replica fielmente la lógica del Excel en el MVP.
-- Se conecta a Salesforce para extraer oportunidades ganadas.
-- Guarda snapshots históricos para auditoría.
-- Muestra dashboards por línea de negocio, consultor, canal.
+La app calcula, visualiza y audita el ARR (Annual Recurring Revenue) de isEazy.
 
----
-
-## Estado actual: FASE B COMPLETADA
-
-Fase A y Fase B completadas. 38/38 tests pasan.
-
-### Fases de documentación completadas
-
-| Fase | Contenido | Estado |
-|------|-----------|--------|
-| Fase 0 | Bootstrap del repositorio y metodología | ✅ |
-| Fase 1 | Análisis exhaustivo del Excel | ✅ |
-| Fase 2 | Requisitos funcionales y no funcionales | ✅ |
-| Fase 3 | Plan de integración con Salesforce | ✅ |
-| Fase 4 | Arquitectura, stack, modelo de datos | ✅ |
-| Fase 5 | Guía de construcción desde cero | ✅ |
-| Fase 6 | Roadmap de implementación (Fases A–H) | ✅ |
-
-### Fases de implementación completadas
-
-| Fase | Contenido | Estado |
-|------|-----------|--------|
-| Fase A | Motor de cálculo + estructura base + BD + scripts | ✅ |
-| Fase B | Backend API FastAPI (todos los endpoints) | ✅ |
+**Usuarios finales:** CFO + equipo de finanzas de isEazy.  
+**Stack:** Python/FastAPI + PostgreSQL + React/Next.js.
 
 ---
 
-## Decisiones confirmadas (inamovibles para el MVP)
+## Estado actual: FASES A y B COMPLETADAS
+
+| Fase | Nombre | Estado | Tests |
+|------|--------|--------|-------|
+| A | Motor de cálculo + infraestructura | ✅ completa | 17/17 |
+| B | Backend API FastAPI | ✅ completa | 21/21 |
+| C | Frontend Next.js | ⏳ siguiente | — |
+| D | Historial de snapshots en UI | ⏳ pendiente | — |
+| E | Integración real Salesforce | ⏳ pendiente | — |
+| F | Panel de alertas en UI | ⏳ pendiente | — |
+| G | Input Stripe en UI + vista consultor | ⏳ pendiente | — |
+| H | Endurecimiento, tests e2e, UX final | ⏳ pendiente | — |
+
+**Tests totales: 38/38 pasan** (`pytest tests/` sin necesidad de Docker).
+
+---
+
+## Decisiones confirmadas (no cambiar en el MVP)
 
 | Decisión | Valor | Fuente |
 |----------|-------|--------|
-| Cálculo ARR | `(precio_real / días_periodo_normalizado) × 365` | Excel + CFO |
-| Fidelidad al Excel | Replicar exactamente, con flags para mejoras | ADR-001 |
-| Fuente principal | Salesforce API (OAuth2 + SOQL) | ADR-002 |
-| Fuente secundaria | Stripe = input manual en UI (V1) | ADR-002 + CFO |
-| Variable Invoicing | Misma lógica SaaS si `Tipo de Producto Correcto` es SaaS | CFO |
-| Moneda | Todo EUR, sin conversión | CFO |
-| Stack | Python/FastAPI + PostgreSQL + React/Next.js | ADR-003 |
-| Clasificación SaaS | Via tabla maestra `product_classifications` | ADR-001 |
+| Fórmula ARR | `(precio_real / días_periodo_normalizado) × 365` | Excel + CFO |
+| Fidelidad al Excel | Replicar exactamente, flags para mejoras futuras | ADR-001 |
+| Fuente principal datos | Salesforce API (OAuth2 + SOQL) | ADR-002 |
+| Fuente Author Online | Stripe = input manual en UI (V1, no API) | ADR-002 + CFO |
+| Variable Invoicing | Misma lógica SaaS si producto es tipo SaaS | CFO confirmado |
+| Moneda | Todo EUR, sin conversión de divisa | CFO confirmado |
+| Stack técnico | Python/FastAPI + PostgreSQL + React/Next.js | ADR-003 |
+| Clasificación SaaS | Tabla maestra `product_classifications` | ADR-001 |
 
 ---
 
-## Hallazgos clave del Excel (leer antes de implementar)
+## Reglas de negocio críticas (leer antes de tocar el motor de cálculo)
 
-1. **Fórmula core:** `ARR_line = (cantidad × precio_unitario) / (fin_mes_normalizado - inicio_mes) × 365`
-2. **Solapamiento mensual:** Un line item está activo en mes M si `inicio_mes ≤ fin_mes_objetivo AND fin_mes_normalizado ≥ inicio_mes_objetivo`
-3. **Fallback sin fecha inicio:** usa `close_date` como proxy
-4. **Fallback sin fecha fin:** asume `start + 365 días`
-5. **Normalización:** `inicio_mes = primer día del mes de inicio`, `fin_mes = inicio_mes + días_brutos - 1`
-6. **Dos fuentes:** Salesforce (todo menos Author Online) + Stripe (Author Online, MRR × 12)
-7. **ARR desde close won NO implementado** en el Excel (columnas AC–AF preparadas pero no usadas en SUMIFS)
-8. **Excepciones manuales conocidas:** Virto (5 años con importes de 1 año), contrato 9-meses/12-meses
-9. **1 producto con #N/A** en clasificación (no encontrado en tabla maestra)
+1. **Fórmula:** `annualized_value = (real_price / service_days) × 365`
+2. **real_price** = `quantity × unit_price`
+3. **start_month** = primer día del mes de `effective_start`
+4. **raw_days** = `effective_end - effective_start` (días naturales)
+5. **end_month_normalized** = `start_month + raw_days - 1`
+6. **service_days** = `end_month_normalized - start_month`
+7. **Activo en mes M si:** `start_month ≤ último_día_M AND end_month_normalized ≥ primer_día_M`
+8. **Sin fecha inicio:** usa `close_date` como proxy (AS-01)
+9. **Sin fecha fin:** asume `effective_start + 365 días` (AS-02)
+10. **Producto no clasificado:** excluido del ARR, genera alerta ERROR
 
 ---
 
-## Archivos creados en Fase A
+## Mapa de archivos del proyecto
 
 ```
-app/backend/
-  config/settings.py          ← carga .env
-  db/connection.py            ← SQLAlchemy engine + SessionLocal
-  db/models.py                ← todos los modelos ORM
-  db/migrations/              ← Alembic configurado
-  db/migrations/versions/
-    0001_initial_schema.py    ← primera migración completa
-  core/arr_calculator.py      ← motor de cálculo ARR (replica Excel AJ)
-  core/alert_checker.py       ← resumen de calidad de datos
-  requirements.txt
-
-scripts/
-  import_excel_data.py        ← carga el Excel en la BD (snapshot excel_import)
-  validate_vs_excel.py        ← valida paridad app vs Excel (<0.01€ por línea)
-
-tests/
-  test_arr_calculator.py      ← 17 tests unitarios (todos pasan)
-
-docker-compose.yml            ← PostgreSQL en puerto 5432 (arruser/arrpass/arrdb)
-.env.example                  ← plantilla de variables
-```
-
-## Archivos creados en Fase B
-
-```
-app/backend/
-  main.py                     ← servidor FastAPI con CORS
-  api/
-    schemas.py                ← todos los modelos Pydantic
-    routes/
-      arr.py                  ← GET /api/arr/summary, /by-consultant, /line-items
-      snapshots.py            ← GET /api/snapshots, /api/snapshots/{id}
-      sync.py                 ← POST /api/sync (mock: copia snapshot existente)
-      config.py               ← CRUD /api/config/products y /consultants
-      stripe.py               ← GET/PUT /api/stripe-mrr
-      alerts.py               ← GET /api/alerts, PATCH /api/alerts/{id}
-  core/
-    snapshot_manager.py       ← crea snapshot completo en BD (raw+arr+summary+alerts)
-
-tests/
-  test_api.py                 ← 21 tests de API (SQLite in-memory, sin Docker)
-
-conftest.py                   ← root conftest: DATABASE_URL fallback para tests
+ARR_Command_Center/
+├── app/backend/
+│   ├── main.py                    ← FastAPI app, CORS, routers
+│   ├── requirements.txt
+│   ├── alembic.ini
+│   ├── config/
+│   │   └── settings.py            ← carga .env (DATABASE_URL, SF_*)
+│   ├── db/
+│   │   ├── connection.py          ← SQLAlchemy engine + get_db()
+│   │   ├── models.py              ← todos los modelos ORM
+│   │   └── migrations/versions/
+│   │       └── 0001_initial_schema.py
+│   ├── core/
+│   │   ├── arr_calculator.py      ← motor de cálculo (replica Excel AJ)
+│   │   ├── alert_checker.py       ← resumen de calidad de datos
+│   │   └── snapshot_manager.py    ← crea snapshot completo en BD
+│   └── api/
+│       ├── schemas.py             ← modelos Pydantic request/response
+│       └── routes/
+│           ├── arr.py             ← GET /api/arr/summary|by-consultant|line-items
+│           ├── snapshots.py       ← GET /api/snapshots, /api/snapshots/{id}
+│           ├── sync.py            ← POST /api/sync (mock SF en Fase B)
+│           ├── config.py          ← CRUD /api/config/products|consultants
+│           ├── stripe.py          ← GET/PUT /api/stripe-mrr
+│           └── alerts.py          ← GET /api/alerts, PATCH /api/alerts/{id}
+├── app/frontend/                  ← ⏳ vacío, próxima fase
+├── scripts/
+│   ├── import_excel_data.py       ← Excel → BD (crea snapshot "excel_import")
+│   ├── validate_vs_excel.py       ← compara ARR app vs Excel línea a línea
+│   └── beta_report.py             ← informe completo en terminal (sin SF ni frontend)
+├── tests/
+│   ├── test_arr_calculator.py     ← 17 tests unitarios del motor
+│   └── test_api.py                ← 21 tests de endpoints (SQLite in-memory)
+├── conftest.py                    ← DATABASE_URL fallback para tests sin Docker
+├── docker-compose.yml             ← PostgreSQL puerto 5432 (arruser/arrpass/arrdb)
+└── .env.example                   ← plantilla de variables
 ```
 
 ---
 
-## Cómo arrancar el proyecto (desde cero)
+## API implementada (Fase B)
+
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| GET | `/api/arr/summary` | ARR mensual por producto. Params: `snapshot_id`, `month_from`, `month_to`, `product_type` |
+| GET | `/api/arr/by-consultant` | ARR por consultor para un mes. Params: `snapshot_id`, `month`, `country` |
+| GET | `/api/arr/line-items` | Lista paginada de line items. Params: `snapshot_id`, `is_saas`, `product_type`, `page`, `page_size` |
+| GET | `/api/snapshots` | Lista todos los snapshots (más reciente primero) |
+| GET | `/api/snapshots/{id}` | Detalle de un snapshot |
+| POST | `/api/sync` | Dispara recálculo (mock en Fase B, real SF en Fase E) |
+| GET | `/api/alerts` | Alertas de un snapshot. Params: `snapshot_id`, `reviewed` |
+| PATCH | `/api/alerts/{id}` | Marcar alerta como revisada con nota |
+| GET | `/api/config/products` | Lista productos clasificados |
+| POST | `/api/config/products` | Añadir producto |
+| PUT | `/api/config/products/{id}` | Editar clasificación de producto |
+| GET | `/api/config/consultants` | Lista consultores con país |
+| PUT | `/api/config/consultants/{id}` | Editar consultor |
+| GET | `/api/stripe-mrr` | MRR Stripe de un snapshot |
+| PUT | `/api/stripe-mrr` | Añadir/editar MRR Stripe (upsert) |
+| GET | `/api/health` | Health check |
+
+Docs interactivas en: `http://localhost:8000/docs`
+
+---
+
+## Cómo arrancar el proyecto desde cero
 
 ```bash
-# 1. Levantar la base de datos
+# 1. Base de datos
 docker-compose up -d
 
-# 2. Instalar dependencias Python
+# 2. Dependencias Python
 pip install -r app/backend/requirements.txt
 
-# 3. Copiar y editar variables de entorno
+# 3. Variables de entorno
 cp .env.example .env
+# Editar .env con DATABASE_URL=postgresql://arruser:arrpass@localhost:5432/arrdb
 
-# 4. Crear el schema en la BD
-cd app/backend
-alembic upgrade head
+# 4. Schema de BD
+cd app/backend && alembic upgrade head && cd ../..
 
-# 5. Importar datos del Excel
-cd ../..
+# 5. Importar Excel (crea snapshot base)
 python scripts/import_excel_data.py
 
-# 6. Validar paridad con Excel
+# 6. Validar paridad con Excel (debe salir PASS)
 python scripts/validate_vs_excel.py
 
-# 7. Ejecutar todos los tests (sin Docker necesario)
+# 7. Tests (sin Docker)
 pytest tests/
 
-# 8. Arrancar el servidor API
-cd app/backend
-uvicorn main:app --reload --port 8000
+# 8. Servidor API
+uvicorn app.backend.main:app --reload --port 8000
+
+# 9. Informe beta (valida números sin frontend ni SF)
+python scripts/beta_report.py
 ```
 
 ---
 
-## Archivos imprescindibles para el siguiente agente
+## Modo beta: validar sin Salesforce ni frontend
 
-### Antes de implementar Fase C, leer en este orden:
-1. **`docs/handover/NEXT_STEPS.md`** — checklist de la Fase C
-2. **`docs/specs/09_dashboard_and_reporting_draft.md`** — wireframes del frontend
-3. **`app/backend/api/schemas.py`** — tipos de respuesta de la API para el frontend
+```bash
+# Primera vez: importa Excel y genera informe completo
+python scripts/beta_report.py --reimport
 
----
+# Usos siguientes
+python scripts/beta_report.py --month 2025-03
 
-## Riesgos abiertos (no bloqueantes para Fase C)
+# Guardar a fichero
+python scripts/beta_report.py --output informe.txt
+```
 
-| Riesgo | Severidad | Estado |
-|--------|-----------|--------|
-| Q-03: "ARR desde close won" — definición exacta | MEDIA | Pendiente (post-MVP) |
-| Q-05: ¿TaaS en ARR SaaS? | BAJA | Pendiente validación CFO |
-| Q-06: Doble conteo en renovaciones | MEDIA | Pendiente validación CFO |
-| RT-01: Calidad datos SF (campos vacíos) | ALTA | Mitigado con fallbacks y alertas |
-| RT-02: Tabla de productos desactualizada | ALTA | Mitigado con alertas automáticas |
-| Excepciones Virto / 9-12 meses | MEDIA | Detectadas por flag DURATION_HIGH |
-| Mapeo exacto campos SF | ALTA | Verificar con admin SF antes de Fase E |
+El informe muestra: ARR mensual por línea, comparación app vs Excel, ARR por consultor, top 10 oportunidades, alertas pendientes.
 
 ---
 
-## Próximo paso: FASE C de implementación
+## Riesgos abiertos
 
-**El siguiente agente debe implementar la Fase C (Frontend Next.js).**  
-Ver `docs/handover/NEXT_STEPS.md` para el checklist detallado.
+| ID | Riesgo | Severidad | Cuándo se resuelve |
+|----|--------|-----------|-------------------|
+| RT-01 | Mapeo exacto de campos en Salesforce puede diferir | ALTA | Fase E — verificar con admin SF |
+| RT-02 | Tabla de productos desactualizada (nombres ≠ SF) | ALTA | Fase E — comparar con export real de SF |
+| RT-03 | `validate_vs_excel.py` no ejecutado contra BD real | MEDIA | Primera vez que se levante Docker |
+| Q-05 | ¿TaaS debe incluirse en ARR SaaS? | BAJA | Validar con CFO antes de Fase E |
+| Q-06 | ¿Doble conteo en renovaciones? | MEDIA | Validar con CFO antes de Fase E |
+| Q-08 | ¿Desde qué fecha son fiables los campos de suscripción en SF? | MEDIA | Preguntar al admin SF en Fase E |
+
+---
+
+## Próximo paso
+
+**Fase C — Frontend Next.js.**
+
+Leer antes de empezar:
+1. `docs/handover/NEXT_STEPS.md` — checklist detallado de Fase C
+2. `docs/specs/09_dashboard_and_reporting_draft.md` — wireframes de cada pantalla
+3. `app/backend/api/schemas.py` — tipos exactos que devuelve la API (usar para tipar el frontend)
