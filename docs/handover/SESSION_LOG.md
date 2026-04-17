@@ -80,3 +80,18 @@ crear estructura del proyecto, motor de cálculo ARR y validación cruzada con e
 **Próxima sesión debe empezar por:**
 - Leer `docs/handover/CURRENT_STATE.md` y `docs/handover/NEXT_STEPS.md`.
 - Implementar Fase A: `arr_calculator.py`, modelos, docker-compose, scripts de validación.
+
+## 2026-04-17 — Sesión 4 (Cierre de documentación)
+**Agente:** Claude Code
+**Trabajo realizado:**
+- CURRENT_STATE.md reescrito limpio: sin Q-01/Q-02 obsoletas, estado preciso, tabla de decisiones.
+- NEXT_STEPS.md reescrito limpio: checklist concreto de Fase A con todos los archivos a crear.
+- Repo listo para continuar en cualquier conversación nueva.
+
+**Estado final al cerrar:**
+- Toda la especificación completa y committeada.
+- Decisiones confirmadas: Variable Invoicing = misma lógica SaaS; Stripe = manual V1; EUR solamente.
+- Sin bloqueos para empezar Fase A.
+
+**Instrucción para la próxima conversación:**
+Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md y empieza la Fase A de implementación."
