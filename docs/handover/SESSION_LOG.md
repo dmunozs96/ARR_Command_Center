@@ -167,3 +167,48 @@ Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md 
 
 **Instrucción para la próxima conversación:**
 Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md y empieza la Fase C de implementación."
+
+## 2026-04-17 — Sesión 7 (Fase C — Frontend Next.js)
+**Agente:** Claude Code
+
+### Trabajo realizado
+
+**Setup del proyecto frontend:**
+- Next.js 16.2.4 + React 19 + Tailwind CSS 4 + TypeScript 5
+- Dependencias adicionales: recharts 3.x, @tanstack/react-query v5, axios
+- `next.config.ts` con rewrites `/api/*` → `http://localhost:8000/api/*` (proxy a backend)
+
+**Librería base:**
+- `lib/types.ts` — TypeScript types espejo exacto de `app/backend/api/schemas.py`
+- `lib/api.ts` — cliente API tipado con axios (todas las rutas del backend)
+- `lib/utils.ts` — formatEUR (Intl), formatPct, formatMoM, colores por tipo de producto
+- `lib/providers.tsx` — React Query QueryClientProvider (client component)
+
+**Componentes:**
+- `components/Sidebar.tsx` — navegación lateral, resalta ruta activa via `usePathname`
+- `components/SyncButton.tsx` — llama `POST /api/sync`, invalida todo el cache al completar
+- `components/KPICards.tsx` — 3 tarjetas: ARR, MoM€, MoM% con skeleton loading
+- `components/ARRChart.tsx` — gráfico de líneas recharts, una serie por product_type, tooltip formateado
+- `components/ARRBreakdownTable.tsx` — tabla por línea de negocio con MoM calculado localmente
+- `components/FilterBar.tsx` — filtros de product_type y rango de fechas
+
+**Páginas:**
+- `app/layout.tsx` — root layout con Sidebar + Providers
+- `app/page.tsx` — Dashboard: KPIs + filtros + gráfico + tabla desglose + badge alertas
+- `app/consultants/page.tsx` — tabla expandible con desglose por producto, ordenable, filtro país
+- `app/stripe/page.tsx` — tabla MRR Stripe con modal edición/añadir
+- `app/alerts/page.tsx` — alertas agrupadas por tipo, colores por severidad, marcar revisadas
+- `app/config/page.tsx` — CRUD inline de productos y consultores
+
+**Verificaciones:**
+- `npx tsc --noEmit` → 0 errores
+- `npm run build` → build exitoso, todas las rutas generadas estáticamente
+
+**Notas para el siguiente agente (Next.js 16 breaking changes):**
+- `middleware.ts` → `proxy.ts` (renombrado); para proxy de API usar `rewrites` en next.config.ts
+- Tailwind 4: no existe `tailwind.config.js`; solo `@import "tailwindcss"` en globals.css
+- React 19: no usar `React.FC`, usar funciones normales
+- React Query v5: solo acepta objeto `{ queryKey, queryFn }` (no argumentos posicionales)
+
+**Instrucción para la próxima conversación:**
+Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md y empieza la Fase D de implementación. Documenta todo y deja todo preparado para el siguiente agente."

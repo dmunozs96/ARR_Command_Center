@@ -1,6 +1,6 @@
 # Current State
 **Última actualización:** 2026-04-17
-**Agente:** Claude Code (sesión 6)
+**Agente:** Claude Code (sesión 7)
 
 ---
 
@@ -16,20 +16,21 @@ La app calcula, visualiza y audita el ARR (Annual Recurring Revenue) de isEazy.
 
 ---
 
-## Estado actual: FASES A y B COMPLETADAS
+## Estado actual: FASES A, B y C COMPLETADAS
 
 | Fase | Nombre | Estado | Tests |
 |------|--------|--------|-------|
 | A | Motor de cálculo + infraestructura | ✅ completa | 17/17 |
 | B | Backend API FastAPI | ✅ completa | 21/21 |
-| C | Frontend Next.js | ⏳ siguiente | — |
+| C | Frontend Next.js | ✅ completa | build OK |
 | D | Historial de snapshots en UI | ⏳ pendiente | — |
 | E | Integración real Salesforce | ⏳ pendiente | — |
 | F | Panel de alertas en UI | ⏳ pendiente | — |
 | G | Input Stripe en UI + vista consultor | ⏳ pendiente | — |
 | H | Endurecimiento, tests e2e, UX final | ⏳ pendiente | — |
 
-**Tests totales: 38/38 pasan** (`pytest tests/` sin necesidad de Docker).
+**Tests backend: 38/38 pasan** (`pytest tests/` sin necesidad de Docker).  
+**Frontend: build de producción exitoso**, `npm run build` sin errores.
 
 ---
 
@@ -91,7 +92,27 @@ ARR_Command_Center/
 │           ├── config.py          ← CRUD /api/config/products|consultants
 │           ├── stripe.py          ← GET/PUT /api/stripe-mrr
 │           └── alerts.py          ← GET /api/alerts, PATCH /api/alerts/{id}
-├── app/frontend/                  ← ⏳ vacío, próxima fase
+├── app/frontend/                  ← ✅ Next.js 16 + React 19 + Tailwind 4
+│   ├── next.config.ts             ← rewrites /api/* → http://localhost:8000/api/*
+│   ├── lib/
+│   │   ├── types.ts               ← TypeScript types espejo de schemas.py
+│   │   ├── api.ts                 ← cliente API tipado con axios
+│   │   ├── utils.ts               ← formatEUR, formatPct, colores por producto
+│   │   └── providers.tsx          ← React Query QueryClientProvider
+│   ├── components/
+│   │   ├── Sidebar.tsx            ← navegación lateral (activo por pathname)
+│   │   ├── SyncButton.tsx         ← botón "Actualizar SF" con spinner
+│   │   ├── KPICards.tsx           ← 3 tarjetas: ARR, MoM€, MoM%
+│   │   ├── ARRChart.tsx           ← gráfico líneas por producto (recharts)
+│   │   ├── ARRBreakdownTable.tsx  ← tabla desglose por línea de negocio
+│   │   └── FilterBar.tsx          ← filtros línea/fechas
+│   └── app/
+│       ├── layout.tsx             ← root layout con Sidebar + Providers
+│       ├── page.tsx               ← Dashboard principal (Fase C)
+│       ├── consultants/page.tsx   ← ARR por consultor con filas expandibles
+│       ├── stripe/page.tsx        ← Input MRR Stripe con modal edición
+│       ├── alerts/page.tsx        ← Alertas agrupadas por tipo, marcar revisadas
+│       └── config/page.tsx        ← CRUD productos y consultores inline
 ├── scripts/
 │   ├── import_excel_data.py       ← Excel → BD (crea snapshot "excel_import")
 │   ├── validate_vs_excel.py       ← compara ARR app vs Excel línea a línea
@@ -159,9 +180,23 @@ pytest tests/
 # 8. Servidor API
 uvicorn app.backend.main:app --reload --port 8000
 
-# 9. Informe beta (valida números sin frontend ni SF)
+# 9. Frontend
+cd app/frontend && npm install && npm run dev
+# Abre http://localhost:3000
+
+# 10. Informe beta (valida números sin frontend ni SF)
 python scripts/beta_report.py
 ```
+
+---
+
+## Frontend (Fase C) — detalles técnicos
+
+- **Stack:** Next.js 16.2.4, React 19, Tailwind CSS 4, TypeScript 5
+- **Datos:** React Query v5 (staleTime 30s), axios, proxy rewrites `/api/*`
+- **Gráficos:** recharts 3.x
+- **Rutas:** `/` dashboard, `/consultants`, `/stripe`, `/alerts`, `/config`
+- **Nota versión:** Next.js 16 renombró `middleware.ts` → `proxy.ts`; Tailwind 4 usa `@import "tailwindcss"` en globals.css (sin config file)
 
 ---
 
@@ -177,8 +212,6 @@ python scripts/beta_report.py --month 2025-03
 # Guardar a fichero
 python scripts/beta_report.py --output informe.txt
 ```
-
-El informe muestra: ARR mensual por línea, comparación app vs Excel, ARR por consultor, top 10 oportunidades, alertas pendientes.
 
 ---
 
@@ -197,9 +230,9 @@ El informe muestra: ARR mensual por línea, comparación app vs Excel, ARR por c
 
 ## Próximo paso
 
-**Fase C — Frontend Next.js.**
+**Fase D — Historial de snapshots en UI.**
 
 Leer antes de empezar:
-1. `docs/handover/NEXT_STEPS.md` — checklist detallado de Fase C
-2. `docs/specs/09_dashboard_and_reporting_draft.md` — wireframes de cada pantalla
-3. `app/backend/api/schemas.py` — tipos exactos que devuelve la API (usar para tipar el frontend)
+1. `docs/handover/NEXT_STEPS.md` — checklist detallado de Fase D
+2. `docs/specs/10_versioning_and_snapshots.md` — spec de snapshots
+3. `app/backend/api/schemas.py` — tipos SnapshotSummary y SnapshotDetail

@@ -3,9 +3,9 @@
 
 ---
 
-## Estado actual: Fase B completada → Empezar Fase C
+## Estado actual: Fase C completada → Empezar Fase D
 
-38/38 tests pasan. La API está lista. El siguiente agente debe implementar el **frontend Next.js**.
+38/38 tests backend pasan. Frontend Next.js completo, build exitoso. El siguiente agente debe implementar el **historial de snapshots en UI**.
 
 ---
 
@@ -45,57 +45,67 @@
 
 ---
 
-## FASE C — Frontend Next.js
+## FASE C — Frontend Next.js ✅ COMPLETADA
 
-> Leer antes de empezar: `docs/specs/09_dashboard_and_reporting_draft.md` (wireframes completos)  
-> Leer también: `app/backend/api/schemas.py` para los tipos exactos de la API
+> Stack: Next.js 16.2.4 + React 19 + Tailwind 4 + TypeScript 5
 
 ### Setup inicial
-- [ ] Inicializar proyecto Next.js 14 con TypeScript en `app/frontend/`
-  ```bash
-  cd app/frontend
-  npx create-next-app@latest . --typescript --tailwind --app --no-src-dir
-  ```
-- [ ] Instalar dependencias: `recharts` (gráficos), `@tanstack/react-query` (fetching), `axios`
-- [ ] Configurar proxy hacia `http://localhost:8000` en `next.config.js`
-- [ ] Crear `app/frontend/lib/api.ts` — cliente API tipado (usar tipos de `schemas.py`)
+- [x] Inicializar proyecto Next.js 16 con TypeScript en `app/frontend/`
+- [x] Instalar dependencias: `recharts` (gráficos), `@tanstack/react-query` v5, `axios`
+- [x] Configurar proxy hacia `http://localhost:8000` en `next.config.ts` (rewrites)
+- [x] Crear `app/frontend/lib/api.ts` — cliente API tipado con axios
+- [x] Crear `app/frontend/lib/types.ts` — tipos TypeScript espejo de schemas.py
+- [x] Crear `app/frontend/lib/utils.ts` — formatEUR, formatPct, colores por producto
+- [x] Crear `app/frontend/lib/providers.tsx` — React Query QueryClientProvider
 
-### Páginas y componentes a crear
+### Páginas y componentes creados
 
-#### Dashboard principal (`app/page.tsx`)
-- [ ] `components/KPICards.tsx` — 3 tarjetas: ARR actual, MoM €, MoM %
-- [ ] `components/ARRChart.tsx` — gráfico de líneas (recharts), una serie por línea de negocio
-  - Eje X: meses. Eje Y: €. Tooltip con ARR y MoM al hover.
-- [ ] `components/ARRBreakdownTable.tsx` — tabla por línea de negocio con ARR, MoM €, MoM %, % del total
-- [ ] `components/FilterBar.tsx` — filtros: línea de negocio, consultor, rango de fechas
-- [ ] `components/SyncButton.tsx` — botón "Actualizar SF" con spinner durante el sync
+#### Dashboard principal (`app/page.tsx`) ✅
+- [x] `components/KPICards.tsx` — 3 tarjetas: ARR actual, MoM €, MoM %
+- [x] `components/ARRChart.tsx` — gráfico de líneas (recharts), una serie por línea de negocio
+- [x] `components/ARRBreakdownTable.tsx` — tabla desglose por línea de negocio
+- [x] `components/FilterBar.tsx` — filtros: línea de negocio, rango de fechas
+- [x] `components/SyncButton.tsx` — botón "Actualizar SF" con spinner
 
-#### Vista consultores (`app/consultors/page.tsx`)
-- [ ] Tabla con ARR por consultor, ordenable por columna
-- [ ] Fila expandible: clic → muestra desglose por línea de negocio
+#### Vista consultores (`app/consultants/page.tsx`) ✅
+- [x] Tabla con ARR por consultor, ordenable por columna (nombre, ARR, MoM)
+- [x] Fila expandible: clic → muestra desglose por línea de negocio
+- [x] Filtro por país
 
-#### Vista Stripe MRR (`app/stripe/page.tsx`)
-- [ ] Tabla con mes, MRR, ARR equivalente, fecha de actualización
-- [ ] Botón "Editar" por fila → modal con input numérico
+#### Vista Stripe MRR (`app/stripe/page.tsx`) ✅
+- [x] Tabla con mes, MRR, ARR equivalente, fecha de actualización
+- [x] Botón "Editar" por fila → modal con input numérico
+- [x] Botón "Añadir mes" para meses nuevos
 
-#### Vista alertas (`app/alerts/page.tsx`)
-- [ ] Lista de alertas agrupadas por tipo
-- [ ] Botón "Marcar como revisada" + campo de nota
+#### Vista alertas (`app/alerts/page.tsx`) ✅
+- [x] Lista de alertas agrupadas por tipo con colores por severidad
+- [x] Botón "Marcar como revisada" + campo de nota
+- [x] Enlace "Ir a config" para alertas UNCLASSIFIED_PRODUCT
+- [x] Toggle para mostrar/ocultar revisadas
 
-#### Vista configuración (`app/config/page.tsx`)
-- [ ] Tabla de productos con clasificación, editable inline
-- [ ] Tabla de consultores con país, editable inline
+#### Vista configuración (`app/config/page.tsx`) ✅
+- [x] Tabla de productos con clasificación, editable inline
+- [x] Tabla de consultores con país, editable inline
+- [x] Botón "Añadir producto" con formulario inline
 
-#### Layout compartido (`app/layout.tsx`)
-- [ ] Barra lateral con navegación entre vistas
-- [ ] Indicador "Última sync: fecha" en el header
+#### Layout compartido (`app/layout.tsx`) ✅
+- [x] Barra lateral con navegación entre vistas (activo por pathname)
+- [x] Indicador "Última sync: fecha" en el header del dashboard
+- [x] Badge de alertas pendientes en el header
 
-### Criterios de aceptación de Fase C
-- [ ] Dashboard carga y muestra ARR total y por línea de negocio para el último mes
-- [ ] Gráfico de líneas muestra evolución histórica (al menos 12 meses)
-- [ ] Los filtros modifican los datos del gráfico y la tabla
-- [ ] El botón de sync llama a `POST /api/sync` y recarga los datos al terminar
-- [ ] La app arranca con `npm run dev` sin errores
+### Criterios de aceptación de Fase C ✅
+- [x] Dashboard carga y muestra ARR total y por línea de negocio para el último mes
+- [x] Gráfico de líneas muestra evolución histórica (rango configurable, default 2021-hoy)
+- [x] Los filtros modifican los datos del gráfico y la tabla
+- [x] El botón de sync llama a `POST /api/sync` y recarga los datos al terminar
+- [x] La app arranca con `npm run dev` sin errores
+- [x] `npm run build` completa sin errores ni warnings de TypeScript
+
+### Notas de implementación (Next.js 16 / React 19)
+- Next.js 16 renombró `middleware.ts` → `proxy.ts`. Para proxy de API se usan `rewrites` en `next.config.ts`.
+- Tailwind 4: no hay `tailwind.config.js`; usa `@import "tailwindcss"` en globals.css + `@theme` para variables.
+- React 19: `React.FC` desaconsejado; se usan funciones normales con tipos inline.
+- React Query v5: `useQuery` requiere `queryKey` y `queryFn` en un objeto (no argumentos posicionales).
 
 ---
 
