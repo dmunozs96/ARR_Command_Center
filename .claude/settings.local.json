@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(python -c ' *)",
+      "Bash(pip3 install *)",
+      "Bash(where python.exe)",
+      "Bash(python.exe --version)",
+      "Bash(python.exe -m pip install openpyxl)",
+      "Bash(python.exe -c \"import openpyxl; print\\('ok'\\)\")",
+      "Bash(python.exe -c ' *)"
+    ]
+  }
+}

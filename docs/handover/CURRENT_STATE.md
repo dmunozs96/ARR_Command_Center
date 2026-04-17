@@ -1,6 +1,6 @@
 # Current State
 **Última actualización:** 2026-04-17
-**Agente:** Claude Code (sesiones 1–3)
+**Agente:** Claude Code (sesión 4)
 
 ---
 
@@ -16,10 +16,9 @@ Construir una aplicación web (**ARR Command Center**) para calcular, visualizar
 
 ---
 
-## Estado actual: ESPECIFICACIÓN COMPLETA — LISTA PARA IMPLEMENTAR
+## Estado actual: FASE A COMPLETADA
 
-No hay nada pendiente en la fase de documentación.  
-El siguiente paso es **implementar la Fase A** (motor de cálculo + estructura de proyecto).
+La Fase A de implementación está completa y todos los tests pasan (17/17).
 
 ### Fases de documentación completadas
 
@@ -32,6 +31,12 @@ El siguiente paso es **implementar la Fase A** (motor de cálculo + estructura d
 | Fase 4 | Arquitectura, stack, modelo de datos | ✅ |
 | Fase 5 | Guía de construcción desde cero | ✅ |
 | Fase 6 | Roadmap de implementación (Fases A–H) | ✅ |
+
+### Fases de implementación completadas
+
+| Fase | Contenido | Estado |
+|------|-----------|--------|
+| Fase A | Motor de cálculo + estructura base + BD + scripts | ✅ |
 
 ---
 
@@ -64,30 +69,72 @@ El siguiente paso es **implementar la Fase A** (motor de cálculo + estructura d
 
 ---
 
-## Archivos imprescindibles para el siguiente agente
+## Archivos creados en Fase A
 
-### Antes de implementar, leer en este orden:
+```
+app/backend/
+  config/settings.py          ← carga .env
+  db/connection.py            ← SQLAlchemy engine + SessionLocal
+  db/models.py                ← todos los modelos ORM
+  db/migrations/              ← Alembic configurado
+  db/migrations/versions/
+    0001_initial_schema.py    ← primera migración completa
+  core/arr_calculator.py      ← motor de cálculo ARR (replica Excel AJ)
+  core/alert_checker.py       ← resumen de calidad de datos
+  requirements.txt
 
-1. **`docs/handover/NEXT_STEPS.md`** — checklist de tareas de la Fase A
-2. **`docs/specs/08_calculation_engine_draft.md`** — pseudocódigo completo del motor ARR
-3. **`docs/specs/07_data_model_draft.md`** — schema SQL completo de PostgreSQL
-4. **`docs/specs/13_implementation_roadmap.md`** — Fases A–H con criterios de aceptación
-5. **`docs/logs/excel_formula_logic.md`** — cada columna calculada del Excel explicada
-6. **`docs/logs/excel_business_rules_catalog.md`** — reglas de negocio, workarounds, edge cases
+scripts/
+  import_excel_data.py        ← carga el Excel en la BD (snapshot excel_import)
+  validate_vs_excel.py        ← valida paridad app vs Excel (<0.01€ por línea)
 
-### Para el dashboard (cuando llegue Fase C):
-7. **`docs/specs/09_dashboard_and_reporting_draft.md`** — wireframes y endpoints API
+tests/
+  test_arr_calculator.py      ← 17 tests unitarios (todos pasan)
 
-### Para la integración Salesforce (cuando llegue Fase E):
-8. **`docs/specs/04_salesforce_integration_plan.md`** — plan completo
-9. **`docs/logs/salesforce_field_mapping.md`** — mapeo de campos SF (algunos pendientes de verificar con admin SF)
-
-### Decisiones tomadas:
-10. **`docs/decisions/`** — ADR-001, ADR-002, ADR-003
+docker-compose.yml            ← PostgreSQL en puerto 5432 (arruser/arrpass/arrdb)
+.env.example                  ← plantilla de variables
+```
 
 ---
 
-## Riesgos abiertos (no bloqueantes para Fase A)
+## Cómo arrancar el proyecto (desde cero)
+
+```bash
+# 1. Levantar la base de datos
+docker-compose up -d
+
+# 2. Instalar dependencias Python
+pip install -r app/backend/requirements.txt
+
+# 3. Copiar y editar variables de entorno
+cp .env.example .env
+
+# 4. Crear el schema en la BD
+cd app/backend
+alembic upgrade head
+
+# 5. Importar datos del Excel
+cd ../..
+python scripts/import_excel_data.py
+
+# 6. Validar paridad con Excel
+python scripts/validate_vs_excel.py
+
+# 7. Ejecutar tests unitarios
+pytest tests/
+```
+
+---
+
+## Archivos imprescindibles para el siguiente agente
+
+### Antes de implementar Fase B, leer en este orden:
+1. **`docs/handover/NEXT_STEPS.md`** — checklist de la Fase B
+2. **`docs/specs/09_dashboard_and_reporting_draft.md`** — endpoints API y wireframes
+3. **`app/backend/core/arr_calculator.py`** — domain objects disponibles para la API
+
+---
+
+## Riesgos abiertos (no bloqueantes para Fase B)
 
 | Riesgo | Severidad | Estado |
 |--------|-----------|--------|
@@ -101,20 +148,7 @@ El siguiente paso es **implementar la Fase A** (motor de cálculo + estructura d
 
 ---
 
-## Próximo paso: FASE A de implementación
+## Próximo paso: FASE B de implementación
 
-**El siguiente agente debe implementar la Fase A.** Ver `docs/handover/NEXT_STEPS.md` para el checklist detallado.
-
-Resumen de la Fase A:
-- Estructura de carpetas del proyecto
-- `docker-compose.yml` con PostgreSQL
-- `.env.example`
-- `app/backend/core/arr_calculator.py` (motor de cálculo)
-- `app/backend/db/models.py` (SQLAlchemy)
-- Alembic migrations
-- `scripts/import_excel_data.py` (carga el Excel como mock de SF)
-- `scripts/validate_vs_excel.py` (valida paridad con el Excel)
-- `tests/test_arr_calculator.py` (tests unitarios)
-
-**Criterio de éxito de la Fase A:**  
-`validate_vs_excel.py` pasa con diferencia < 0.01€ por línea para el dataset completo del Excel.
+**El siguiente agente debe implementar la Fase B (Backend API FastAPI).**  
+Ver `docs/handover/NEXT_STEPS.md` para el checklist detallado.

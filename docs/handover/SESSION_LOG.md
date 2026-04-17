@@ -95,3 +95,37 @@ crear estructura del proyecto, motor de cálculo ARR y validación cruzada con e
 
 **Instrucción para la próxima conversación:**
 Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md y empieza la Fase A de implementación."
+
+## 2026-04-17 — Sesión 5 (Fase A — Motor de cálculo + infraestructura base)
+**Agente:** Claude Code
+**Trabajo realizado:**
+- Infraestructura base: `docker-compose.yml`, `.env.example`, estructura de carpetas completa.
+- Backend Python:
+  - `app/backend/requirements.txt`
+  - `app/backend/config/settings.py`
+  - `app/backend/db/connection.py` (SQLAlchemy engine + pool)
+  - `app/backend/db/models.py` (todos los modelos ORM: Snapshot, RawOpportunityLineItem, ARRLineItem, ARRMonthlySummary, SnapshotAlert, SnapshotStripeMRR, ProductClassification, ConsultantCountry, SyncLog)
+- Alembic:
+  - `app/backend/alembic.ini`
+  - `app/backend/db/migrations/` — inicializado y configurado
+  - `app/backend/db/migrations/versions/0001_initial_schema.py` — migración completa
+- Motor de cálculo:
+  - `app/backend/core/arr_calculator.py` — replica exactamente la lógica del Excel (columnas V, W, X, Y, Z, AH, AI, AJ)
+  - `app/backend/core/alert_checker.py` — validaciones de calidad de datos
+- Scripts:
+  - `scripts/import_excel_data.py` — lee Excel → crea snapshot tipo "excel_import"
+  - `scripts/validate_vs_excel.py` — compara ARR app vs Excel línea a línea
+- Tests:
+  - `tests/test_arr_calculator.py` — 17 tests unitarios, todos pasan
+
+**Verificaciones realizadas:**
+- `pytest tests/` → 17/17 tests pasan
+- Smoke test del motor: lee 14.095 filas del Excel, calcula ARR sin errores
+- Excel contiene 594 productos, 27 consultores con país asignado
+
+**Pendiente (requiere Docker corriendo):**
+- `docker-compose up -d` + `alembic upgrade head` + `python scripts/import_excel_data.py`
+- `python scripts/validate_vs_excel.py` para confirmar paridad < 0.01€
+
+**Instrucción para la próxima conversación:**
+Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md y empieza la Fase B de implementación."

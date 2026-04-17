@@ -15,38 +15,38 @@ El siguiente agente (Claude Code o Codex) debe implementar la **Fase A**.
 > Leer antes de empezar: `docs/specs/08_calculation_engine_draft.md` y `docs/specs/07_data_model_draft.md`
 
 ### Infraestructura base
-- [ ] Crear `docker-compose.yml` con servicio PostgreSQL (puerto 5432, usuario: arruser, contraseña: arrpass, BD: arrdb)
-- [ ] Crear `.env.example` con todas las variables (DATABASE_URL, SF_CLIENT_ID, SF_CLIENT_SECRET, SF_USERNAME, SF_PASSWORD, SF_SECURITY_TOKEN, SF_INSTANCE_URL)
-- [ ] Crear estructura de carpetas completa (ver `docs/specs/00_project_overview.md` sección "Estructura de carpetas")
+- [x] Crear `docker-compose.yml` con servicio PostgreSQL (puerto 5432, usuario: arruser, contraseña: arrpass, BD: arrdb)
+- [x] Crear `.env.example` con todas las variables (DATABASE_URL, SF_CLIENT_ID, SF_CLIENT_SECRET, SF_USERNAME, SF_PASSWORD, SF_SECURITY_TOKEN, SF_INSTANCE_URL)
+- [x] Crear estructura de carpetas completa (ver `docs/specs/00_project_overview.md` sección "Estructura de carpetas")
 
 ### Backend Python
-- [ ] `app/backend/requirements.txt` con: fastapi, uvicorn, sqlalchemy, alembic, psycopg2-binary, python-dotenv, simple-salesforce, pytest, httpx, openpyxl
-- [ ] `app/backend/db/models.py` — modelos SQLAlchemy (snapshots, raw_opportunity_line_items, arr_line_items, arr_monthly_summary, snapshot_alerts, snapshot_stripe_mrr, product_classifications, consultant_countries)
-- [ ] `app/backend/db/connection.py` — conexión a PostgreSQL con pool
-- [ ] Alembic init + primera migración con el schema completo
-- [ ] `app/backend/core/arr_calculator.py` — motor de cálculo ARR completo
-- [ ] `app/backend/core/alert_checker.py` — validaciones básicas (producto no clasificado, duración anómala)
-- [ ] `app/backend/config/settings.py` — carga de variables de entorno
+- [x] `app/backend/requirements.txt` con: fastapi, uvicorn, sqlalchemy, alembic, psycopg2-binary, python-dotenv, simple-salesforce, pytest, httpx, openpyxl
+- [x] `app/backend/db/models.py` — modelos SQLAlchemy (snapshots, raw_opportunity_line_items, arr_line_items, arr_monthly_summary, snapshot_alerts, snapshot_stripe_mrr, product_classifications, consultant_countries)
+- [x] `app/backend/db/connection.py` — conexión a PostgreSQL con pool
+- [x] Alembic init + primera migración con el schema completo
+- [x] `app/backend/core/arr_calculator.py` — motor de cálculo ARR completo
+- [x] `app/backend/core/alert_checker.py` — validaciones básicas (producto no clasificado, duración anómala)
+- [x] `app/backend/config/settings.py` — carga de variables de entorno
 
 ### Scripts de validación
-- [ ] `scripts/import_excel_data.py` — lee `data_samples/raw_excel/ARR Oportunidad.xlsx` y carga los datos como si fueran una sync de SF (crea un snapshot de tipo "excel_import")
-- [ ] `scripts/validate_vs_excel.py` — compara el ARR calculado por la app con el del Excel para cada mes y tipo de producto; reporta diferencias
+- [x] `scripts/import_excel_data.py` — lee `data_samples/raw_excel/ARR Oportunidad.xlsx` y carga los datos como si fueran una sync de SF (crea un snapshot de tipo "excel_import")
+- [x] `scripts/validate_vs_excel.py` — compara el ARR calculado por la app con el del Excel para cada mes y tipo de producto; reporta diferencias
 
 ### Tests unitarios
-- [ ] `tests/test_arr_calculator.py` con al menos estos casos:
+- [x] `tests/test_arr_calculator.py` con 17 tests (todos pasan):
   - Line item con fechas completas: verifica annualized_value correcto
   - Line item sin fecha inicio: verifica que usa close_date
   - Line item sin fecha fin: verifica que usa start+365
   - Line item con producto no SaaS: verifica que is_saas=False y se excluye del ARR
   - Line item con producto no clasificado: verifica que genera alerta UNCLASSIFIED
   - ARR mensual: verifica solapamiento correcto (activo/inactivo por mes)
-  - Paridad con Excel: al menos 3 oportunidades conocidas del Excel
+  - Paridad con Excel: 3 oportunidades conocidas del Excel
 
 ### Criterio de aceptación de Fase A
-- `scripts/validate_vs_excel.py` pasa con diferencia < 0.01€ por línea
-- Todos los tests unitarios pasan (`pytest tests/`)
-- La BD se levanta con `docker-compose up -d` sin errores
-- `alembic upgrade head` crea todas las tablas sin errores
+- [x] Todos los tests unitarios pasan (`pytest tests/` → 17/17)
+- [ ] `scripts/validate_vs_excel.py` pasa con diferencia < 0.01€ por línea ← **requiere docker-compose up + alembic upgrade head + import_excel_data.py**
+- [ ] La BD se levanta con `docker-compose up -d` sin errores ← ejecutar manualmente
+- [ ] `alembic upgrade head` crea todas las tablas sin errores ← ejecutar manualmente
 
 ---
 
