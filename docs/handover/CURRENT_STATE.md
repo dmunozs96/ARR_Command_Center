@@ -1,6 +1,6 @@
 # Current State
 **Última actualización:** 2026-04-17
-**Agente:** Claude Code (sesión 4)
+**Agente:** Claude Code (sesión 5)
 
 ---
 
@@ -16,9 +16,9 @@ Construir una aplicación web (**ARR Command Center**) para calcular, visualizar
 
 ---
 
-## Estado actual: FASE A COMPLETADA
+## Estado actual: FASE B COMPLETADA
 
-La Fase A de implementación está completa y todos los tests pasan (17/17).
+Fase A y Fase B completadas. 38/38 tests pasan.
 
 ### Fases de documentación completadas
 
@@ -37,6 +37,7 @@ La Fase A de implementación está completa y todos los tests pasan (17/17).
 | Fase | Contenido | Estado |
 |------|-----------|--------|
 | Fase A | Motor de cálculo + estructura base + BD + scripts | ✅ |
+| Fase B | Backend API FastAPI (todos los endpoints) | ✅ |
 
 ---
 
@@ -94,6 +95,29 @@ docker-compose.yml            ← PostgreSQL en puerto 5432 (arruser/arrpass/arr
 .env.example                  ← plantilla de variables
 ```
 
+## Archivos creados en Fase B
+
+```
+app/backend/
+  main.py                     ← servidor FastAPI con CORS
+  api/
+    schemas.py                ← todos los modelos Pydantic
+    routes/
+      arr.py                  ← GET /api/arr/summary, /by-consultant, /line-items
+      snapshots.py            ← GET /api/snapshots, /api/snapshots/{id}
+      sync.py                 ← POST /api/sync (mock: copia snapshot existente)
+      config.py               ← CRUD /api/config/products y /consultants
+      stripe.py               ← GET/PUT /api/stripe-mrr
+      alerts.py               ← GET /api/alerts, PATCH /api/alerts/{id}
+  core/
+    snapshot_manager.py       ← crea snapshot completo en BD (raw+arr+summary+alerts)
+
+tests/
+  test_api.py                 ← 21 tests de API (SQLite in-memory, sin Docker)
+
+conftest.py                   ← root conftest: DATABASE_URL fallback para tests
+```
+
 ---
 
 ## Cómo arrancar el proyecto (desde cero)
@@ -119,22 +143,26 @@ python scripts/import_excel_data.py
 # 6. Validar paridad con Excel
 python scripts/validate_vs_excel.py
 
-# 7. Ejecutar tests unitarios
+# 7. Ejecutar todos los tests (sin Docker necesario)
 pytest tests/
+
+# 8. Arrancar el servidor API
+cd app/backend
+uvicorn main:app --reload --port 8000
 ```
 
 ---
 
 ## Archivos imprescindibles para el siguiente agente
 
-### Antes de implementar Fase B, leer en este orden:
-1. **`docs/handover/NEXT_STEPS.md`** — checklist de la Fase B
-2. **`docs/specs/09_dashboard_and_reporting_draft.md`** — endpoints API y wireframes
-3. **`app/backend/core/arr_calculator.py`** — domain objects disponibles para la API
+### Antes de implementar Fase C, leer en este orden:
+1. **`docs/handover/NEXT_STEPS.md`** — checklist de la Fase C
+2. **`docs/specs/09_dashboard_and_reporting_draft.md`** — wireframes del frontend
+3. **`app/backend/api/schemas.py`** — tipos de respuesta de la API para el frontend
 
 ---
 
-## Riesgos abiertos (no bloqueantes para Fase B)
+## Riesgos abiertos (no bloqueantes para Fase C)
 
 | Riesgo | Severidad | Estado |
 |--------|-----------|--------|
@@ -148,7 +176,7 @@ pytest tests/
 
 ---
 
-## Próximo paso: FASE B de implementación
+## Próximo paso: FASE C de implementación
 
-**El siguiente agente debe implementar la Fase B (Backend API FastAPI).**  
+**El siguiente agente debe implementar la Fase C (Frontend Next.js).**  
 Ver `docs/handover/NEXT_STEPS.md` para el checklist detallado.

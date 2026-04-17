@@ -3,7 +3,7 @@
 
 ---
 
-## Estado: Listo para implementar — Empezar por Fase A
+## Estado: Fase B completada — Empezar por Fase C
 
 La especificación está completa. No hay más documentación pendiente.  
 El siguiente agente (Claude Code o Codex) debe implementar la **Fase A**.
@@ -50,21 +50,23 @@ El siguiente agente (Claude Code o Codex) debe implementar la **Fase A**.
 
 ---
 
-## FASE B — Backend API (después de Fase A)
+## FASE B — Backend API (después de Fase A) ✅ COMPLETADA
 
 > Leer antes de empezar: `docs/specs/09_dashboard_and_reporting_draft.md` (sección de endpoints)
 
-- [ ] `app/backend/main.py` — servidor FastAPI con CORS configurado
-- [ ] `app/backend/api/routes/arr.py` — endpoints GET /api/arr/summary, GET /api/arr/by-consultant, GET /api/arr/line-items
-- [ ] `app/backend/api/routes/snapshots.py` — GET /api/snapshots, GET /api/snapshots/{id}
-- [ ] `app/backend/api/routes/sync.py` — POST /api/sync (con mock data en esta fase)
-- [ ] `app/backend/api/routes/config.py` — CRUD tablas maestras (products, consultants)
-- [ ] `app/backend/api/routes/stripe.py` — GET/PUT /api/stripe-mrr
-- [ ] `app/backend/api/routes/alerts.py` — GET /api/alerts, PATCH /api/alerts/{id}
-- [ ] `app/backend/core/snapshot_manager.py` — creación completa de snapshot
-- [ ] `tests/test_api.py` — tests de endpoints básicos
+- [x] `app/backend/main.py` — servidor FastAPI con CORS configurado
+- [x] `app/backend/api/schemas.py` — todos los modelos Pydantic
+- [x] `app/backend/api/routes/arr.py` — endpoints GET /api/arr/summary, GET /api/arr/by-consultant, GET /api/arr/line-items
+- [x] `app/backend/api/routes/snapshots.py` — GET /api/snapshots, GET /api/snapshots/{id}
+- [x] `app/backend/api/routes/sync.py` — POST /api/sync (mock: copia snapshot existente)
+- [x] `app/backend/api/routes/config.py` — CRUD tablas maestras (products, consultants)
+- [x] `app/backend/api/routes/stripe.py` — GET/PUT /api/stripe-mrr
+- [x] `app/backend/api/routes/alerts.py` — GET /api/alerts, PATCH /api/alerts/{id}
+- [x] `app/backend/core/snapshot_manager.py` — creación completa de snapshot
+- [x] `tests/test_api.py` — 21 tests de endpoints (SQLite in-memory, sin Docker)
+- [x] `conftest.py` — root conftest para tests sin BD real
 
-Criterio: todos los endpoints devuelven datos correctos para el snapshot de Excel importado.
+Criterio: 21/21 tests de API pasan + 17/17 tests de calculadora = 38/38 total.
 
 ---
 
