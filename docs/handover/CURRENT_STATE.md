@@ -10,14 +10,20 @@ Construir una aplicación web para calcular, visualizar y versionar el ARR de is
 ---
 
 ## Estado actual
-**Fase 1 completada: Análisis exhaustivo del Excel.**
+**Especificación completa. Listo para comenzar la implementación (Fase A del roadmap).**
 
-El Excel `ARR Oportunidad.xlsx` ha sido analizado en profundidad. Se ha documentado la lógica de cálculo, las reglas de negocio, los assumptions, los edge cases y las fórmulas. Toda la documentación está en el repo.
+- ✅ Fase 1: Análisis del Excel completado y documentado.
+- ✅ Fase 2: Requisitos funcionales y no funcionales documentados.
+- ✅ Fase 3: Plan de integración Salesforce documentado.
+- ✅ Fase 4: Arquitectura y modelo de datos definidos. Stack: Python/FastAPI + PostgreSQL + React/Next.js.
+- ✅ Fase 5: Guía de construcción desde cero documentada.
+- ✅ Fase 6: Roadmap de implementación por fases (A–H) documentado.
+- ✅ Preguntas Q-01 (Variable Invoicing), Q-02 (Stripe), Q-04 (moneda) resueltas por el CFO.
 
 ---
 
 ## Última fase completada
-**Fase 1 — Análisis profundo del Excel** (2026-04-17)
+**Fases 1–6 — Análisis Excel + Especificación completa** (2026-04-17)
 
 Hallazgos clave:
 1. El ARR se calcula como `(precio_real / días_periodo_normalizado) × 365` por cada line item SaaS.
@@ -68,11 +74,13 @@ Hallazgos clave:
 ---
 
 ## Próximo paso recomendado
-**Fase 2 — Crítica funcional y gap analysis + Fase 3 — Diseño de integración con Salesforce**
+**Fase A del roadmap de implementación — Motor de cálculo + estructura del proyecto**
 
-Antes de diseñar la arquitectura técnica, es necesario:
-1. Que el CFO valide las reglas documentadas (especialmente los 12 assumptions).
-2. Responder las preguntas abiertas Q-01 a Q-08.
-3. Luego proceder con Fase 2 (gap analysis funcional) y Fase 3 (Salesforce integration design).
+El siguiente agente (Claude Code o Codex) debe:
+1. Leer este archivo y `docs/handover/NEXT_STEPS.md`.
+2. Leer `docs/specs/13_implementation_roadmap.md` (Fase A).
+3. Leer `docs/specs/08_calculation_engine_draft.md` (motor de cálculo).
+4. Leer `docs/specs/07_data_model_draft.md` (schema SQL).
+5. Comenzar la implementación: estructura de carpetas, `arr_calculator.py`, modelos SQLAlchemy, `docker-compose.yml`, tests unitarios.
 
-Ver `docs/handover/NEXT_STEPS.md` para el plan detallado.
+Ver `docs/handover/NEXT_STEPS.md` para el checklist detallado.

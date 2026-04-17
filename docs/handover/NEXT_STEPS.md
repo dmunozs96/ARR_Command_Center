@@ -3,47 +3,51 @@
 
 ---
 
-## Paso inmediato: Validación con el negocio
+## ✅ Especificación completa — Listo para implementar
 
-Antes de continuar con el desarrollo, el CFO debe revisar y confirmar:
+La especificación está completa. Las decisiones de negocio bloqueantes han sido respondidas:
+- Q-01 ✅ Variable Invoicing: misma lógica SaaS si col U es SaaS
+- Q-02 ✅ Stripe: input manual en V1, API en V2
+- Q-04 ✅ Moneda: todo EUR
 
-1. **Leer** `docs/logs/excel_assumptions_catalog.md` y confirmar cada assumption (AS-01 a AS-10).
-2. **Responder** las preguntas de `docs/specs/12_open_questions_and_risks.md` (Q-01 a Q-08).
-3. **Confirmar** que no hay excepciones adicionales más allá de las documentadas en `BBDD-->`.
+**Aún pendiente de validación (no bloqueante para empezar):**
+- Assumptions AS-01 a AS-10 (checklist al final de este archivo)
+- Q-05: ¿TaaS incluye en ARR SaaS? (actualmente excluido)
+- Q-06: ¿Riesgo de doble conteo en renovaciones?
 
 ---
 
-## Fases pendientes
+## PRÓXIMO PASO: Fase A de implementación
 
-### Fase 2 — Crítica funcional y gap analysis
-**Cuando:** Después de validación del negocio (o en paralelo con cautela).
-**Qué hacer:**
-- Documentar en `docs/specs/05_functional_requirements.md` los requisitos funcionales del MVP.
-- Documentar en `docs/specs/06_non_functional_requirements.md` los requisitos no funcionales.
-- Añadir análisis crítico (qué falta en el Excel que debería tener la app).
-- Distinguir: MVP imprescindible / Fase 2 / Nice-to-have.
+### Fase A — Motor de cálculo + fundamentos ← EMPEZAR AQUÍ
+**Documentos a leer primero:**
+- `docs/specs/08_calculation_engine_draft.md` — lógica de cálculo
+- `docs/specs/07_data_model_draft.md` — schema SQL
+- `docs/specs/13_implementation_roadmap.md` — criterios de aceptación de Fase A
 
-### Fase 3 — Diseño de integración Salesforce
-**Cuando:** En paralelo con Fase 2.
-**Qué hacer:**
-- Documentar en `docs/specs/04_salesforce_integration_plan.md` el plan completo.
-- Crear `docs/logs/salesforce_field_mapping.md` — mapeo de campos SF a la app.
-- Diseño de snapshots en `docs/specs/10_versioning_and_snapshots.md`.
-- Describir qué objetos SF se necesitan (Opportunity, OpportunityLineItem, Product2, etc.).
+**Tareas concretas:**
+1. Crear `docker-compose.yml` con PostgreSQL.
+2. Crear `.env.example` con todas las variables.
+3. Crear `app/backend/` con estructura de carpetas completa.
+4. Implementar `app/backend/core/arr_calculator.py`.
+5. Implementar `app/backend/db/models.py` con SQLAlchemy.
+6. Crear migrations con Alembic.
+7. Implementar `scripts/import_excel_data.py`.
+8. Implementar `scripts/validate_vs_excel.py`.
+9. Escribir `tests/test_arr_calculator.py`.
 
-### Fase 4 — Propuesta de arquitectura
-**Cuando:** Después de Fases 2 y 3.
-**Qué hacer:**
-- Definir stack técnico (recomendado: Python/FastAPI + PostgreSQL + React/Next.js).
-- Diseñar estructura de carpetas.
-- Crear modelo de datos inicial en `docs/specs/07_data_model_draft.md`.
-- Proponer ADRs de stack en `docs/decisions/`.
+**Criterio de aceptación:**
+- `validate_vs_excel.py` pasa con diferencia < 0.01€ por línea.
+- Todos los tests unitarios pasan.
 
-### Fase 5 — Guía de construcción desde cero
-- Actualizar `docs/specs/11_build_from_zero_guide.md`.
+### Fase B — Backend API
+Después de Fase A. Ver `docs/specs/13_implementation_roadmap.md`.
 
-### Fase 6 — Plan de implementación iterativo
-- Actualizar `docs/specs/13_implementation_roadmap.md`.
+### Fase C — Frontend
+Después de Fase B. Ver `docs/specs/09_dashboard_and_reporting_draft.md`.
+
+### Fases D–H
+Ver `docs/specs/13_implementation_roadmap.md` para el plan completo.
 
 ---
 

@@ -6,24 +6,23 @@
 
 ## Preguntas abiertas de negocio (requieren respuesta del CFO/negocio)
 
-### Q-01 [BLOQUEANTE] ¿Cómo tratar "SAAS - Variable Invoicing"?
-- **Contexto:** Existen 1.103 line items con tipo "SAAS - Variable Invoicing". No tienen lógica diferenciada en el Excel.
-- **Opciones:** (a) Anualizarlos igual que contratos fijos. (b) Usar el importe real sin anualizar. (c) Excluirlos del ARR.
-- **Impacto:** Afecta a ~7% de los line items.
+### ~~Q-01~~ ✅ RESUELTA — "SAAS - Variable Invoicing" usa la misma lógica
+- **Respuesta del CFO (2026-04-17):** Se anualizan siempre que el tipo de producto en col U sea "SaaS". Misma lógica que el resto.
+- **Implementación:** El campo `opportunity_type` no afecta al cálculo. Solo el `product_type` determina si es SaaS y se incluye.
+- **Nota:** De los 1.103 line items de Variable Invoicing, 1.073 son SaaS (LMS: 904, Engage: 160, otros: 9) y 30 no son SaaS (excluidos).
 
-### Q-02 [ALTA] ¿Stripe se automatiza o se gestiona manualmente?
-- **Contexto:** El ARR de isEazy Author Online (SaaS self-service) viene de Stripe, no de Salesforce.
-- **Opciones:** (a) API de Stripe automatizada. (b) Importación manual del CSV de Stripe. (c) Mantener como tabla estática en la app.
-- **Impacto:** Afecta al alcance técnico de la integración.
+### ~~Q-02~~ ✅ RESUELTA — Stripe manual en V1, API en V2
+- **Respuesta del CFO (2026-04-17):** V1: campo en la UI para que el usuario introduzca el importe manualmente. V2: integración con API de Stripe.
+- **Implementación:** Ver ADR-002 y requisito funcional F-07.
 
 ### Q-03 [ALTA] ¿Cuándo y cómo implementar "ARR desde close won"?
 - **Contexto:** El Excel tiene infraestructura preparada (columnas AC-AF) pero no está implementada en los resúmenes.
 - **Pregunta:** ¿Cuál es la definición exacta de "inicio" en el modo close won? ¿Solo aplica a Nuevo Negocio?
 - **Impacto:** Cambia significativamente cómo se reporta la cartera.
 
-### Q-04 [ALTA] ¿Hay contratos en monedas distintas al EUR?
-- **Contexto:** No hay columna de moneda en los datos. isEazy tiene presencia en LatAm.
-- **Impacto:** Si hay contratos en otras monedas, el ARR mezcla monedas. Necesitaría conversión con tipo de cambio.
+### ~~Q-04~~ ✅ RESUELTA — Todo en EUR
+- **Respuesta del CFO (2026-04-17):** Todos los contratos están en EUR. No hay multi-currency.
+- **Implementación:** Sistema opera en EUR. No se necesita lógica de conversión de moneda.
 
 ### Q-05 [MEDIA] ¿"TaaS" (Training as a Service) debe incluirse en el ARR SaaS?
 - **Contexto:** Hay 20 line items con tipo "TaaS". No es un SaaS tradicional pero puede ser recurrente.
