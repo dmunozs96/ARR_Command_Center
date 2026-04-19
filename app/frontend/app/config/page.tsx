@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
@@ -191,7 +191,7 @@ function ConsultantRow({
   );
 }
 
-export default function ConfigPage() {
+function ConfigPageContent() {
   const qc = useQueryClient();
   const searchParams = useSearchParams();
   const productFromAlert = searchParams.get("product") ?? "";
@@ -419,5 +419,15 @@ export default function ConfigPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+export default function ConfigPage() {
+  return (
+    <Suspense
+      fallback={<div className="mx-auto max-w-6xl p-6 text-sm text-stone-500">Cargando configuracion...</div>}
+    >
+      <ConfigPageContent />
+    </Suspense>
   );
 }
