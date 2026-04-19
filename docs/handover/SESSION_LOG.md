@@ -1,214 +1,229 @@
 # Session Log
 
-## 2026-04-17 — Sesión 1 (Bootstrap)
+## 2026-04-17 - Sesion 1 (Bootstrap)
 - Se crea el repositorio inicial del proyecto ARR Command Center.
-- Se define estructura base de documentación, handover y muestras de datos.
-- Se establece metodología spec-driven development.
-- Se prepara el proyecto para análisis inicial del Excel.
+- Se define estructura base de documentacion, handover y muestras de datos.
+- Se establece metodologia spec-driven development.
 
-## 2026-04-17 — Sesión 2 (Análisis del Excel — Fase 1)
+## 2026-04-17 - Sesion 2 (Analisis del Excel)
 **Agente:** Claude Code
-**Trabajo realizado:**
-- Análisis profundo del Excel `data_samples/raw_excel/ARR Oportunidad.xlsx`.
-- Exploración de las 16 hojas, 14.095 líneas de datos, 39 columnas.
-- Reverse engineering completo de todas las fórmulas de la hoja `Opos con Productos`.
-- Identificación de la lógica SUMIFS en las hojas de resumen.
-- Descubrimiento de dos fuentes de datos: Salesforce + Stripe.
-- Identificación de 10 reglas de negocio, 5 workarounds, 2 parches manuales, 5 deudas funcionales.
-- Identificación de 10 assumptions implícitos.
-- Identificación de 11 edge cases que la app debe manejar.
-- Documentación de que "ARR desde close won" NO está implementado en los resúmenes.
+- Analisis profundo del Excel origen.
+- Reverse engineering de formulas, reglas de negocio, edge cases y assumptions.
+- ADR-001 y ADR-002 creados.
 
-**Decisiones tomadas:**
-- ADR-001: Replicar Excel fielmente en MVP con flags de mejoras.
-- ADR-002: MVP usa SF automático + Stripe manual. Stripe API en post-MVP.
-
-**Archivos creados/actualizados:**
-- `docs/logs/excel_sheet_inventory.md` (nuevo)
-- `docs/logs/excel_formula_logic.md` (nuevo)
-- `docs/logs/excel_business_rules_catalog.md` (nuevo)
-- `docs/logs/excel_assumptions_catalog.md` (nuevo)
-- `docs/logs/excel_edge_cases.md` (nuevo)
-- `docs/specs/03_excel_analysis_plan.md` (actualizado)
-- `docs/specs/08_calculation_engine_draft.md` (nuevo)
-- `docs/specs/12_open_questions_and_risks.md` (nuevo)
-- `docs/decisions/ADR-001_arr_calculation_base.md` (nuevo)
-- `docs/decisions/ADR-002_dual_data_source.md` (nuevo)
-- `docs/handover/CURRENT_STATE.md` (actualizado)
-- `docs/handover/NEXT_STEPS.md` (actualizado)
-
-**Pendientes bloqueantes:**
-- Validación del CFO de los 10 assumptions documentados.
-- Respuesta a Q-01: ¿Cómo tratar "SAAS - Variable Invoicing"?
-- Decisión sobre integración de Stripe.
-
-**Próxima sesión puede comenzar con:**
-- Leer CURRENT_STATE.md y NEXT_STEPS.md.
-- Continuar con Fase 2 (gap analysis) y Fase 3 (Salesforce integration design).
-
-## 2026-04-17 — Sesión 3 (Especificación completa — Fases 2–6)
+## 2026-04-17 - Sesion 3 (Especificacion completa)
 **Agente:** Claude Code
-**Trabajo realizado:**
-- Respuestas del CFO procesadas: Variable Invoicing = misma lógica SaaS; Stripe = manual V1; Todo EUR.
-- Q-01, Q-02, Q-04 cerradas en `docs/specs/12_open_questions_and_risks.md`.
-- Fase 2 — Requisitos funcionales (22 requisitos) y no funcionales (12 requisitos).
-- Fase 3 — Plan de integración Salesforce, mapeo de campos, riesgos.
-- Fase 4 — Arquitectura: Python/FastAPI + PostgreSQL + React/Next.js. ADR-003.
-  - Modelo de datos SQL completo documentado.
-  - Dashboard wireframes y endpoints API especificados.
-- Fase 5 — Guía de construcción desde cero paso a paso.
-- Fase 6 — Roadmap de implementación Fases A–H con criterios de aceptación.
+- Requisitos funcionales y no funcionales completos.
+- Plan de integracion Salesforce y arquitectura definidos.
+- ADR-003 creado.
 
-**Archivos creados:**
-- `docs/specs/05_functional_requirements.md`
-- `docs/specs/06_non_functional_requirements.md`
-- `docs/specs/04_salesforce_integration_plan.md`
-- `docs/specs/10_versioning_and_snapshots.md`
-- `docs/specs/00_project_overview.md`
-- `docs/specs/07_data_model_draft.md`
-- `docs/specs/09_dashboard_and_reporting_draft.md`
-- `docs/specs/11_build_from_zero_guide.md`
-- `docs/specs/13_implementation_roadmap.md`
-- `docs/logs/salesforce_field_mapping.md`
-- `docs/logs/salesforce_integration_risks.md`
-- `docs/decisions/ADR-003_tech_stack.md`
-
-**Estado al cerrar sesión:**
-Especificación 100% completa. El siguiente paso es Fase A de implementación:
-crear estructura del proyecto, motor de cálculo ARR y validación cruzada con el Excel.
-
-**Próxima sesión debe empezar por:**
-- Leer `docs/handover/CURRENT_STATE.md` y `docs/handover/NEXT_STEPS.md`.
-- Implementar Fase A: `arr_calculator.py`, modelos, docker-compose, scripts de validación.
-
-## 2026-04-17 — Sesión 4 (Cierre de documentación)
+## 2026-04-17 - Sesion 4 (Cierre de documentacion)
 **Agente:** Claude Code
-**Trabajo realizado:**
-- CURRENT_STATE.md reescrito limpio: sin Q-01/Q-02 obsoletas, estado preciso, tabla de decisiones.
-- NEXT_STEPS.md reescrito limpio: checklist concreto de Fase A con todos los archivos a crear.
-- Repo listo para continuar en cualquier conversación nueva.
+- `CURRENT_STATE.md` y `NEXT_STEPS.md` preparados para arrancar Fase A.
 
-**Estado final al cerrar:**
-- Toda la especificación completa y committeada.
-- Decisiones confirmadas: Variable Invoicing = misma lógica SaaS; Stripe = manual V1; EUR solamente.
-- Sin bloqueos para empezar Fase A.
-
-**Instrucción para la próxima conversación:**
-Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md y empieza la Fase A de implementación."
-
-## 2026-04-17 — Sesión 5 (Fase A — Motor de cálculo + infraestructura base)
+## 2026-04-17 - Sesion 5 (Fase A)
 **Agente:** Claude Code
-**Trabajo realizado:**
-- Infraestructura base: `docker-compose.yml`, `.env.example`, estructura de carpetas completa.
-- Backend Python:
-  - `app/backend/requirements.txt`
-  - `app/backend/config/settings.py`
-  - `app/backend/db/connection.py` (SQLAlchemy engine + pool)
-  - `app/backend/db/models.py` (todos los modelos ORM: Snapshot, RawOpportunityLineItem, ARRLineItem, ARRMonthlySummary, SnapshotAlert, SnapshotStripeMRR, ProductClassification, ConsultantCountry, SyncLog)
-- Alembic:
-  - `app/backend/alembic.ini`
-  - `app/backend/db/migrations/` — inicializado y configurado
-  - `app/backend/db/migrations/versions/0001_initial_schema.py` — migración completa
-- Motor de cálculo:
-  - `app/backend/core/arr_calculator.py` — replica exactamente la lógica del Excel (columnas V, W, X, Y, Z, AH, AI, AJ)
-  - `app/backend/core/alert_checker.py` — validaciones de calidad de datos
-- Scripts:
-  - `scripts/import_excel_data.py` — lee Excel → crea snapshot tipo "excel_import"
-  - `scripts/validate_vs_excel.py` — compara ARR app vs Excel línea a línea
-- Tests:
-  - `tests/test_arr_calculator.py` — 17 tests unitarios, todos pasan
+- Infraestructura base, modelos ORM, Alembic, calculadora ARR y scripts de importacion/validacion.
 
-**Verificaciones realizadas:**
-- `pytest tests/` → 17/17 tests pasan
-- Smoke test del motor: lee 14.095 filas del Excel, calcula ARR sin errores
-- Excel contiene 594 productos, 27 consultores con país asignado
-
-**Pendiente (requiere Docker corriendo):**
-- `docker-compose up -d` + `alembic upgrade head` + `python scripts/import_excel_data.py`
-- `python scripts/validate_vs_excel.py` para confirmar paridad < 0.01€
-
-**Instrucción para la próxima conversación:**
-Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md y empieza la Fase B de implementación."
-
-## 2026-04-17 — Sesión 6 (Fase B — Backend API + beta_report)
+## 2026-04-17 - Sesion 6 (Fase B)
 **Agente:** Claude Code
-**Trabajo realizado:**
+- Backend API FastAPI, rutas principales, snapshot manager y tests API.
 
-### Fase B — Backend API FastAPI (completa)
-- `app/backend/main.py` — servidor FastAPI con CORS para localhost:3000/3001
-- `app/backend/api/schemas.py` — todos los modelos Pydantic (SnapshotSummary, ARRSummaryResponse, ARRByConsultantResponse, ARRLineItemOut, AlertOut, ProductOut, ConsultantOut, StripeMRROut, SyncResponse, ...)
-- `app/backend/api/routes/arr.py` — `GET /api/arr/summary` (ARR mensual con MoM), `GET /api/arr/by-consultant` (con MoM), `GET /api/arr/line-items` (paginado, filtrable)
-- `app/backend/api/routes/snapshots.py` — `GET /api/snapshots`, `GET /api/snapshots/{id}`
-- `app/backend/api/routes/sync.py` — `POST /api/sync` (mock: copia raw data del último snapshot y recalcula)
-- `app/backend/api/routes/config.py` — CRUD completo productos y consultores
-- `app/backend/api/routes/stripe.py` — `GET/PUT /api/stripe-mrr` (upsert)
-- `app/backend/api/routes/alerts.py` — `GET /api/alerts` (filtrable por reviewed/type), `PATCH /api/alerts/{id}`
-- `app/backend/core/snapshot_manager.py` — pipeline completo: raw items → ARR calculator → bulk insert raw+arr+summary+alerts → actualiza contadores en Snapshot
-- `conftest.py` (root) — establece `DATABASE_URL=sqlite://` para tests sin Docker
-- Modificación de `app/backend/db/connection.py` — pool_size/max_overflow solo para PostgreSQL (no SQLite)
-- `tests/test_api.py` — 21 tests con FastAPI TestClient + SQLite in-memory (sin Docker)
-
-### Beta testing
-- `scripts/beta_report.py` — informe completo en terminal sin Salesforce ni frontend:
-  - ARR mensual por línea de negocio (toda la serie histórica)
-  - Comparación app vs Excel mes a mes con semáforo OK/REVISAR (tolerancia 1%)
-  - ARR por consultor para el mes objetivo
-  - Top 10 oportunidades por ARR
-  - Alertas de calidad de datos sin revisar
-  - Opción `--reimport` para importar desde cero, `--output` para guardar en fichero
-
-**Tests al cerrar:**
-- `pytest tests/` → 38/38 pasan (17 calculadora + 21 API)
-
-**Puntos críticos documentados para el CFO:**
-1. `validate_vs_excel.py` no ejecutado contra BD real todavía — requiere Docker
-2. Mapeo de campos SF desconocido — crítico para Fase E
-3. Tabla de productos poblada desde Excel — puede diferir de nombres en SF
-
-**Instrucción para la próxima conversación:**
-Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md y empieza la Fase C de implementación."
-
-## 2026-04-17 — Sesión 7 (Fase C — Frontend Next.js)
+## 2026-04-17 - Sesion 7 (Fase C)
 **Agente:** Claude Code
+- Frontend Next.js con dashboard, consultores, Stripe, alertas y configuracion.
+
+## 2026-04-17 - Sesion 8 (Fase D)
+**Agente:** Codex
+- Snapshot activo global en frontend.
+- Nueva pagina `/snapshots`.
+- Dashboard y vistas conectadas al snapshot activo.
+
+## 2026-04-17 - Sesion 9 (Fase E parcial)
+**Agente:** Codex
 
 ### Trabajo realizado
+- Nuevo extractor Salesforce en `app/backend/core/sf_extractor.py`.
+- `POST /api/sync` conectado al extractor real en `app/backend/api/routes/sync.py`.
+- Nueva configuracion tipada en `app/backend/config/settings.py`.
+- `.env.example` ampliado con variables de mapping configurables.
+- Nuevo script `scripts/test_sf_connection.py`.
+- Nuevo fichero `tests/test_salesforce_extractor.py`.
+- `tests/test_api.py` ampliado para cubrir sync real.
+- `docs/logs/salesforce_field_mapping.md` actualizado con el mapping implementado.
 
-**Setup del proyecto frontend:**
-- Next.js 16.2.4 + React 19 + Tailwind CSS 4 + TypeScript 5
-- Dependencias adicionales: recharts 3.x, @tanstack/react-query v5, axios
-- `next.config.ts` con rewrites `/api/*` → `http://localhost:8000/api/*` (proxy a backend)
+### Verificacion
+- `pytest tests/` -> 44/44 OK
 
-**Librería base:**
-- `lib/types.ts` — TypeScript types espejo exacto de `app/backend/api/schemas.py`
-- `lib/api.ts` — cliente API tipado con axios (todas las rutas del backend)
-- `lib/utils.ts` — formatEUR (Intl), formatPct, formatMoM, colores por tipo de producto
-- `lib/providers.tsx` — React Query QueryClientProvider (client component)
+### Pendiente
+- Verificar mapping contra Salesforce real.
+- Ejecutar `scripts/test_sf_connection.py` con credenciales reales.
+- Correr sync real y comparar contra Excel.
 
-**Componentes:**
-- `components/Sidebar.tsx` — navegación lateral, resalta ruta activa via `usePathname`
-- `components/SyncButton.tsx` — llama `POST /api/sync`, invalida todo el cache al completar
-- `components/KPICards.tsx` — 3 tarjetas: ARR, MoM€, MoM% con skeleton loading
-- `components/ARRChart.tsx` — gráfico de líneas recharts, una serie por product_type, tooltip formateado
-- `components/ARRBreakdownTable.tsx` — tabla por línea de negocio con MoM calculado localmente
-- `components/FilterBar.tsx` — filtros de product_type y rango de fechas
+**Instruccion para la proxima conversacion:**
+Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md y termina la Fase E. Verifica los API names reales en Salesforce, ajusta el .env y el mapping si hace falta, ejecuta una sync real y valida la paridad contra Excel."
 
-**Páginas:**
-- `app/layout.tsx` — root layout con Sidebar + Providers
-- `app/page.tsx` — Dashboard: KPIs + filtros + gráfico + tabla desglose + badge alertas
-- `app/consultants/page.tsx` — tabla expandible con desglose por producto, ordenable, filtro país
-- `app/stripe/page.tsx` — tabla MRR Stripe con modal edición/añadir
-- `app/alerts/page.tsx` — alertas agrupadas por tipo, colores por severidad, marcar revisadas
-- `app/config/page.tsx` — CRUD inline de productos y consultores
+## 2026-04-17 - Sesion 10 (Fase E preparada para ejecucion real)
+**Agente:** Codex
 
-**Verificaciones:**
-- `npx tsc --noEmit` → 0 errores
-- `npm run build` → build exitoso, todas las rutas generadas estáticamente
+### Trabajo realizado
+- Se crea `.env` local a partir de `.env.example`.
+- Se reejecutan los tests backend completos.
+- Se prueba `python scripts/test_sf_connection.py --sample-size 5`.
+- Se prueba `POST /api/sync` con `TestClient`.
+- Se verifica el estado de PostgreSQL local y Docker.
+- Se actualizan `docs/logs/salesforce_field_mapping.md`, `docs/handover/CURRENT_STATE.md` y `docs/handover/NEXT_STEPS.md`.
 
-**Notas para el siguiente agente (Next.js 16 breaking changes):**
-- `middleware.ts` → `proxy.ts` (renombrado); para proxy de API usar `rewrites` en next.config.ts
-- Tailwind 4: no existe `tailwind.config.js`; solo `@import "tailwindcss"` en globals.css
-- React 19: no usar `React.FC`, usar funciones normales
-- React Query v5: solo acepta objeto `{ queryKey, queryFn }` (no argumentos posicionales)
+### Verificacion
+- `pytest tests/` -> 44/44 OK
+- `python scripts/test_sf_connection.py --sample-size 5` -> falla por falta de credenciales Salesforce
+- `POST /api/sync` -> 500 por falta de credenciales Salesforce
+- `localhost:5432` -> conexion rechazada
+- `docker compose ps` -> daemon no levantado
 
-**Instrucción para la próxima conversación:**
-Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md y empieza la Fase D de implementación. Documenta todo y deja todo preparado para el siguiente agente."
+### Conclusiones
+- El codigo de Fase E esta listo para operar, pero la ejecucion real sigue bloqueada por infraestructura local y secretos ausentes.
+- No se han podido verificar API names reales en la org ni medir paridad contra Salesforce real.
+- `validate_vs_excel.py` debe ejecutarse con `--snapshot-id` del snapshot `salesforce_full` una vez exista una sync real.
+
+**Instruccion para la proxima conversacion:**
+Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md, levanta PostgreSQL, completa las credenciales reales de Salesforce en .env, ejecuta test_sf_connection, corre /api/sync, guarda el snapshot_id y valida con validate_vs_excel --snapshot-id."
+
+## 2026-04-18 - Sesion 11 (Fase F completada)
+**Agente:** Codex
+
+### Trabajo realizado
+- Nuevo `app/frontend/components/AlertsPanel.tsx` para dashboard.
+- `app/frontend/app/page.tsx` actualizado para mostrar alertas pendientes en portada.
+- `app/frontend/app/alerts/page.tsx` rehecho con filtros por tipo, detalle expandible y notas.
+- `app/frontend/app/config/page.tsx` rehecho para aceptar deep links desde alertas (`product`, `fromAlert`) y resaltar el producto objetivo.
+- `app/frontend/lib/api.ts` ampliado con soporte de `alert_type`.
+- `tests/test_api.py` ampliado para verificar el filtro backend por tipo de alerta.
+- `docs/handover/CURRENT_STATE.md` y `docs/handover/NEXT_STEPS.md` actualizados.
+
+### Verificacion
+- `pytest tests/test_api.py` -> 23/23 OK
+- `npx.cmd tsc --noEmit` -> OK
+- `npm.cmd run build` -> compila, pero el proceso termina con `spawn EPERM` en este entorno Windows
+
+### Conclusiones
+- La Fase F queda cerrada funcionalmente.
+- El siguiente bloque de trabajo recomendable es Fase G.
+- Fase E sigue pendiente solo por infraestructura y credenciales reales, no por falta de desarrollo de producto.
+
+**Instruccion para la proxima conversacion:**
+Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md y avanza la Fase G: alerta Stripe del mes actual y export de consultores."
+
+## 2026-04-18 - Sesion 12 (Fase G completada)
+**Agente:** Codex
+
+### Trabajo realizado
+- `app/frontend/app/stripe/page.tsx` actualizado con alerta visible cuando falta el MRR del mes actual y CTA para cargarlo.
+- `app/frontend/app/page.tsx` actualizado para mostrar un aviso de Stripe pendiente en dashboard.
+- `app/frontend/app/consultants/page.tsx` actualizado con export CSV y KPIs ligeros.
+- `docs/handover/CURRENT_STATE.md` y `docs/handover/NEXT_STEPS.md` actualizados.
+
+### Verificacion
+- `pytest tests/test_api.py` -> 23/23 OK
+- `npx.cmd tsc --noEmit` -> OK
+- `npm.cmd run build` -> compila, pero el proceso termina con `spawn EPERM` en este entorno Windows
+
+### Conclusiones
+- La Fase G queda cerrada funcionalmente.
+- El siguiente bloque de trabajo recomendable es Fase H.
+- Fase E sigue pendiente solo por infraestructura y credenciales reales.
+
+**Instruccion para la proxima conversacion:**
+Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md y avanza la Fase H, empezando por loading states, errores claros y endurecimiento del flujo de sync."
+
+## 2026-04-18 - Sesion 13 (Fase H parcial)
+**Agente:** Codex
+
+### Trabajo realizado
+- Nuevo helper `app/frontend/lib/api-errors.ts` para normalizar mensajes de error.
+- `app/frontend/components/SyncButton.tsx` endurecido con feedback de exito y errores claros.
+- `app/frontend/app/page.tsx` mejorado con estados sin snapshot y error global del dashboard.
+- `app/frontend/app/stripe/page.tsx` mejorado con errores de carga/guardado y estado sin snapshot.
+- `app/frontend/app/alerts/page.tsx` mejorado con errores visibles de query y mutation.
+- `app/frontend/app/consultants/page.tsx` mejorado con estado sin snapshot y error visible.
+- `docs/handover/CURRENT_STATE.md` y `docs/handover/NEXT_STEPS.md` actualizados.
+
+### Verificacion
+- `pytest tests/test_api.py` -> 23/23 OK
+- `npx.cmd tsc --noEmit` -> OK
+- `npm.cmd run build` -> compila, pero el proceso termina con `spawn EPERM` en este entorno Windows
+
+### Conclusiones
+- Fase H queda avanzada en la parte de UX/error handling.
+- Quedan pendientes los e2e y la documentacion final de produccion/usuario.
+
+**Instruccion para la proxima conversacion:**
+Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md y sigue con Fase H: e2e basicos o documentacion final, lo que prefieras priorizar."
+
+## 2026-04-18 - Sesion 14 (Fase H parcial - documentacion y operativa)
+**Agente:** Codex
+
+### Trabajo realizado
+- Nuevo `docs/specs/14_runtime_and_env_reference.md` con referencia de variables de entorno.
+- Nuevo `app/frontend/.env.local.example`.
+- `README.md` rehecho para uso real del proyecto.
+- `app/frontend/components/Sidebar.tsx` actualizado a `v0.8.0 - Fase H`.
+- `docs/handover/CURRENT_STATE.md` y `docs/handover/NEXT_STEPS.md` actualizados.
+
+### Verificacion
+- `pytest tests/test_api.py` -> 23/23 OK
+- `npx.cmd tsc --noEmit` -> OK
+
+### Conclusiones
+- Fase H queda mas cerca de cierre, aunque siguen faltando e2e o un runbook final.
+- Si no aparecen pronto credenciales reales de Salesforce, el mejor siguiente paso es decidir entre e2e o despliegue/documentacion operativa.
+
+**Instruccion para la proxima conversacion:**
+Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md y sigue con Fase H. Prioriza e2e si quieres mas seguridad, o vuelve a Fase E si ya hay credenciales y PostgreSQL."
+
+## 2026-04-19 - Sesion 15 (Fase H parcial - scaffold e2e)
+**Agente:** Codex
+
+### Trabajo realizado
+- `app/frontend/playwright.config.ts` creado.
+- `app/frontend/tests/e2e/` creado con smoke tests de dashboard, alertas, Stripe y consultores.
+- `app/frontend/tests/e2e/helpers/mock-api.ts` creado para mockear `/api`.
+- `app/frontend/package.json` actualizado con `test:e2e` y devDependency de Playwright.
+- `app/frontend/tsconfig.playwright.json` creado y `tsconfig.json` ajustado para no romper el tipado principal.
+- `docs/handover/CURRENT_STATE.md` y `docs/handover/NEXT_STEPS.md` actualizados.
+
+### Verificacion
+- `pytest tests/test_api.py` -> 23/23 OK
+- `npx.cmd tsc --noEmit` -> OK
+
+### Conclusiones
+- La base e2e queda preparada sin depender de Salesforce real.
+- Falta instalar `@playwright/test` y navegadores para poder ejecutar la suite.
+
+**Instruccion para la proxima conversacion:**
+Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md y decide: instala/ejecuta Playwright si el entorno lo permite, o vuelve a Fase E cuando haya Salesforce y PostgreSQL."
+
+## 2026-04-19 - Sesion 16 (Fallback manual Excel en UI)
+**Agente:** Codex
+
+### Trabajo realizado
+- Nuevo `app/backend/core/excel_importer.py` con pipeline compartido para importar `.xlsx` y generar snapshots completos.
+- Nuevo endpoint `POST /api/imports/excel` en `app/backend/api/routes/imports.py`.
+- `app/backend/main.py` actualizado para exponer la nueva ruta.
+- `scripts/import_excel_data.py` simplificado para reutilizar el importador compartido.
+- Nuevo `app/frontend/components/ExcelUploadButton.tsx`.
+- `app/frontend/app/page.tsx` actualizado para mostrar `Subir Excel` junto a `Actualizar SF`.
+- `app/frontend/lib/api.ts` ampliado con `importExcel(file)`.
+- `tests/test_api.py` ampliado con cobertura del upload manual y workbook minimo en memoria.
+- `README.md`, `docs/handover/CURRENT_STATE.md` y `docs/handover/NEXT_STEPS.md` actualizados.
+
+### Verificacion
+- `pytest tests/test_api.py` -> 25/25 OK
+- `npx.cmd tsc --noEmit` -> OK
+
+### Conclusiones
+- Ya se puede seguir usando la app y generar snapshots reales desde la UI sin depender de Salesforce.
+- El import manual deja snapshots `completed`, asi que dashboard, alertas, Stripe y consultores los consumen sin cambios extra.
+
+**Instruccion para la proxima conversacion:**
+Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md y sigue avanzando sin Salesforce. Puedes ejecutar e2e, mejorar el flujo de upload manual o volver a Fase E cuando haya credenciales."

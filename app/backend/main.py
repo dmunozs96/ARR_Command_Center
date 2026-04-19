@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.backend.api.routes import arr, snapshots, sync, config, stripe, alerts
+from app.backend.api.routes import alerts, arr, config, imports, snapshots, stripe, sync
 
 app = FastAPI(
     title="ARR Command Center API",
@@ -22,6 +22,7 @@ app.add_middleware(
 app.include_router(snapshots.router, prefix="/api/snapshots", tags=["snapshots"])
 app.include_router(arr.router, prefix="/api/arr", tags=["arr"])
 app.include_router(sync.router, prefix="/api/sync", tags=["sync"])
+app.include_router(imports.router, prefix="/api/imports", tags=["imports"])
 app.include_router(config.router, prefix="/api/config", tags=["config"])
 app.include_router(stripe.router, prefix="/api/stripe-mrr", tags=["stripe"])
 app.include_router(alerts.router, prefix="/api/alerts", tags=["alerts"])

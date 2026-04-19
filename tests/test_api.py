@@ -9,8 +9,10 @@ import sys
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from io import BytesIO
 from pathlib import Path
 
+import openpyxl
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
@@ -29,6 +31,7 @@ from app.backend.db.models import (
     Snapshot,
     SnapshotAlert,
 )
+from app.backend.core.arr_calculator import RawLineItem
 from app.backend.main import app
 
 # ---------------------------------------------------------------------------
@@ -190,6 +193,85 @@ def _make_summary(db, snap_id, month, product_type="SaaS LMS", arr=Decimal("1000
     return row
 
 
+def _build_excel_bytes() -> bytes:
+    wb = openpyxl.Workbook()
+
+    ws_products = wb.active
+    ws_products.title = "Productos SF SAAS"
+    ws_products.append(
+        [
+            "A",
+            "Nombre producto",
+            "Codigo",
+            "D",
+            "Linea negocio",
+            "Categoria",
+            "Subcategoria",
+            "Tipo producto",
+        ]
+    )
+    ws_products.append(
+        ["", "Licencias LMS", "LMS-001", "", "isEazy LMS", "SaaS", "LMS", "SaaS LMS"]
+    )
+
+    ws_consultants = wb.create_sheet("País Consultor")
+    ws_consultants.append(["", "", "", ""])
+    ws_consultants.append(["", "", "", ""])
+    ws_consultants.append(["", "", "", ""])
+    ws_consultants.append(["", "", "Consultor", "Pais"])
+    ws_consultants.append(["", "", "Maria Lopez", "Spain"])
+
+    ws_opos = wb.create_sheet("Opos con Productos")
+    ws_opos.append(
+        [
+            "Propietario",
+            "Cuenta",
+            "Oportunidad",
+            "Tipo",
+            "Canal",
+            "Importe",
+            "Fecha cierre",
+            "Creacion",
+            "Etapa",
+            "Producto",
+            "Precio",
+            "Inicio",
+            "Fin",
+            "Meses",
+            "Linea negocio",
+            "Cantidad",
+            "Codigo",
+            "Creado por",
+        ]
+    )
+    ws_opos.append(
+        [
+            "Maria Lopez",
+            "Acme Corp",
+            "Expansion ACME",
+            "New Business",
+            "Inbound",
+            12000,
+            "15/01/2026",
+            "10/01/2026",
+            "Ganada",
+            "Licencias LMS",
+            12000,
+            "01/01/2026",
+            "31/12/2026",
+            12,
+            "isEazy LMS",
+            1,
+            "LMS-001",
+            "Maria",
+        ]
+    )
+
+    buffer = BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
+
+
 # ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
@@ -238,6 +320,97 @@ def test_get_snapshot_found(client):
     r = client.get(f"/api/snapshots/{snap_id}")
     assert r.status_code == 200
     assert r.json()["id"] == str(snap_id)
+
+
+# ---------------------------------------------------------------------------
+# Sync
+# ---------------------------------------------------------------------------
+
+def test_sync_returns_500_when_salesforce_config_is_missing(client):
+    r = client.post("/api/sync", json={"triggered_by": "test"})
+    assert r.status_code == 500
+    assert "Missing Salesforce configuration" in r.json()["detail"]
+
+
+def test_sync_creates_snapshot_from_salesforce_extractor(client, monkeypatch):
+    db = TestingSessionLocal()
+    db.add(ProductClassification(product_name="Licencias LMS", product_type="SaaS LMS"))
+    db.add(ConsultantCountry(consultant_name="Maria Lopez", country="Spain"))
+    db.commit()
+    db.close()
+
+    raw_items = [
+        RawLineItem(
+            sf_opportunity_id="006OPP001234567",
+            sf_line_item_id="00kLINEITEM001",
+            opportunity_name="Expansion ACME",
+            account_name="ACME Corp",
+            opportunity_owner="Maria Lopez",
+            opportunity_type="New Business",
+            channel_type="Inbound",
+            close_date=date(2026, 1, 15),
+            product_name="Licencias LMS",
+            unit_price=Decimal("12000"),
+            quantity=Decimal("1"),
+            subscription_start_date=date(2026, 1, 1),
+            subscription_end_date=date(2026, 12, 31),
+            licence_period_months=12,
+            business_line="isEazy LMS",
+            opportunity_amount=Decimal("12000"),
+            product_code="LMS-001",
+        )
+    ]
+
+    from app.backend.api.routes import sync as sync_route
+
+    class DummyExtractor:
+        def fetch_raw_line_items(self):
+            return raw_items
+
+    monkeypatch.setattr(sync_route, "SalesforceExtractor", lambda: DummyExtractor())
+
+    r = client.post("/api/sync", json={"triggered_by": "test"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["status"] == "completed"
+    assert data["records_processed"] == 1
+
+
+def test_import_excel_rejects_non_xlsx(client):
+    r = client.post(
+        "/api/imports/excel",
+        files={"file": ("arr.csv", b"fake", "text/csv")},
+    )
+    assert r.status_code == 400
+    assert "Solo se admiten ficheros .xlsx" in r.json()["detail"]
+
+
+def test_import_excel_creates_completed_snapshot(client):
+    excel_bytes = _build_excel_bytes()
+
+    r = client.post(
+        "/api/imports/excel",
+        files={
+            "file": (
+                "ARR Oportunidad.xlsx",
+                excel_bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert r.status_code == 200
+    data = r.json()
+    assert data["status"] == "completed"
+    assert data["records_processed"] == 1
+
+    snapshots = client.get("/api/snapshots")
+    assert snapshots.status_code == 200
+    assert snapshots.json()[0]["sync_type"] == "excel_import"
+
+    summary = client.get("/api/arr/summary")
+    assert summary.status_code == 200
+    assert len(summary.json()["months"]) >= 1
 
 
 # ---------------------------------------------------------------------------
@@ -327,9 +500,17 @@ def test_alerts_list_and_filter(client):
         description="Producto no clasificado",
         reviewed=False,
     )
+    other_alert = SnapshotAlert(
+        id=uuid.uuid4(),
+        snapshot_id=snap.id,
+        alert_type="MISSING_END_DATE",
+        severity="warning",
+        description="Falta fecha fin",
+        reviewed=True,
+    )
     db.add(alert)
+    db.add(other_alert)
     db.commit()
-    alert_id = alert.id
     db.close()
 
     r = client.get("/api/alerts?reviewed=false")
@@ -337,8 +518,13 @@ def test_alerts_list_and_filter(client):
     assert len(r.json()) == 1
 
     r2 = client.get("/api/alerts?reviewed=true")
-    assert r.status_code == 200
-    assert r2.json() == []
+    assert r2.status_code == 200
+    assert len(r2.json()) == 1
+
+    r3 = client.get("/api/alerts?alert_type=UNCLASSIFIED_PRODUCT")
+    assert r3.status_code == 200
+    assert len(r3.json()) == 1
+    assert r3.json()[0]["alert_type"] == "UNCLASSIFIED_PRODUCT"
 
 
 def test_patch_alert(client):

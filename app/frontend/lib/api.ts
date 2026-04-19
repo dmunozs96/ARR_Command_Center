@@ -56,8 +56,18 @@ export const api = {
   triggerSync: (data?: { triggered_by?: string; notes?: string }) =>
     client.post<SyncResponse>("/sync", data ?? {}).then((r) => r.data),
 
+  importExcel: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return client
+      .post<SyncResponse>("/imports/excel", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      .then((r) => r.data);
+  },
+
   // Alerts
-  getAlerts: (params: { snapshot_id?: string; reviewed?: boolean }) =>
+  getAlerts: (params: { snapshot_id?: string; reviewed?: boolean; alert_type?: string }) =>
     client.get<AlertOut[]>("/alerts", { params }).then((r) => r.data),
 
   patchAlert: (id: string, data: { reviewed: boolean; review_note?: string; reviewed_by?: string }) =>

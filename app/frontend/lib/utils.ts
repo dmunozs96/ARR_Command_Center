@@ -38,6 +38,29 @@ export function currentMonthStart(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
+export function formatDateTime(isoDateTime: string): string {
+  return new Date(isoDateTime).toLocaleString("es-ES", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export function formatSnapshotLabel(isoDateTime: string): string {
+  return formatDateTime(isoDateTime);
+}
+
+export function snapshotStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    success: "Sincronización correcta",
+    failed: "Sincronización fallida",
+    partial: "Sincronización parcial",
+  };
+  return labels[status] ?? status;
+}
+
 const PRODUCT_TYPE_COLORS: Record<string, string> = {
   "SaaS LMS": "#6366f1",
   "SaaS Skills": "#22c55e",

@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { formatEUR } from "@/lib/utils";
+import { getAPIErrorMessage } from "@/lib/api-errors";
+import { useSnapshotContext } from "@/lib/snapshot-context";
+import { currentMonthStart, formatDateTime, formatEUR } from "@/lib/utils";
 import type { StripeMRROut } from "@/lib/types";
 
 function formatMonthLabel(isoDate: string): string {
@@ -25,6 +27,7 @@ function MRRModal({
 }) {
   const [mrr, setMrr] = useState(row.mrr != null ? String(row.mrr) : "");
   const qc = useQueryClient();
+
   const mutation = useMutation({
     mutationFn: () =>
       api.upsertStripeMRR({
@@ -40,38 +43,38 @@ function MRRModal({
   });
 
   return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl p-6 w-80 space-y-4">
-        <h3 className="font-semibold text-gray-900">
-          MRR Stripe — {formatMonthLabel(row.month)}
-        </h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+      <div className="w-80 space-y-4 rounded-xl bg-white p-6 shadow-xl">
+        <h3 className="font-semibold text-gray-900">MRR Stripe - {formatMonthLabel(row.month)}</h3>
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">MRR (€)</label>
+          <label className="mb-1 block text-xs text-gray-500">MRR (EUR)</label>
           <input
             type="number"
             value={mrr}
-            onChange={(e) => setMrr(e.target.value)}
-            className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            onChange={(event) => setMrr(event.target.value)}
+            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
             placeholder="Ej: 9500"
             autoFocus
           />
         </div>
         {mutation.isError && (
-          <p className="text-xs text-red-500">Error al guardar. Intenta de nuevo.</p>
+          <p className="text-xs text-red-500">
+            {getAPIErrorMessage(mutation.error, "Error al guardar. Intenta de nuevo.")}
+          </p>
         )}
-        <div className="flex gap-2 justify-end">
+        <div className="flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
+            className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
           >
             Cancelar
           </button>
           <button
             onClick={() => mutation.mutate()}
             disabled={!mrr || mutation.isPending}
-            className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+            className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
           >
-            {mutation.isPending ? "Guardando…" : "Guardar"}
+            {mutation.isPending ? "Guardando..." : "Guardar"}
           </button>
         </div>
       </div>
@@ -82,87 +85,132 @@ function MRRModal({
 export default function StripePage() {
   const [editRow, setEditRow] = useState<StripeMRROut | null>(null);
   const [addMonth, setAddMonth] = useState<string | null>(null);
+  const { activeSnapshot, isLoading: snapshotsLoading } = useSnapshotContext();
+  const currentMonth = currentMonthStart();
 
-  const { data: snapshots } = useQuery({
-    queryKey: ["snapshots"],
-    queryFn: api.getSnapshots,
-  });
-  const latestSnapshot = snapshots?.[0];
-
-  const { data: mrrData, isLoading } = useQuery({
-    queryKey: ["stripe-mrr", latestSnapshot?.id],
-    queryFn: () => api.getStripeMRR({ snapshot_id: latestSnapshot?.id }),
-    enabled: !!latestSnapshot,
+  const stripeQuery = useQuery({
+    queryKey: ["stripe-mrr", activeSnapshot?.id],
+    queryFn: () => api.getStripeMRR({ snapshot_id: activeSnapshot?.id }),
+    enabled: !!activeSnapshot,
   });
 
-  const rows = mrrData ?? [];
+  const rows = stripeQuery.data ?? [];
+  const currentMonthRow = rows.find((row) => row.month === currentMonth);
+  const isCurrentMonthMissing = !!activeSnapshot && !stripeQuery.isLoading && !currentMonthRow;
 
   return (
-    <div className="p-6 space-y-5 max-w-3xl mx-auto">
+    <div className="mx-auto max-w-3xl space-y-5 p-6" data-testid="stripe-page">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">
-            isEazy Author Online — MRR de Stripe
-          </h1>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Input manual — actualizar mensualmente desde Stripe
+          <h1 className="text-xl font-bold text-gray-900">isEazy Author Online - MRR de Stripe</h1>
+          <p className="mt-0.5 text-xs text-gray-500">
+            Input manual - snapshot activo:{" "}
+            {activeSnapshot ? formatDateTime(activeSnapshot.created_at) : "-"}
           </p>
         </div>
         <button
           onClick={() => {
             const now = new Date();
-            const m = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-            setAddMonth(m);
+            const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+            setAddMonth(month);
           }}
-          className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+          disabled={!activeSnapshot}
+          className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          + Añadir mes
+          + Anadir mes
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      {snapshotsLoading && (
+        <div className="rounded-3xl border border-stone-200 bg-white p-5 text-sm text-stone-500 shadow-sm">
+          Cargando snapshots...
+        </div>
+      )}
+
+      {!snapshotsLoading && !activeSnapshot && (
+        <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm">
+          <p className="text-sm font-semibold text-stone-900">Todavia no hay snapshot activo</p>
+          <p className="mt-1 text-sm text-stone-600">
+            Crea un snapshot antes de introducir el MRR manual de Stripe.
+          </p>
+        </div>
+      )}
+
+      {stripeQuery.isError && (
+        <div
+          data-testid="stripe-error"
+          className="rounded-3xl border border-red-200 bg-red-50 p-5 shadow-sm"
+        >
+          <p className="text-sm font-semibold text-red-900">No se pudo cargar Stripe MRR</p>
+          <p className="mt-1 text-sm text-red-800">
+            {getAPIErrorMessage(stripeQuery.error, "Error al cargar los datos de Stripe.")}
+          </p>
+        </div>
+      )}
+
+      {isCurrentMonthMissing && (
+        <div
+          data-testid="stripe-current-month-warning"
+          className="rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-amber-900">
+                Falta el MRR de Stripe del mes actual
+              </p>
+              <p className="mt-1 text-sm text-amber-800">
+                No hay dato cargado para {formatMonthLabel(currentMonth)} en el snapshot activo.
+              </p>
+            </div>
+            <button
+              onClick={() => setAddMonth(currentMonth)}
+              className="rounded-full bg-amber-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-950"
+            >
+              Cargar este mes
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white" data-testid="stripe-table">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
-                <th className="text-left px-5 py-2.5">Mes</th>
-                <th className="text-right px-4 py-2.5">MRR (€)</th>
-                <th className="text-right px-4 py-2.5">ARR Equiv.</th>
-                <th className="text-right px-4 py-2.5">Actualizado</th>
+              <tr className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                <th className="px-5 py-2.5 text-left">Mes</th>
+                <th className="px-4 py-2.5 text-right">MRR (EUR)</th>
+                <th className="px-4 py-2.5 text-right">ARR Equiv.</th>
+                <th className="px-4 py-2.5 text-right">Actualizado</th>
                 <th className="px-5 py-2.5" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {isLoading &&
-                [0, 1, 2].map((i) => (
-                  <tr key={i} className="animate-pulse">
+              {stripeQuery.isLoading &&
+                [0, 1, 2].map((row) => (
+                  <tr key={row} className="animate-pulse">
                     <td colSpan={5} className="px-5 py-3">
-                      <div className="h-4 bg-gray-100 rounded" />
+                      <div className="h-4 rounded bg-gray-100" />
                     </td>
                   </tr>
                 ))}
-              {!isLoading && rows.length === 0 && (
+
+              {!stripeQuery.isLoading && rows.length === 0 && !stripeQuery.isError && (
                 <tr>
                   <td colSpan={5} className="px-5 py-8 text-center text-gray-400">
-                    Sin datos de Stripe aún. Añade el primer mes.
+                    Sin datos de Stripe aun. Anade el primer mes.
                   </td>
                 </tr>
               )}
+
               {rows.map((row) => (
                 <tr key={row.month} className="hover:bg-gray-50">
-                  <td className="px-5 py-2.5 text-gray-800">
-                    {formatMonthLabel(row.month)}
-                  </td>
-                  <td className="text-right px-4 py-2.5 text-gray-900">
-                    {formatEUR(row.mrr)}
-                  </td>
-                  <td className="text-right px-4 py-2.5 text-gray-700">
+                  <td className="px-5 py-2.5 text-gray-800">{formatMonthLabel(row.month)}</td>
+                  <td className="px-4 py-2.5 text-right text-gray-900">{formatEUR(row.mrr)}</td>
+                  <td className="px-4 py-2.5 text-right text-gray-700">
                     {formatEUR(row.arr_equivalent)}
                   </td>
-                  <td className="text-right px-4 py-2.5 text-gray-400 text-xs">
-                    {row.entered_at
-                      ? new Date(row.entered_at).toLocaleDateString("es-ES")
-                      : "—"}
+                  <td className="px-4 py-2.5 text-right text-xs text-gray-400">
+                    {row.entered_at ? new Date(row.entered_at).toLocaleDateString("es-ES") : "-"}
                   </td>
                   <td className="px-5 py-2.5 text-right">
                     <button
@@ -179,17 +227,13 @@ export default function StripePage() {
         </div>
       </div>
 
-      {editRow && latestSnapshot && (
-        <MRRModal
-          row={editRow}
-          snapshotId={latestSnapshot.id}
-          onClose={() => setEditRow(null)}
-        />
+      {editRow && activeSnapshot && (
+        <MRRModal row={editRow} snapshotId={activeSnapshot.id} onClose={() => setEditRow(null)} />
       )}
-      {addMonth && latestSnapshot && (
+      {addMonth && activeSnapshot && (
         <MRRModal
           row={{ month: addMonth, mrr: null }}
-          snapshotId={latestSnapshot.id}
+          snapshotId={activeSnapshot.id}
           onClose={() => setAddMonth(null)}
         />
       )}

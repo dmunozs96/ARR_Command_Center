@@ -1,238 +1,138 @@
 # Current State
-**Última actualización:** 2026-04-17
-**Agente:** Claude Code (sesión 7)
+**Ultima actualizacion:** 2026-04-19
+**Agente:** Codex (sesion 16)
 
 ---
 
 ## Objetivo del proyecto
 
-Construir una aplicación web (**ARR Command Center**) que sustituya el proceso manual:
-> Salesforce → Excel → cálculo manual del CFO
+Construir una aplicacion web (**ARR Command Center**) que sustituya el proceso manual:
+> Salesforce -> Excel -> calculo manual del CFO
 
-La app calcula, visualiza y audita el ARR (Annual Recurring Revenue) de isEazy.
+La app calcula, visualiza y audita el ARR de isEazy.
 
-**Usuarios finales:** CFO + equipo de finanzas de isEazy.  
-**Stack:** Python/FastAPI + PostgreSQL + React/Next.js.
-
----
-
-## Estado actual: FASES A, B y C COMPLETADAS
-
-| Fase | Nombre | Estado | Tests |
-|------|--------|--------|-------|
-| A | Motor de cálculo + infraestructura | ✅ completa | 17/17 |
-| B | Backend API FastAPI | ✅ completa | 21/21 |
-| C | Frontend Next.js | ✅ completa | build OK |
-| D | Historial de snapshots en UI | ⏳ pendiente | — |
-| E | Integración real Salesforce | ⏳ pendiente | — |
-| F | Panel de alertas en UI | ⏳ pendiente | — |
-| G | Input Stripe en UI + vista consultor | ⏳ pendiente | — |
-| H | Endurecimiento, tests e2e, UX final | ⏳ pendiente | — |
-
-**Tests backend: 38/38 pasan** (`pytest tests/` sin necesidad de Docker).  
-**Frontend: build de producción exitoso**, `npm run build` sin errores.
+**Usuarios finales:** CFO + equipo de finanzas  
+**Stack:** Python/FastAPI + PostgreSQL + React/Next.js
 
 ---
 
-## Decisiones confirmadas (no cambiar en el MVP)
+## Estado actual
 
-| Decisión | Valor | Fuente |
-|----------|-------|--------|
-| Fórmula ARR | `(precio_real / días_periodo_normalizado) × 365` | Excel + CFO |
-| Fidelidad al Excel | Replicar exactamente, flags para mejoras futuras | ADR-001 |
-| Fuente principal datos | Salesforce API (OAuth2 + SOQL) | ADR-002 |
-| Fuente Author Online | Stripe = input manual en UI (V1, no API) | ADR-002 + CFO |
-| Variable Invoicing | Misma lógica SaaS si producto es tipo SaaS | CFO confirmado |
-| Moneda | Todo EUR, sin conversión de divisa | CFO confirmado |
-| Stack técnico | Python/FastAPI + PostgreSQL + React/Next.js | ADR-003 |
-| Clasificación SaaS | Tabla maestra `product_classifications` | ADR-001 |
+| Fase | Nombre | Estado | Verificacion |
+|------|--------|--------|--------------|
+| A | Motor de calculo + infraestructura | completa | 17/17 |
+| B | Backend API FastAPI | completa | parte de `pytest tests/` |
+| C | Frontend Next.js | completa | TypeScript OK |
+| D | Historial de snapshots en UI | completa | TypeScript OK |
+| E | Integracion real con Salesforce | en progreso | extractor + sync real implementados; ejecucion real bloqueada por credenciales y PostgreSQL local |
+| F | Panel de alertas completo | completa | `pytest tests/test_api.py` OK + `npx.cmd tsc --noEmit` OK |
+| G | Stripe UI completa + consultores exportables | completa | `pytest tests/test_api.py` OK + `npx.cmd tsc --noEmit` OK |
+| H | Endurecimiento, e2e y UX final | en progreso | UX/error handling y scaffold e2e preparados; ejecucion real e2e pendiente de instalar Playwright |
 
----
-
-## Reglas de negocio críticas (leer antes de tocar el motor de cálculo)
-
-1. **Fórmula:** `annualized_value = (real_price / service_days) × 365`
-2. **real_price** = `quantity × unit_price`
-3. **start_month** = primer día del mes de `effective_start`
-4. **raw_days** = `effective_end - effective_start` (días naturales)
-5. **end_month_normalized** = `start_month + raw_days - 1`
-6. **service_days** = `end_month_normalized - start_month`
-7. **Activo en mes M si:** `start_month ≤ último_día_M AND end_month_normalized ≥ primer_día_M`
-8. **Sin fecha inicio:** usa `close_date` como proxy (AS-01)
-9. **Sin fecha fin:** asume `effective_start + 365 días` (AS-02)
-10. **Producto no clasificado:** excluido del ARR, genera alerta ERROR
+**Tests backend:** `pytest tests/` -> **44/44 OK**  
+**Frontend:** `npx.cmd tsc --noEmit` OK. `npm.cmd run build` compila, pero el proceso termina con `spawn EPERM` del entorno Windows durante el paso final de Next.
 
 ---
 
-## Mapa de archivos del proyecto
+## Lo implementado hasta la sesion 16
 
-```
-ARR_Command_Center/
-├── app/backend/
-│   ├── main.py                    ← FastAPI app, CORS, routers
-│   ├── requirements.txt
-│   ├── alembic.ini
-│   ├── config/
-│   │   └── settings.py            ← carga .env (DATABASE_URL, SF_*)
-│   ├── db/
-│   │   ├── connection.py          ← SQLAlchemy engine + get_db()
-│   │   ├── models.py              ← todos los modelos ORM
-│   │   └── migrations/versions/
-│   │       └── 0001_initial_schema.py
-│   ├── core/
-│   │   ├── arr_calculator.py      ← motor de cálculo (replica Excel AJ)
-│   │   ├── alert_checker.py       ← resumen de calidad de datos
-│   │   └── snapshot_manager.py    ← crea snapshot completo en BD
-│   └── api/
-│       ├── schemas.py             ← modelos Pydantic request/response
-│       └── routes/
-│           ├── arr.py             ← GET /api/arr/summary|by-consultant|line-items
-│           ├── snapshots.py       ← GET /api/snapshots, /api/snapshots/{id}
-│           ├── sync.py            ← POST /api/sync (mock SF en Fase B)
-│           ├── config.py          ← CRUD /api/config/products|consultants
-│           ├── stripe.py          ← GET/PUT /api/stripe-mrr
-│           └── alerts.py          ← GET /api/alerts, PATCH /api/alerts/{id}
-├── app/frontend/                  ← ✅ Next.js 16 + React 19 + Tailwind 4
-│   ├── next.config.ts             ← rewrites /api/* → http://localhost:8000/api/*
-│   ├── lib/
-│   │   ├── types.ts               ← TypeScript types espejo de schemas.py
-│   │   ├── api.ts                 ← cliente API tipado con axios
-│   │   ├── utils.ts               ← formatEUR, formatPct, colores por producto
-│   │   └── providers.tsx          ← React Query QueryClientProvider
-│   ├── components/
-│   │   ├── Sidebar.tsx            ← navegación lateral (activo por pathname)
-│   │   ├── SyncButton.tsx         ← botón "Actualizar SF" con spinner
-│   │   ├── KPICards.tsx           ← 3 tarjetas: ARR, MoM€, MoM%
-│   │   ├── ARRChart.tsx           ← gráfico líneas por producto (recharts)
-│   │   ├── ARRBreakdownTable.tsx  ← tabla desglose por línea de negocio
-│   │   └── FilterBar.tsx          ← filtros línea/fechas
-│   └── app/
-│       ├── layout.tsx             ← root layout con Sidebar + Providers
-│       ├── page.tsx               ← Dashboard principal (Fase C)
-│       ├── consultants/page.tsx   ← ARR por consultor con filas expandibles
-│       ├── stripe/page.tsx        ← Input MRR Stripe con modal edición
-│       ├── alerts/page.tsx        ← Alertas agrupadas por tipo, marcar revisadas
-│       └── config/page.tsx        ← CRUD productos y consultores inline
-├── scripts/
-│   ├── import_excel_data.py       ← Excel → BD (crea snapshot "excel_import")
-│   ├── validate_vs_excel.py       ← compara ARR app vs Excel línea a línea
-│   └── beta_report.py             ← informe completo en terminal (sin SF ni frontend)
-├── tests/
-│   ├── test_arr_calculator.py     ← 17 tests unitarios del motor
-│   └── test_api.py                ← 21 tests de endpoints (SQLite in-memory)
-├── conftest.py                    ← DATABASE_URL fallback para tests sin Docker
-├── docker-compose.yml             ← PostgreSQL puerto 5432 (arruser/arrpass/arrdb)
-└── .env.example                   ← plantilla de variables
-```
+### Fases E, F y G
+- Salesforce real preparado pero bloqueado por secretos e infraestructura
+- Alertas UX completa
+- Stripe del mes actual y export CSV de consultores resueltos
+
+### Fase H avanzada
+- Helper comun de errores API en frontend
+- Sync con feedback de exito/error mas util
+- Estados vacios y errores visibles en dashboard, Stripe, alertas y consultores
+- README, referencia de variables y checklist de smoke/release listos
+- Import manual de Excel desde la UI y via API para desbloquear trabajo sin Salesforce
+
+### Fallback manual Excel preparado en esta sesion
+- Nuevo endpoint backend `POST /api/imports/excel`
+- Nuevo pipeline compartido `app/backend/core/excel_importer.py`
+- `scripts/import_excel_data.py` simplificado para reutilizar el mismo importador
+- Nuevo boton `Subir Excel` en dashboard para generar snapshots `excel_import`
+- El import manual ahora deja snapshots en estado `completed`, visibles para dashboard, alertas y Stripe
+
+### Base e2e preparada en esta sesion
+- `app/frontend/playwright.config.ts`
+- `app/frontend/tests/e2e/dashboard.spec.ts`
+- `app/frontend/tests/e2e/alerts.spec.ts`
+- `app/frontend/tests/e2e/stripe-and-consultants.spec.ts`
+- `app/frontend/tests/e2e/helpers/mock-api.ts`
+- `app/frontend/tsconfig.playwright.json`
+- `app/frontend/package.json`
+  - script `test:e2e`
+  - devDependency declarada para `@playwright/test`
+
+Notas:
+- Los smoke tests usan mocks de `/api`, asi que no dependen de Salesforce real.
+- No se ejecutaron todavia porque `@playwright/test` no estaba instalado en `node_modules` del entorno actual.
+- Se separo el tipado de Playwright para no romper `npx.cmd tsc --noEmit` del frontend principal.
+
+### Verificaciones ejecutadas en la sesion 16
+- `pytest tests/test_api.py` -> **25/25 OK**
+- `npx.cmd tsc --noEmit` -> **OK**
 
 ---
 
-## API implementada (Fase B)
+## Lo que sigue pendiente en Fase E
 
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| GET | `/api/arr/summary` | ARR mensual por producto. Params: `snapshot_id`, `month_from`, `month_to`, `product_type` |
-| GET | `/api/arr/by-consultant` | ARR por consultor para un mes. Params: `snapshot_id`, `month`, `country` |
-| GET | `/api/arr/line-items` | Lista paginada de line items. Params: `snapshot_id`, `is_saas`, `product_type`, `page`, `page_size` |
-| GET | `/api/snapshots` | Lista todos los snapshots (más reciente primero) |
-| GET | `/api/snapshots/{id}` | Detalle de un snapshot |
-| POST | `/api/sync` | Dispara recálculo (mock en Fase B, real SF en Fase E) |
-| GET | `/api/alerts` | Alertas de un snapshot. Params: `snapshot_id`, `reviewed` |
-| PATCH | `/api/alerts/{id}` | Marcar alerta como revisada con nota |
-| GET | `/api/config/products` | Lista productos clasificados |
-| POST | `/api/config/products` | Añadir producto |
-| PUT | `/api/config/products/{id}` | Editar clasificación de producto |
-| GET | `/api/config/consultants` | Lista consultores con país |
-| PUT | `/api/config/consultants/{id}` | Editar consultor |
-| GET | `/api/stripe-mrr` | MRR Stripe de un snapshot |
-| PUT | `/api/stripe-mrr` | Añadir/editar MRR Stripe (upsert) |
-| GET | `/api/health` | Health check |
-
-Docs interactivas en: `http://localhost:8000/docs`
-
----
-
-## Cómo arrancar el proyecto desde cero
-
-```bash
-# 1. Base de datos
-docker-compose up -d
-
-# 2. Dependencias Python
-pip install -r app/backend/requirements.txt
-
-# 3. Variables de entorno
-cp .env.example .env
-# Editar .env con DATABASE_URL=postgresql://arruser:arrpass@localhost:5432/arrdb
-
-# 4. Schema de BD
-cd app/backend && alembic upgrade head && cd ../..
-
-# 5. Importar Excel (crea snapshot base)
-python scripts/import_excel_data.py
-
-# 6. Validar paridad con Excel (debe salir PASS)
-python scripts/validate_vs_excel.py
-
-# 7. Tests (sin Docker)
-pytest tests/
-
-# 8. Servidor API
-uvicorn app.backend.main:app --reload --port 8000
-
-# 9. Frontend
-cd app/frontend && npm install && npm run dev
-# Abre http://localhost:3000
-
-# 10. Informe beta (valida números sin frontend ni SF)
-python scripts/beta_report.py
-```
-
----
-
-## Frontend (Fase C) — detalles técnicos
-
-- **Stack:** Next.js 16.2.4, React 19, Tailwind CSS 4, TypeScript 5
-- **Datos:** React Query v5 (staleTime 30s), axios, proxy rewrites `/api/*`
-- **Gráficos:** recharts 3.x
-- **Rutas:** `/` dashboard, `/consultants`, `/stripe`, `/alerts`, `/config`
-- **Nota versión:** Next.js 16 renombró `middleware.ts` → `proxy.ts`; Tailwind 4 usa `@import "tailwindcss"` en globals.css (sin config file)
-
----
-
-## Modo beta: validar sin Salesforce ni frontend
-
-```bash
-# Primera vez: importa Excel y genera informe completo
-python scripts/beta_report.py --reimport
-
-# Usos siguientes
-python scripts/beta_report.py --month 2025-03
-
-# Guardar a fichero
-python scripts/beta_report.py --output informe.txt
-```
+1. Levantar PostgreSQL local y cargar el snapshot base Excel si aun no existe.
+2. Configurar credenciales reales y permisos en Salesforce.
+3. Ejecutar `python scripts/test_sf_connection.py --sample-size 5`.
+4. Confirmar API names reales de:
+   - campo canal comercial
+   - fecha fin de suscripcion
+   - licencia en meses
+   - linea de negocio
+5. Ajustar `.env` con esos nombres reales.
+6. Ejecutar una sync real via API y guardar `snapshot_id`.
+7. Ejecutar `python scripts/validate_vs_excel.py --snapshot-id <snapshot_id>` para medir desviacion.
+8. Actualizar `docs/logs/salesforce_field_mapping.md` con nombres verificados, no solo defaults.
 
 ---
 
 ## Riesgos abiertos
 
-| ID | Riesgo | Severidad | Cuándo se resuelve |
-|----|--------|-----------|-------------------|
-| RT-01 | Mapeo exacto de campos en Salesforce puede diferir | ALTA | Fase E — verificar con admin SF |
-| RT-02 | Tabla de productos desactualizada (nombres ≠ SF) | ALTA | Fase E — comparar con export real de SF |
-| RT-03 | `validate_vs_excel.py` no ejecutado contra BD real | MEDIA | Primera vez que se levante Docker |
-| Q-05 | ¿TaaS debe incluirse en ARR SaaS? | BAJA | Validar con CFO antes de Fase E |
-| Q-06 | ¿Doble conteo en renovaciones? | MEDIA | Validar con CFO antes de Fase E |
-| Q-08 | ¿Desde qué fecha son fiables los campos de suscripción en SF? | MEDIA | Preguntar al admin SF en Fase E |
+| ID | Riesgo | Severidad | Estado |
+|----|--------|-----------|--------|
+| RT-01 | Nombres reales de campos Salesforce aun no verificados en la instancia de isEazy | ALTA | abierto |
+| RT-02 | Tabla de productos local puede no coincidir exactamente con nombres de SF | ALTA | abierto |
+| RT-03 | `validate_vs_excel.py` no ejecutado aun contra snapshot Salesforce real | MEDIA | abierto |
+| RT-04 | La comparativa de snapshots hace diff en cliente; si escala, mover a backend | MEDIA | abierto |
+| RT-05 | `POST /api/sync` ya usa Salesforce real y fallara sin credenciales configuradas | MEDIA | esperado |
+| RT-06 | PostgreSQL local no esta levantado; no se pueden persistir snapshots reales en esta sesion | MEDIA | abierto |
+| RT-07 | `npm.cmd run build` termina con `spawn EPERM` en este entorno Windows pese a compilar correctamente | BAJA | abierto |
+| RT-08 | Los e2e estan preparados pero requieren instalar `@playwright/test` y navegadores para ejecutarse | BAJA | abierto |
 
 ---
 
-## Próximo paso
+## Archivos clave para el siguiente agente
 
-**Fase D — Historial de snapshots en UI.**
+- `app/backend/core/excel_importer.py`
+- `app/backend/api/routes/imports.py`
+- `app/frontend/components/ExcelUploadButton.tsx`
+- `app/frontend/playwright.config.ts`
+- `app/frontend/tests/e2e/`
+- `app/frontend/tsconfig.playwright.json`
+- `docs/specs/15_release_and_smoke_checklist.md`
+- `README.md`
+- `.env`
+- `scripts/test_sf_connection.py`
+- `scripts/validate_vs_excel.py`
 
-Leer antes de empezar:
-1. `docs/handover/NEXT_STEPS.md` — checklist detallado de Fase D
-2. `docs/specs/10_versioning_and_snapshots.md` — spec de snapshots
-3. `app/backend/api/schemas.py` — tipos SnapshotSummary y SnapshotDetail
+---
+
+## Proximo paso recomendado
+
+**Seguir con Fase H o volver a Fase E**
+
+Si seguimos sin Salesforce real:
+1. Usar `Subir Excel` en dashboard para seguir validando calculo, alertas y UX.
+2. Ejecutar la capa e2e en cuanto se instale Playwright y navegadores.
+3. Si no se quiere instalar nada hoy, dejar Fase H practicamente cerrada.
+
+Si ya hay credenciales y PostgreSQL:
+1. Volver a Fase E y cerrar `test_sf_connection`, `/api/sync` y `validate_vs_excel`.
