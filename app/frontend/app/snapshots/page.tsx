@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
@@ -21,7 +21,7 @@ function diffPct(base: number, next: number): number | null {
   return ((next - base) / base) * 100;
 }
 
-export default function SnapshotsPage() {
+function SnapshotsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const {
@@ -425,5 +425,13 @@ export default function SnapshotsPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+export default function SnapshotsPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-7xl p-6 text-sm text-gray-500">Cargando snapshots...</div>}>
+      <SnapshotsPageContent />
+    </Suspense>
   );
 }

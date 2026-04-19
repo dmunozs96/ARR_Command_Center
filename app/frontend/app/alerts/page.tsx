@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
@@ -199,7 +199,7 @@ function AlertCard({
   );
 }
 
-export default function AlertsPage() {
+function AlertsPageContent() {
   const searchParams = useSearchParams();
   const initialAlertId = searchParams.get("alertId") ?? "";
   const qc = useQueryClient();
@@ -376,5 +376,13 @@ export default function AlertsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AlertsPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-6xl p-6 text-sm text-stone-500">Cargando alertas...</div>}>
+      <AlertsPageContent />
+    </Suspense>
   );
 }

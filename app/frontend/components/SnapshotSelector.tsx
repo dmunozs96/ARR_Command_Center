@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { Suspense, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSnapshotContext } from "@/lib/snapshot-context";
 import { formatSnapshotLabel, snapshotStatusLabel } from "@/lib/utils";
@@ -9,7 +9,7 @@ type SnapshotSelectorProps = {
   className?: string;
 };
 
-export function SnapshotSelector({ className }: SnapshotSelectorProps) {
+function SnapshotSelectorContent({ className }: SnapshotSelectorProps) {
   const { snapshots, activeSnapshotId, setActiveSnapshotId, isLoading } = useSnapshotContext();
   const pathname = usePathname();
   const router = useRouter();
@@ -57,5 +57,13 @@ export function SnapshotSelector({ className }: SnapshotSelectorProps) {
       </select>
       <p className="mt-1 text-xs text-gray-500">{snapshotHelp}</p>
     </div>
+  );
+}
+
+export function SnapshotSelector({ className }: SnapshotSelectorProps) {
+  return (
+    <Suspense fallback={<div className={className} />}>
+      <SnapshotSelectorContent className={className} />
+    </Suspense>
   );
 }
