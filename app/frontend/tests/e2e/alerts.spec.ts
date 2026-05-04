@@ -9,7 +9,7 @@ test("alerts page filters and expands alert detail", async ({ page }) => {
   await expect(page.getByTestId("alerts-page")).toBeVisible();
   await expect(page.getByTestId("alerts-list")).toContainText("Expansion ACME");
 
-  await page.getByRole("combobox").selectOption("UNCLASSIFIED_PRODUCT");
+  await page.getByRole("main").getByRole("combobox").selectOption("UNCLASSIFIED_PRODUCT");
   await expect(page.getByTestId("alerts-list")).toContainText("Producto sin clasificar");
 
   await page.getByRole("button", { name: /Ver detalle/i }).first().click();

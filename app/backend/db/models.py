@@ -59,6 +59,7 @@ class Snapshot(Base):
     duration_seconds = Column(Float)
     error_message = Column(Text)
     notes = Column(Text)
+    data_hash = Column(String(64))  # SHA-256 of raw SF data; used to skip unchanged syncs
 
     raw_line_items = relationship("RawOpportunityLineItem", back_populates="snapshot", cascade="all, delete-orphan")
     arr_line_items = relationship("ARRLineItem", back_populates="snapshot", cascade="all, delete-orphan")

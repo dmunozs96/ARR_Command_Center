@@ -11,6 +11,8 @@ Flow:
   7. Update Snapshot with counts and status
 """
 
+import hashlib
+import json
 import time
 import uuid
 from datetime import date, timedelta
@@ -47,9 +49,44 @@ def _month_range(start: date, end: date) -> List[date]:
     return months
 
 
+def compute_raw_hash(raw_items: List) -> str:
+    """SHA-256 of sorted raw line items. Used to detect unchanged SF syncs."""
+    records = sorted(
+        [
+            {
+                "id": item.sf_line_item_id,
+                "opp": item.sf_opportunity_id,
+                "start": str(item.subscription_start_date),
+                "end": str(item.subscription_end_date),
+                "price": str(item.unit_price),
+                "qty": str(item.quantity),
+                "product": item.product_name,
+                "close": str(item.close_date),
+            }
+            for item in raw_items
+        ],
+        key=lambda r: r["id"],
+    )
+    return hashlib.sha256(json.dumps(records, sort_keys=True).encode()).hexdigest()
+
+
 class SnapshotManager:
     def __init__(self, db: Session):
         self.db = db
+
+    def latest_data_hash(self) -> Optional[str]:
+        """Return the data_hash of the most recent completed SF snapshot, or None."""
+        latest = (
+            self.db.query(Snapshot)
+            .filter(
+                Snapshot.status == "completed",
+                Snapshot.sync_type == "salesforce_full",
+                Snapshot.data_hash.isnot(None),
+            )
+            .order_by(Snapshot.created_at.desc())
+            .first()
+        )
+        return latest.data_hash if latest else None
 
     def create_snapshot(
         self,
@@ -57,6 +94,7 @@ class SnapshotManager:
         sync_type: str = "manual",
         triggered_by: Optional[str] = None,
         notes: Optional[str] = None,
+        data_hash: Optional[str] = None,
     ) -> Snapshot:
         t0 = time.time()
 
@@ -67,6 +105,7 @@ class SnapshotManager:
             status="processing",
             notes=notes,
             sf_records_fetched=len(raw_items),
+            data_hash=data_hash,
         )
         self.db.add(snapshot)
         self.db.flush()

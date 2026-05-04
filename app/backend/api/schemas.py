@@ -218,8 +218,10 @@ class SyncRequest(BaseModel):
 
 
 class SyncResponse(BaseModel):
-    snapshot_id: UUID
+    snapshot_id: Optional[UUID] = None
     status: str
-    records_processed: Optional[int]
-    alerts_count: Optional[int]
-    duration_seconds: Optional[float]
+    records_processed: Optional[int] = None
+    alerts_count: Optional[int] = None
+    duration_seconds: Optional[float] = None
+    skipped: bool = False
+    skip_reason: Optional[str] = None

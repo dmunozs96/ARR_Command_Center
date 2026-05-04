@@ -1,6 +1,6 @@
 # Preguntas Abiertas y Riesgos
 **Fecha de creación:** 2026-04-17
-**Última actualización:** 2026-04-17
+**Última actualización:** 2026-05-04
 
 ---
 
@@ -15,26 +15,25 @@
 - **Respuesta del CFO (2026-04-17):** V1: campo en la UI para que el usuario introduzca el importe manualmente. V2: integración con API de Stripe.
 - **Implementación:** Ver ADR-002 y requisito funcional F-07.
 
-### Q-03 [ALTA] ¿Cuándo y cómo implementar "ARR desde close won"?
-- **Contexto:** El Excel tiene infraestructura preparada (columnas AC-AF) pero no está implementada en los resúmenes.
-- **Pregunta:** ¿Cuál es la definición exacta de "inicio" en el modo close won? ¿Solo aplica a Nuevo Negocio?
-- **Impacto:** Cambia significativamente cómo se reporta la cartera.
+### ~~Q-03~~ ✅ RESUELTA — ARR desde close won (backlog approach)
+- **Respuesta del CFO (2026-05-04):** Contar oportunidades desde que se marcan como ganadas (close date), no desde el inicio del servicio. Las columnas AC-AF del Excel deben usarse para un criterio "desde cierre" que coexista con el "desde inicio". El usuario del dashboard podrá alternar entre ambos criterios en la pestaña Resumen.
+- **Implementación pendiente:** Toggle en el dashboard entre `arr_from_start` y `arr_from_close`. El motor de cálculo necesita campo `close_date` de SF y columna calculada alternativa. Ver Fase I (nueva).
 
 ### ~~Q-04~~ ✅ RESUELTA — Todo en EUR
 - **Respuesta del CFO (2026-04-17):** Todos los contratos están en EUR. No hay multi-currency.
 - **Implementación:** Sistema opera en EUR. No se necesita lógica de conversión de moneda.
 
-### Q-05 [MEDIA] ¿"TaaS" (Training as a Service) debe incluirse en el ARR SaaS?
-- **Contexto:** Hay 20 line items con tipo "TaaS". No es un SaaS tradicional pero puede ser recurrente.
-- **Impacto:** Pequeño volumen, pero afecta a la definición de ARR.
+### ~~Q-05~~ ✅ RESUELTA — TaaS excluido del ARR SaaS
+- **Respuesta del CFO (2026-05-04):** TaaS no se considera ARR SaaS. Confirmado por el SUMIF de la pestaña Resumen del Excel original.
+- **Implementación:** Ya correcta si el filtro por `product_type` excluye TaaS. Verificar en validación cruzada.
 
-### Q-06 [MEDIA] ¿Existe riesgo de doble conteo en renovaciones?
-- **Contexto:** Si un contrato original y su renovación se solapan en fechas, el ARR de esos días se contaría dos veces.
-- **Pregunta:** ¿El Excel actual gestiona esto? ¿Se revisa manualmente?
+### ~~Q-06~~ ✅ RESUELTA — Doble conteo en solapamientos: detectar + decidir línea a línea
+- **Respuesta del CFO (2026-05-04):** El riesgo es real. La solución deseada: (i) alertar al usuario cuando se detecten solapamientos, (ii) permitir decidir línea a línea si incluir o excluir el contrato solapado en el ARR del dashboard. Flujo: usuario de dirección reporta con la exclusión elegida e informa al asistente para que lo arregle en SF a largo plazo.
+- **Implementación pendiente:** Nueva alerta `OVERLAPPING_CONTRACTS` + flag `excluded_from_arr` por line_item + toggle en la UI de alertas. Ver Fase I (nueva).
 
-### Q-07 [MEDIA] ¿Qué frecuencia de actualización se necesita?
-- **Opciones:** Diaria automática / Semanal / On-demand con botón.
-- **Impacto:** Afecta al diseño del scheduler y a los costes de API de Salesforce.
+### ~~Q-07~~ ✅ RESUELTA — Sync diaria con diseño incremental inteligente
+- **Respuesta del CFO (2026-05-04):** Preferencia por sync diaria si es viable. Preocupación válida sobre recálculo innecesario. Decisión pendiente de análisis técnico (ver conversación 2026-05-04).
+- **Implementación pendiente:** Railway cron diario + hash de snapshot para skip si no hay cambios + opción de delta sync por LastModifiedDate de SF. Ver Fase I (nueva).
 
 ### Q-08 [BAJA] ¿Cuál es la fecha de adopción de campos de suscripción en Salesforce?
 - **Contexto:** Oportunidades antiguas no tienen fechas de suscripción → assumptions aplicados.

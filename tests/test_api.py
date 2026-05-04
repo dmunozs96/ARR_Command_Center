@@ -652,3 +652,62 @@ def test_stripe_mrr_upsert(client):
     r3 = client.get(f"/api/stripe-mrr?snapshot_id={snap_id}")
     assert len(r3.json()) == 1
     assert r3.json()[0]["mrr"] == "9500.00"
+
+
+def test_cron_daily_sync_rejects_wrong_secret(client, monkeypatch):
+    monkeypatch.setenv("CRON_SECRET", "correct-secret")
+    r = client.post("/api/sync/cron/daily", headers={"x-cron-secret": "wrong"})
+    assert r.status_code == 401
+
+
+def test_cron_daily_sync_skips_when_data_unchanged(client, monkeypatch):
+    monkeypatch.setenv("CRON_SECRET", "correct-secret")
+
+    db = TestingSessionLocal()
+    db.add(ProductClassification(product_name="Licencias LMS", product_type="SaaS LMS"))
+    db.add(ConsultantCountry(consultant_name="Maria Lopez", country="Spain"))
+    db.commit()
+    db.close()
+
+    raw_items = [
+        RawLineItem(
+            sf_opportunity_id="006OPP999",
+            sf_line_item_id="00kLINE999",
+            opportunity_name="Renewal ACME",
+            account_name="ACME Corp",
+            opportunity_owner="Maria Lopez",
+            opportunity_type="Renewal",
+            channel_type="Inbound",
+            close_date=date(2026, 1, 15),
+            product_name="Licencias LMS",
+            unit_price=Decimal("12000"),
+            quantity=Decimal("1"),
+            subscription_start_date=date(2026, 1, 1),
+            subscription_end_date=date(2026, 12, 31),
+            licence_period_months=12,
+            business_line="isEazy LMS",
+            opportunity_amount=Decimal("12000"),
+            product_code="LMS-001",
+        )
+    ]
+
+    from app.backend.api.routes import sync as sync_route
+    from app.backend.core.snapshot_manager import compute_raw_hash
+
+    class DummyExtractor:
+        def fetch_raw_line_items(self):
+            return raw_items
+
+    monkeypatch.setattr(sync_route, "SalesforceExtractor", lambda: DummyExtractor())
+
+    # First sync creates snapshot
+    r1 = client.post("/api/sync/cron/daily", headers={"x-cron-secret": "correct-secret"})
+    assert r1.status_code == 200
+    assert r1.json()["status"] == "completed"
+    assert r1.json()["skipped"] is False
+
+    # Second sync with identical data must be skipped
+    r2 = client.post("/api/sync/cron/daily", headers={"x-cron-secret": "correct-secret"})
+    assert r2.status_code == 200
+    assert r2.json()["status"] == "skipped"
+    assert r2.json()["skipped"] is True
