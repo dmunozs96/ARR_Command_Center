@@ -227,3 +227,43 @@ Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md 
 
 **Instruccion para la proxima conversacion:**
 Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md y sigue avanzando sin Salesforce. Puedes ejecutar e2e, mejorar el flujo de upload manual o volver a Fase E cuando haya credenciales."
+
+## 2026-05-04 - Sesion 17 (Playwright e2e + cron diario con dedup)
+**Agente:** Claude Sonnet 4.6
+
+### Trabajo realizado
+
+#### Fase H cerrada — E2E con Playwright
+- Instalado `@playwright/test` y Chromium en `app/frontend`
+- `playwright.config.ts`: baseURL cambiado a `localhost`, timeouts a 15s, retries a 1
+- `next.config.ts`: añadido `allowedDevOrigins` para evitar bloqueo cross-origin en dev
+- Tests e2e corregidos con locators precisos (sidebar combobox vs main, texto duplicado en tabla)
+- **3/3 tests pasan**: dashboard, alertas, stripe+consultores
+
+#### Cron diario con dedup por hash
+- `compute_raw_hash(raw_items)`: SHA-256 de line items SF ordenados por `sf_line_item_id`
+- `SnapshotManager.latest_data_hash()`: hash del ultimo snapshot SF completado
+- `POST /api/sync`: guarda `data_hash`; devuelve `{"status":"skipped","skipped":true}` si sin cambios
+- `POST /api/sync/cron/daily`: nuevo endpoint protegido por `x-cron-secret` (env `CRON_SECRET`)
+- Migration `0002_add_snapshot_data_hash.py`
+- `SyncResponse` ampliado con `skipped` y `skip_reason`
+- `docs/specs/18_daily_sync_cron.md`: instrucciones Railway + troubleshooting
+
+#### Preguntas de negocio resueltas por el CFO
+- Q-03: toggle "desde cierre vs desde inicio" — pendiente de implementar (Fase I-A)
+- Q-05: TaaS excluido — ya correcto en implementacion actual
+- Q-06: solapamientos — detectar + flag incluir/excluir por linea (Fase I-B pendiente)
+- Q-07: Opcion A elegida — implementada en esta sesion
+
+### Verificacion
+- `pytest tests/` → 27/27 OK
+- `npx tsc --noEmit` → OK
+- `npm run test:e2e` → 3/3 OK
+
+### Conclusiones
+- Fases A-H completadas. App lista para produccion salvo Salesforce real.
+- Cron diario listo; solo necesita `CRON_SECRET` en Railway y un cron job externo apuntando al endpoint.
+- Quedan dos funcionalidades de negocio nuevas acordadas con el CFO: toggle close won (I-A) y gestion de solapamientos (I-B).
+
+**Instruccion para la proxima conversacion:**
+Di al agente: "Lee CURRENT_STATE.md y NEXT_STEPS.md. Si hay credenciales SF disponibles, cierra Fase E y activa el cron en Railway. Si no, implementa Fase I-A (toggle ARR desde cierre) o Fase I-B (solapamientos), priorizando lo que el CFO indique."
