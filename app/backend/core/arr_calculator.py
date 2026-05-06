@@ -170,7 +170,7 @@ class ARRCalculator:
 
         # --- Classify product (col U in Excel) ---
         product_type = self.product_classifications.get(raw.product_name)
-        if product_type is None:
+        if product_type is None or product_type == "[SIN ASIGNAR]":
             flags.append("UNCLASSIFIED_PRODUCT")
             return ARRLineItemResult(
                 raw=raw,
@@ -268,7 +268,7 @@ class ARRCalculator:
 
         # --- Consultant country (col AG) ---
         country = self.consultant_countries.get(raw.opportunity_owner, "Unknown")
-        if country == "Unknown":
+        if country in ("Unknown", "[SIN ASIGNAR]"):
             flags.append("MISSING_COUNTRY")
 
         return ARRLineItemResult(

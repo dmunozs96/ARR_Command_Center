@@ -51,6 +51,8 @@ BUSINESS_LINE_TO_PRODUCT_TYPE = {
     "author online": "Author Online",
 }
 
+UNASSIGNED_MASTER_VALUE = "[SIN ASIGNAR]"
+
 RECURRING_PRODUCT_KEYWORDS = (
     "licencia",
     "licencias",
@@ -346,6 +348,25 @@ def upsert_product_classifications(session: Session, products: dict):
     session.flush()
 
 
+def add_missing_product_placeholders(session: Session, products: dict, rows: list[dict]) -> dict:
+    existing_names = {
+        name for (name,) in session.query(ProductClassification.product_name).all()
+    }
+    merged = dict(products)
+    for row in rows:
+        product_name = row["product_name"]
+        if product_name in merged or product_name in existing_names:
+            continue
+        merged[product_name] = {
+            "product_code": row.get("product_code"),
+            "business_line": row.get("business_line"),
+            "category": "Salesforce raw",
+            "subcategory": None,
+            "product_type": UNASSIGNED_MASTER_VALUE,
+        }
+    return merged
+
+
 def upsert_consultant_countries(session: Session, countries: dict):
     for name, country in countries.items():
         existing = session.query(ConsultantCountry).filter_by(consultant_name=name).first()
@@ -354,6 +375,21 @@ def upsert_consultant_countries(session: Session, countries: dict):
         else:
             session.add(ConsultantCountry(consultant_name=name, country=country))
     session.flush()
+
+
+def add_missing_consultant_placeholders(session: Session, countries: dict, rows: list[dict]) -> dict:
+    existing_names = {
+        name for (name,) in session.query(ConsultantCountry.consultant_name).all()
+    }
+    merged = dict(countries)
+    for row in rows:
+        consultant_name = row.get("opportunity_owner")
+        if not consultant_name or consultant_name == "Unknown":
+            continue
+        if consultant_name in merged or consultant_name in existing_names:
+            continue
+        merged[consultant_name] = UNASSIGNED_MASTER_VALUE
+    return merged
 
 
 def create_snapshot(session: Session, *, triggered_by: str, notes: str) -> Snapshot:
@@ -545,6 +581,8 @@ def import_excel_workbook(
     try:
         if not products:
             products = infer_product_classifications_from_rows(rows)
+        products = add_missing_product_placeholders(session, products, rows)
+        countries = add_missing_consultant_placeholders(session, countries, rows)
 
         upsert_product_classifications(session, products)
         upsert_consultant_countries(session, countries)

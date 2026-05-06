@@ -330,6 +330,28 @@ def _build_raw_salesforce_excel_bytes() -> bytes:
             "Maria Lopez",
         ]
     )
+    ws.append(
+        [
+            "Maria Lopez",
+            "Acme Corp",
+            "Setup ACME",
+            "Nuevo negocio",
+            "Inbound",
+            900,
+            "15/01/2026",
+            "10/01/2026",
+            "Ganada",
+            "Media Jornada de Formación",
+            900,
+            None,
+            None,
+            None,
+            "isEazy LMS",
+            1,
+            "",
+            "Maria Lopez",
+        ]
+    )
 
     buffer = BytesIO()
     wb.save(buffer)
@@ -494,13 +516,27 @@ def test_import_raw_salesforce_export_without_calculated_sheets(client):
     assert r.status_code == 200
     data = r.json()
     assert data["status"] == "completed"
-    assert data["records_processed"] == 1
+    assert data["records_processed"] == 2
 
     summary = client.get("/api/arr/summary")
     assert summary.status_code == 200
     months = summary.json()["months"]
     assert len(months) >= 1
     assert Decimal(months[-1]["by_product_type"]["SaaS LMS"]) > 0
+
+    products = client.get("/api/config/products")
+    assert products.status_code == 200
+    product_by_name = {item["product_name"]: item for item in products.json()}
+    assert product_by_name["Usuarios LMS"]["product_type"] == "SaaS LMS"
+    assert product_by_name["Media Jornada de Formación"]["product_type"] == "[SIN ASIGNAR]"
+
+    consultants = client.get("/api/config/consultants")
+    assert consultants.status_code == 200
+    assert consultants.json()[0]["country"] == "[SIN ASIGNAR]"
+
+    alerts = client.get("/api/alerts?alert_type=UNCLASSIFIED_PRODUCT")
+    assert alerts.status_code == 200
+    assert any(alert["product_name"] == "Media Jornada de Formación" for alert in alerts.json())
 
 
 # ---------------------------------------------------------------------------

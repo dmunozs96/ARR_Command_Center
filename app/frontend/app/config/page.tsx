@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import type { ConsultantOut, ProductOut } from "@/lib/types";
 
 const PRODUCT_TYPES = [
+  "[SIN ASIGNAR]",
   "SaaS LMS",
   "SaaS Skills",
   "SaaS Author",
@@ -39,6 +40,7 @@ function ProductRow({
   const [editing, setEditing] = useState(false);
   const [type, setType] = useState(product.product_type);
   const [line, setLine] = useState(product.business_line ?? "");
+  const pending = product.product_type === "[SIN ASIGNAR]";
 
   function handleSave() {
     const data: ProductUpdateData = { product_type: type, business_line: line || undefined };
@@ -47,13 +49,18 @@ function ProductRow({
   }
 
   return (
-    <tr className={highlight ? "bg-amber-50/70" : "hover:bg-stone-50"}>
+    <tr className={highlight || pending ? "bg-amber-50/70" : "hover:bg-stone-50"}>
       <td className="px-5 py-3 text-sm text-stone-800">
         <div className="flex flex-wrap items-center gap-2">
           <span>{product.product_name}</span>
           {highlight && (
             <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-900">
               Desde alerta
+            </span>
+          )}
+          {pending && (
+            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-red-800">
+              Pendiente
             </span>
           )}
           {!product.is_saas && <span className="text-xs text-stone-400">No SaaS</span>}
@@ -73,7 +80,7 @@ function ProductRow({
             ))}
           </select>
         ) : (
-          <span className={product.product_type === "[SIN ASIGNAR]" ? "font-medium text-amber-700" : "text-stone-700"}>
+          <span className={pending ? "font-medium text-amber-700" : "text-stone-700"}>
             {product.product_type}
           </span>
         )}
@@ -132,6 +139,7 @@ function ConsultantRow({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(consultant.consultant_name);
   const [country, setCountry] = useState(consultant.country);
+  const pending = consultant.country === "[SIN ASIGNAR]";
 
   function handleSave() {
     onSave(consultant.id, { consultant_name: name, country });
@@ -139,7 +147,7 @@ function ConsultantRow({
   }
 
   return (
-    <tr className="hover:bg-stone-50">
+    <tr className={pending ? "bg-amber-50/70" : "hover:bg-stone-50"}>
       <td className="px-5 py-3">
         {editing ? (
           <input
@@ -148,7 +156,14 @@ function ConsultantRow({
             className="rounded-xl border border-stone-200 bg-white px-2 py-1.5 text-sm outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200"
           />
         ) : (
-          <span className="text-sm text-stone-800">{consultant.consultant_name}</span>
+          <span className="flex items-center gap-2 text-sm text-stone-800">
+            {consultant.consultant_name}
+            {pending && (
+              <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-red-800">
+                Pendiente
+              </span>
+            )}
+          </span>
         )}
       </td>
       <td className="px-4 py-3">
@@ -159,7 +174,9 @@ function ConsultantRow({
             className="w-28 rounded-xl border border-stone-200 bg-white px-2 py-1.5 text-sm outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200"
           />
         ) : (
-          <span className="text-sm text-stone-600">{consultant.country}</span>
+          <span className={pending ? "text-sm font-medium text-amber-700" : "text-sm text-stone-600"}>
+            {consultant.country}
+          </span>
         )}
       </td>
       <td className="px-5 py-3 text-right">
@@ -235,8 +252,8 @@ function ConfigPageContent() {
   const filteredProducts = useMemo(() => {
     const items = products ?? [];
     const term = productSearch.trim().toLowerCase();
-    if (!term) return items;
-    return items.filter((product) => {
+    const filtered = term
+      ? items.filter((product) => {
       const haystack = [
         product.product_name,
         product.product_code ?? "",
@@ -246,8 +263,28 @@ function ConfigPageContent() {
         .join(" ")
         .toLowerCase();
       return haystack.includes(term);
+      })
+      : items;
+    return [...filtered].sort((left, right) => {
+      const leftPending = left.product_type === "[SIN ASIGNAR]";
+      const rightPending = right.product_type === "[SIN ASIGNAR]";
+      if (leftPending !== rightPending) return leftPending ? -1 : 1;
+      return left.product_name.localeCompare(right.product_name);
     });
   }, [productSearch, products]);
+
+  const pendingProducts = (products ?? []).filter((product) => product.product_type === "[SIN ASIGNAR]").length;
+  const sortedConsultants = useMemo(
+    () =>
+      [...(consultants ?? [])].sort((left, right) => {
+        const leftPending = left.country === "[SIN ASIGNAR]";
+        const rightPending = right.country === "[SIN ASIGNAR]";
+        if (leftPending !== rightPending) return leftPending ? -1 : 1;
+        return left.consultant_name.localeCompare(right.consultant_name);
+      }),
+    [consultants],
+  );
+  const pendingConsultants = (consultants ?? []).filter((consultant) => consultant.country === "[SIN ASIGNAR]").length;
 
   const exactMatchExists = useMemo(
     () =>
@@ -267,6 +304,14 @@ function ConfigPageContent() {
             <p className="mt-1 text-sm text-stone-500">
               Clasifica productos y corrige dimensiones maestras sin salir del flujo de revision.
             </p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-sm">
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 font-medium text-amber-800">
+              {pendingProducts} productos pendientes
+            </span>
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 font-medium text-amber-800">
+              {pendingConsultants} consultores pendientes
+            </span>
           </div>
           <button
             onClick={() => setAddingProduct(true)}
@@ -407,7 +452,7 @@ function ConfigPageContent() {
                   </td>
                 </tr>
               )}
-              {(consultants ?? []).map((consultant) => (
+              {sortedConsultants.map((consultant) => (
                 <ConsultantRow
                   key={consultant.id}
                   consultant={consultant}
