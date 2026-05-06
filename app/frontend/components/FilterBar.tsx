@@ -1,5 +1,7 @@
 "use client";
 
+import { CalendarRange, Layers3 } from "lucide-react";
+
 interface Props {
   productType: string;
   onProductTypeChange: (v: string) => void;
@@ -30,43 +32,52 @@ export function FilterBar({
   onMonthToChange,
 }: Props) {
   return (
-    <div className="flex flex-wrap items-center gap-3 bg-white rounded-xl border border-gray-200 px-4 py-3">
-      <div className="flex items-center gap-2">
-        <label className="text-xs text-gray-500 whitespace-nowrap">
-          Línea de negocio
+    <section className="rounded-3xl border border-[#e7e1f2] bg-white p-4 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
+      <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr]">
+        <label className="group block">
+          <span className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-[#837a9f]">
+            <Layers3 size={15} />
+            Linea de negocio
+          </span>
+          <select
+            value={productType}
+            onChange={(e) => onProductTypeChange(e.target.value)}
+            className="h-12 w-full rounded-2xl border border-[#e7e1f2] bg-[#fbfaff] px-4 text-sm font-semibold text-[#151229] outline-none transition focus:border-[#6d35ff] focus:ring-4 focus:ring-[#6d35ff]/10"
+          >
+            {PRODUCT_TYPES.map((t) => (
+              <option key={t} value={t === "Todos" ? "" : t}>
+                {t}
+              </option>
+            ))}
+          </select>
         </label>
-        <select
-          value={productType}
-          onChange={(e) => onProductTypeChange(e.target.value)}
-          className="text-sm border border-gray-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
-        >
-          {PRODUCT_TYPES.map((t) => (
-            <option key={t} value={t === "Todos" ? "" : t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </div>
 
-      <div className="flex items-center gap-2">
-        <label className="text-xs text-gray-500 whitespace-nowrap">Desde</label>
-        <input
-          type="month"
-          value={monthFrom.slice(0, 7)}
-          onChange={(e) => onMonthFromChange(`${e.target.value}-01`)}
-          className="text-sm border border-gray-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
-        />
-      </div>
+        <label className="block">
+          <span className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-[#837a9f]">
+            <CalendarRange size={15} />
+            Desde
+          </span>
+          <input
+            type="month"
+            value={monthFrom.slice(0, 7)}
+            onChange={(e) => onMonthFromChange(`${e.target.value}-01`)}
+            className="h-12 w-full rounded-2xl border border-[#e7e1f2] bg-[#fbfaff] px-4 text-sm font-semibold text-[#151229] outline-none transition focus:border-[#6d35ff] focus:ring-4 focus:ring-[#6d35ff]/10"
+          />
+        </label>
 
-      <div className="flex items-center gap-2">
-        <label className="text-xs text-gray-500 whitespace-nowrap">Hasta</label>
-        <input
-          type="month"
-          value={monthTo.slice(0, 7)}
-          onChange={(e) => onMonthToChange(`${e.target.value}-01`)}
-          className="text-sm border border-gray-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
-        />
+        <label className="block">
+          <span className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-[#837a9f]">
+            <CalendarRange size={15} />
+            Hasta
+          </span>
+          <input
+            type="month"
+            value={monthTo.slice(0, 7)}
+            onChange={(e) => onMonthToChange(`${e.target.value}-01`)}
+            className="h-12 w-full rounded-2xl border border-[#e7e1f2] bg-[#fbfaff] px-4 text-sm font-semibold text-[#151229] outline-none transition focus:border-[#6d35ff] focus:ring-4 focus:ring-[#6d35ff]/10"
+          />
+        </label>
       </div>
-    </div>
+    </section>
   );
 }

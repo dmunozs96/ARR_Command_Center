@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { AlertTriangle, ArrowRight, CheckCircle2 } from "lucide-react";
 import type { AlertOut } from "@/lib/types";
 
 const SEVERITY_STYLES: Record<string, string> = {
-  ERROR: "border-red-200 bg-red-50 text-red-700",
-  WARNING: "border-amber-200 bg-amber-50 text-amber-700",
-  INFO: "border-sky-200 bg-sky-50 text-sky-700",
+  ERROR: "border-[#ffd0cd] bg-[#fff0ef] text-[#b82f2a]",
+  WARNING: "border-[#ffe2a8] bg-[#fff7e7] text-[#946300]",
+  INFO: "border-[#cbeeff] bg-[#eefaff] text-[#006f94]",
 };
 
 function severityLabel(severity: string): string {
@@ -29,28 +30,14 @@ function alertTypeLabel(alertType: string): string {
   return labels[alertType] ?? alertType.replaceAll("_", " ");
 }
 
-export function AlertsPanel({
-  alerts,
-  loading = false,
-}: {
-  alerts: AlertOut[];
-  loading?: boolean;
-}) {
+export function AlertsPanel({ alerts, loading = false }: { alerts: AlertOut[]; loading?: boolean }) {
   if (loading) {
     return (
-      <section className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-stone-900">Alertas pendientes</h2>
-            <p className="text-sm text-stone-500">Cargando alertas del snapshot activo...</p>
-          </div>
-        </div>
-        <div className="space-y-3">
+      <section className="rounded-3xl border border-[#e7e1f2] bg-white p-5 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
+        <div className="h-5 w-44 animate-pulse rounded bg-[#e4dcf1]" />
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
           {[0, 1, 2].map((item) => (
-            <div
-              key={item}
-              className="h-24 animate-pulse rounded-2xl border border-stone-200 bg-stone-50"
-            />
+            <div key={item} className="h-28 animate-pulse rounded-2xl bg-[#f4f0fb]" />
           ))}
         </div>
       </section>
@@ -58,26 +45,43 @@ export function AlertsPanel({
   }
 
   if (alerts.length === 0) {
-    return null;
+    return (
+      <section className="rounded-3xl border border-[#bfefe4] bg-[#e9fbf7] p-5 shadow-[0_18px_50px_rgba(49,24,95,0.04)]">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#20c7a8] text-white">
+            <CheckCircle2 size={22} />
+          </div>
+          <div>
+            <h2 className="text-lg font-black text-[#151229]">Sin alertas pendientes</h2>
+            <p className="text-sm font-medium text-[#0c7564]">El snapshot activo no tiene incidencias abiertas.</p>
+          </div>
+        </div>
+      </section>
+    );
   }
 
   const preview = alerts.slice(0, 3);
 
   return (
-    <section className="rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 via-orange-50 to-white p-5 shadow-sm">
+    <section className="rounded-3xl border border-[#ffe2a8] bg-white p-5 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-stone-900">Alertas pendientes</h2>
-          <p className="text-sm text-stone-600">
-            Hay {alerts.length} alerta{alerts.length !== 1 ? "s" : ""} sin revisar en el
-            snapshot activo.
-          </p>
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#ffb020] text-white">
+            <AlertTriangle size={22} />
+          </div>
+          <div>
+            <h2 className="text-lg font-black text-[#151229]">Alertas pendientes</h2>
+            <p className="text-sm font-medium text-[#6f6a80]">
+              {alerts.length} alerta{alerts.length !== 1 ? "s" : ""} sin revisar en el snapshot activo.
+            </p>
+          </div>
         </div>
         <Link
           href="/alerts"
-          className="inline-flex items-center justify-center rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:border-stone-400 hover:bg-stone-50"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#e7e1f2] bg-[#fbfaff] px-4 text-sm font-black text-[#2f185f] transition hover:border-[#6d35ff]"
         >
-          Abrir bandeja de alertas
+          Abrir bandeja
+          <ArrowRight size={16} />
         </Link>
       </div>
 
@@ -85,59 +89,25 @@ export function AlertsPanel({
         {preview.map((alert) => {
           const severity = alert.severity.toUpperCase();
           return (
-            <article
-              key={alert.id}
-              className="rounded-2xl border border-white/70 bg-white/90 p-4 shadow-sm"
-            >
+            <article key={alert.id} className="rounded-2xl border border-[#eee8f8] bg-[#fbfaff] p-4">
               <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-stone-900">
+                <div>
+                  <p className="line-clamp-1 text-sm font-black text-[#151229]">
                     {alert.opportunity_name ?? "Oportunidad sin nombre"}
                   </p>
-                  <p className="text-xs uppercase tracking-wide text-stone-500">
+                  <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-[#837a9f]">
                     {alertTypeLabel(alert.alert_type)}
                   </p>
                 </div>
-                <span
-                  className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${
-                    SEVERITY_STYLES[severity] ?? "border-stone-200 bg-stone-100 text-stone-700"
-                  }`}
-                >
+                <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${SEVERITY_STYLES[severity] ?? "border-[#e7e1f2] bg-white text-[#6f6a80]"}`}>
                   {severityLabel(severity)}
                 </span>
               </div>
-
-              <p className="mt-3 text-sm leading-6 text-stone-600">{alert.description}</p>
-
-              <div className="mt-4 flex flex-wrap gap-2 text-xs text-stone-500">
-                {alert.account_name && (
-                  <span className="rounded-full bg-stone-100 px-2.5 py-1">
-                    Cliente: {alert.account_name}
-                  </span>
-                )}
-                {alert.product_name && (
-                  <span className="rounded-full bg-stone-100 px-2.5 py-1">
-                    Producto: {alert.product_name}
-                  </span>
-                )}
-              </div>
-
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <Link
-                  href={`/alerts?alertId=${alert.id}`}
-                  className="text-sm font-medium text-amber-800 transition hover:text-amber-900"
-                >
-                  Ver detalle
-                </Link>
-                {alert.alert_type === "UNCLASSIFIED_PRODUCT" && alert.product_name && (
-                  <Link
-                    href={`/config?product=${encodeURIComponent(alert.product_name)}&fromAlert=${alert.id}`}
-                    className="text-sm font-medium text-stone-700 transition hover:text-stone-900"
-                  >
-                    Ir a configuracion
-                  </Link>
-                )}
-              </div>
+              <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#6f6a80]">{alert.description}</p>
+              <Link href={`/alerts?alertId=${alert.id}`} className="mt-4 inline-flex items-center gap-1 text-sm font-black text-[#6d35ff]">
+                Ver detalle
+                <ArrowRight size={15} />
+              </Link>
             </article>
           );
         })}

@@ -1,17 +1,17 @@
 "use client";
 
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
+  Area,
+  AreaChart,
   CartesianGrid,
-  Tooltip,
   Legend,
   ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
 import type { ARRMonthPoint } from "@/lib/types";
-import { formatEUR, formatMonth, productTypeColor } from "@/lib/utils";
+import { formatCompactEUR, formatEUR, formatMonth, productTypeColor } from "@/lib/utils";
 
 interface Props {
   months: ARRMonthPoint[];
@@ -19,92 +19,114 @@ interface Props {
 }
 
 function formatYAxis(value: number): string {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M€`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K€`;
-  return `${value}€`;
+  return formatCompactEUR(value).replace("€", " EUR");
 }
 
 export function ARRChart({ months, loading }: Props) {
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-5 h-72 flex items-center justify-center">
-        <div className="text-gray-400 text-sm">Cargando gráfico…</div>
+      <div className="flex h-[420px] items-center justify-center rounded-3xl border border-[#e7e1f2] bg-white p-5 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#efe9ff] border-t-[#6d35ff]" />
       </div>
     );
   }
 
   if (months.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-5 h-72 flex items-center justify-center">
-        <div className="text-gray-400 text-sm">Sin datos</div>
+      <div className="flex h-[420px] items-center justify-center rounded-3xl border border-[#e7e1f2] bg-white p-5 text-sm font-semibold text-[#837a9f] shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
+        Sin datos para el periodo seleccionado.
       </div>
     );
   }
 
-  // Collect all product types present
-  const productTypes = Array.from(
-    new Set(months.flatMap((m) => Object.keys(m.by_product_type)))
-  ).filter((pt) => pt !== "null" && pt !== "undefined");
+  const productTypes = Array.from(new Set(months.flatMap((m) => Object.keys(m.by_product_type))))
+    .filter((pt) => pt !== "null" && pt !== "undefined")
+    .slice(0, 7);
 
-  // Build chart data
   const data = months.map((m) => ({
     month: formatMonth(m.month),
     total: m.total_arr,
-    ...Object.fromEntries(
-      productTypes.map((pt) => [pt, m.by_product_type[pt] ?? 0])
-    ),
+    ...Object.fromEntries(productTypes.map((pt) => [pt, m.by_product_type[pt] ?? 0])),
   }));
 
-  const useSingleLine = productTypes.length === 0;
+  const useSingleArea = productTypes.length === 0;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <h2 className="text-sm font-semibold text-gray-700 mb-4">
-        Evolución ARR por línea de negocio
-      </h2>
-      <ResponsiveContainer width="100%" height={280}>
-        <LineChart data={data} margin={{ top: 4, right: 16, bottom: 4, left: 16 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+    <section className="rounded-3xl border border-[#e7e1f2] bg-white p-5 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
+      <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#6d35ff]">
+            Tendencia financiera
+          </p>
+          <h2 className="mt-1 text-xl font-black tracking-tight text-[#151229]">
+            Evolucion ARR por linea de negocio
+          </h2>
+        </div>
+        <p className="text-sm text-[#6f6a80]">{months.length} meses analizados</p>
+      </div>
+
+      <ResponsiveContainer width="100%" height={340}>
+        <AreaChart data={data} margin={{ top: 8, right: 20, bottom: 8, left: 0 }}>
+          <defs>
+            <linearGradient id="totalArr" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="5%" stopColor="#6d35ff" stopOpacity={0.28} />
+              <stop offset="95%" stopColor="#6d35ff" stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid stroke="#eee8f8" strokeDasharray="4 6" vertical={false} />
           <XAxis
             dataKey="month"
-            tick={{ fontSize: 11, fill: "#6b7280" }}
-            tickLine={false}
-          />
-          <YAxis
-            tickFormatter={formatYAxis}
-            tick={{ fontSize: 11, fill: "#6b7280" }}
+            tick={{ fontSize: 12, fill: "#837a9f", fontWeight: 600 }}
             tickLine={false}
             axisLine={false}
           />
+          <YAxis
+            tickFormatter={formatYAxis}
+            tick={{ fontSize: 12, fill: "#837a9f", fontWeight: 600 }}
+            tickLine={false}
+            axisLine={false}
+            width={78}
+          />
           <Tooltip
             formatter={(value, name) => [formatEUR(Number(value ?? 0)), String(name)]}
-            contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
+            labelStyle={{ color: "#151229", fontWeight: 800 }}
+            contentStyle={{
+              fontSize: 12,
+              borderRadius: 18,
+              border: "1px solid #e7e1f2",
+              boxShadow: "0 18px 50px rgba(49,24,95,0.12)",
+            }}
           />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
-          {useSingleLine ? (
-            <Line
+          <Legend iconType="circle" wrapperStyle={{ fontSize: 12, fontWeight: 700, paddingTop: 12 }} />
+          {useSingleArea ? (
+            <Area
               type="monotone"
               dataKey="total"
               name="ARR Total"
-              stroke="#6366f1"
-              strokeWidth={2}
+              stroke="#6d35ff"
+              strokeWidth={3}
+              fill="url(#totalArr)"
               dot={false}
+              activeDot={{ r: 5 }}
             />
           ) : (
             productTypes.map((pt) => (
-              <Line
+              <Area
                 key={pt}
                 type="monotone"
                 dataKey={pt}
                 name={pt}
                 stroke={productTypeColor(pt)}
-                strokeWidth={2}
+                strokeWidth={2.5}
+                fill={productTypeColor(pt)}
+                fillOpacity={0.08}
                 dot={false}
+                activeDot={{ r: 5 }}
               />
             ))
           )}
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
-    </div>
+    </section>
   );
 }

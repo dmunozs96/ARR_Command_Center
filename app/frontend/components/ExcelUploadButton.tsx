@@ -2,6 +2,7 @@
 
 import { useRef, useState, type ChangeEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { UploadCloud } from "lucide-react";
 import { api } from "@/lib/api";
 import { getAPIErrorMessage } from "@/lib/api-errors";
 
@@ -14,9 +15,7 @@ export function ExcelUploadButton() {
 
   async function handleFileSelected(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
     setLoading(true);
     setError(null);
@@ -39,44 +38,30 @@ export function ExcelUploadButton() {
   }
 
   return (
-    <div className="flex flex-col items-end gap-2">
-      {error && (
-        <div className="max-w-xs rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-right text-xs text-red-700 shadow-sm">
-          {error}
+    <div className="relative">
+      {(error || success) && (
+        <div
+          className={`absolute right-0 top-12 z-20 w-72 rounded-2xl border px-3 py-2 text-xs font-semibold shadow-lg ${
+            error ? "border-[#ffd0cd] bg-[#fff0ef] text-[#b82f2a]" : "border-[#bfefe4] bg-[#e9fbf7] text-[#0c7564]"
+          }`}
+        >
+          {error ?? success}
         </div>
       )}
-      {success && !error && (
-        <div className="max-w-xs rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-right text-xs text-emerald-700 shadow-sm">
-          {success}
-        </div>
-      )}
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".xlsx"
-        className="hidden"
-        onChange={handleFileSelected}
-      />
-
+      <input ref={inputRef} type="file" accept=".xlsx" className="hidden" onChange={handleFileSelected} />
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={loading}
-        className="flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-700 transition-colors hover:bg-stone-50 disabled:opacity-60"
+        className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[#e7e1f2] bg-white px-4 text-sm font-black text-[#2f185f] shadow-sm transition hover:border-[#6d35ff] hover:bg-[#fbfaff] disabled:opacity-60"
       >
         {loading ? (
-          <>
-            <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-stone-500 border-t-transparent" />
-            Importando...
-          </>
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#6d35ff] border-t-transparent" />
         ) : (
-          <>Subir Excel</>
+          <UploadCloud size={18} />
         )}
+        Subir Excel
       </button>
-      <p className="max-w-xs text-right text-[11px] text-stone-500">
-        Fallback manual para recalcular snapshots mientras Salesforce no este conectado.
-      </p>
     </div>
   );
 }

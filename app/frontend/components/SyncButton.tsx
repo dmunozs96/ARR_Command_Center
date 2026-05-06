@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 import { getSyncErrorMessage } from "@/lib/api-errors";
 
@@ -32,31 +33,23 @@ export function SyncButton() {
   }
 
   return (
-    <div className="flex flex-col items-end gap-2">
-      {error && (
-        <div className="max-w-xs rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-right text-xs text-red-700 shadow-sm">
-          {error}
+    <div className="relative">
+      {(error || success) && (
+        <div
+          className={`absolute right-0 top-12 z-20 w-72 rounded-2xl border px-3 py-2 text-xs font-semibold shadow-lg ${
+            error ? "border-[#ffd0cd] bg-[#fff0ef] text-[#b82f2a]" : "border-[#bfefe4] bg-[#e9fbf7] text-[#0c7564]"
+          }`}
+        >
+          {error ?? success}
         </div>
       )}
-      {success && !error && (
-        <div className="max-w-xs rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-right text-xs text-emerald-700 shadow-sm">
-          {success}
-        </div>
-      )}
-
       <button
         onClick={handleSync}
         disabled={loading}
-        className="flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-indigo-700 disabled:opacity-60"
+        className="inline-flex h-11 items-center gap-2 rounded-2xl bg-[#6d35ff] px-4 text-sm font-black text-white shadow-lg shadow-[#6d35ff]/20 transition hover:bg-[#5b27e6] disabled:opacity-60"
       >
-        {loading ? (
-          <>
-            <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-            Sincronizando...
-          </>
-        ) : (
-          <>Actualizar SF</>
-        )}
+        <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+        Actualizar SF
       </button>
     </div>
   );

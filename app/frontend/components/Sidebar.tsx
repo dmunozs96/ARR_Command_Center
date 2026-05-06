@@ -2,55 +2,88 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  Bell,
+  ChartNoAxesCombined,
+  ChevronRight,
+  Database,
+  LayoutDashboard,
+  Settings,
+  UsersRound,
+  WalletCards,
+} from "lucide-react";
 import { SnapshotSelector } from "@/components/SnapshotSelector";
 
 const NAV = [
-  { href: "/", label: "Dashboard", icon: "Chart" },
-  { href: "/snapshots", label: "Snapshots", icon: "Clock" },
-  { href: "/consultants", label: "Consultores", icon: "Team" },
-  { href: "/stripe", label: "Stripe MRR", icon: "MRR" },
-  { href: "/alerts", label: "Alertas", icon: "Warn" },
-  { href: "/config", label: "Configuracion", icon: "Cfg" },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/snapshots", label: "Snapshots", icon: Database },
+  { href: "/consultants", label: "Consultores", icon: UsersRound },
+  { href: "/stripe", label: "Stripe MRR", icon: WalletCards },
+  { href: "/alerts", label: "Alertas", icon: Bell },
+  { href: "/config", label: "Configuracion", icon: Settings },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-screen w-72 shrink-0 flex-col border-r border-slate-800 bg-slate-950 text-slate-100 sticky top-0">
-      <div className="border-b border-slate-800 px-5 py-5">
-        <h1 className="text-sm font-bold uppercase tracking-[0.24em] text-cyan-300">
-          ARR Command Center
-        </h1>
-        <p className="mt-1 text-xs text-slate-400">isEazy Finance</p>
-        <SnapshotSelector className="mt-4" />
+    <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col border-r border-[#e7e1f2] bg-white/90 px-4 py-5 shadow-[8px_0_30px_rgba(49,24,95,0.06)] backdrop-blur xl:flex">
+      <div className="rounded-2xl bg-[#2f185f] p-4 text-white shadow-lg shadow-[#6d35ff]/15">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#6d35ff]">
+            <ChartNoAxesCombined size={22} strokeWidth={2.4} />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#d8caff]">
+              isEazy Finance
+            </p>
+            <h1 className="text-lg font-black tracking-tight">ARR Center</h1>
+          </div>
+        </div>
+        <p className="mt-4 text-sm leading-5 text-[#efe9ff]">
+          Cuadro de mandos financiero para ARR, MRR y calidad de datos.
+        </p>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <SnapshotSelector className="mt-5" />
+
+      <nav className="mt-6 flex-1 space-y-1">
         {NAV.map((item) => {
           const active = pathname === item.href;
+          const Icon = item.icon;
 
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+              className={`group flex items-center justify-between rounded-xl px-3 py-3 text-sm font-semibold transition ${
                 active
-                  ? "bg-cyan-500/15 text-cyan-100 ring-1 ring-cyan-400/40"
-                  : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                  ? "bg-[#efe9ff] text-[#2f185f] shadow-sm"
+                  : "text-[#6f6a80] hover:bg-[#f7f3ff] hover:text-[#2f185f]"
               }`}
             >
-              <span className="inline-flex min-w-10 justify-center rounded-md bg-slate-900 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-                {item.icon}
+              <span className="flex items-center gap-3">
+                <span
+                  className={`flex h-9 w-9 items-center justify-center rounded-lg ${
+                    active ? "bg-[#6d35ff] text-white" : "bg-[#f4f0fb] text-[#6d35ff]"
+                  }`}
+                >
+                  <Icon size={18} />
+                </span>
+                {item.label}
               </span>
-              {item.label}
+              {active && <ChevronRight size={16} />}
             </Link>
           );
         })}
       </nav>
 
-      <div className="border-t border-slate-800 px-5 py-4 text-xs text-slate-500">
-        v0.8.0 - Fase H
+      <div className="rounded-2xl border border-[#e7e1f2] bg-[#fbfaff] p-4">
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#6d35ff]">v0.9.0</p>
+        <p className="mt-1 text-sm font-semibold text-[#2f185f]">Executive dashboard</p>
+        <p className="mt-1 text-xs leading-5 text-[#6f6a80]">
+          Preparado para vistas por periodo, linea, pais y consultor.
+        </p>
       </div>
     </aside>
   );
