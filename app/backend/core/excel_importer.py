@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -34,6 +35,33 @@ class ExcelImportError(Exception):
 class ExcelImportSummary:
     snapshot: Snapshot
     rows_read: int
+
+
+BUSINESS_LINE_TO_PRODUCT_TYPE = {
+    "iseazy lms": "SaaS LMS",
+    "lms": "SaaS LMS",
+    "iseazy author": "SaaS Author",
+    "author": "SaaS Author",
+    "iseazy skills": "SaaS Skills",
+    "skills": "SaaS Skills",
+    "iseazy engage": "SaaS Engage",
+    "engage": "SaaS Engage",
+    "iseazy aio": "SaaS AIO",
+    "aio": "SaaS AIO",
+    "author online": "Author Online",
+}
+
+RECURRING_PRODUCT_KEYWORDS = (
+    "licencia",
+    "licencias",
+    "usuario",
+    "usuarios",
+    "subscription",
+    "suscripcion",
+    "suscripción",
+    "saas",
+    "plataforma",
+)
 
 
 def _parse_date_text(value) -> Optional[date]:
@@ -74,11 +102,62 @@ def _str(value) -> Optional[str]:
     return s if s else None
 
 
-def load_product_classifications(wb) -> dict:
+def _normalize_key(value: str | None) -> str:
+    if value is None:
+        return ""
+    normalized = value.strip().lower()
+    replacements = {
+        "á": "a",
+        "é": "e",
+        "í": "i",
+        "ó": "o",
+        "ú": "u",
+        "ü": "u",
+        "ñ": "n",
+    }
+    for source, target in replacements.items():
+        normalized = normalized.replace(source, target)
+    return re.sub(r"[^a-z0-9]+", " ", normalized).strip()
+
+
+def _row_header_map(ws) -> dict[str, int]:
     try:
-        ws = wb["Productos SF SAAS"]
-    except KeyError as exc:
-        raise ExcelImportError("La hoja 'Productos SF SAAS' no existe en el Excel.") from exc
+        header = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
+    except StopIteration:
+        return {}
+    return {_normalize_key(_str(value)): index for index, value in enumerate(header)}
+
+
+def _cell(row, headers: dict[str, int], *names: str):
+    for name in names:
+        index = headers.get(_normalize_key(name))
+        if index is not None and index < len(row):
+            return row[index]
+    return None
+
+
+def _looks_recurring_product(row: dict) -> bool:
+    if row.get("subscription_start_date") or row.get("subscription_end_date"):
+        return True
+    if row.get("licence_period_months"):
+        return True
+    product_name = _normalize_key(row.get("product_name"))
+    return any(keyword in product_name for keyword in RECURRING_PRODUCT_KEYWORDS)
+
+
+def _infer_product_type(product_name: str, business_line: str | None, row: dict) -> Optional[str]:
+    combined = f"{_normalize_key(business_line)} {_normalize_key(product_name)}"
+    for key, product_type in BUSINESS_LINE_TO_PRODUCT_TYPE.items():
+        if _normalize_key(key) in combined and _looks_recurring_product(row):
+            return product_type
+    return None
+
+
+def load_product_classifications(wb) -> dict:
+    if "Productos SF SAAS" not in wb.sheetnames:
+        return {}
+
+    ws = wb["Productos SF SAAS"]
 
     result = {}
     for i, row in enumerate(ws.iter_rows(values_only=True)):
@@ -105,7 +184,7 @@ def load_consultant_countries(wb) -> dict:
             ws = wb[sheet_name]
             break
     if ws is None:
-        raise ExcelImportError("La hoja de pais consultor no existe en el Excel.")
+        return {}
 
     result = {}
     header_found = False
@@ -127,9 +206,65 @@ def load_opos_rows(wb):
     except KeyError as exc:
         raise ExcelImportError("La hoja 'Opos con Productos' no existe en el Excel.") from exc
 
+    headers = _row_header_map(ws)
     for i, row in enumerate(ws.iter_rows(values_only=True)):
         if i == 0:
             continue
+
+        if headers:
+            product_name = _str(
+                _cell(row, headers, "Nombre del producto", "Producto", "Product2.Name", "Product Name")
+            )
+            opportunity_name = _str(
+                _cell(row, headers, "Nombre de la oportunidad", "Oportunidad", "Opportunity.Name", "Name")
+            )
+            if product_name is None and opportunity_name is None:
+                continue
+
+            close_date = _parse_date_text(
+                _cell(row, headers, "Fecha de cierre", "Fecha cierre", "Close Date", "CloseDate")
+            )
+            if close_date is None or not product_name:
+                continue
+
+            unit_price = _decimal(_cell(row, headers, "Precio de venta", "Precio", "UnitPrice", "Sales Price")) or Decimal("0")
+            quantity = _decimal(_cell(row, headers, "Cantidad", "Quantity")) or Decimal("1")
+            account_name = _str(_cell(row, headers, "Nombre de la cuenta", "Cuenta", "Account.Name", "Account"))
+            opp_key = f"{opportunity_name or ''}-{account_name or ''}-{close_date}"
+            sf_opportunity_id = _str(_cell(row, headers, "Opportunity.Id", "Opportunity ID", "Id oportunidad"))
+            if not sf_opportunity_id:
+                sf_opportunity_id = "EXCEL_" + hashlib.md5(opp_key.encode()).hexdigest()[:12].upper()
+
+            line_key = f"{opp_key}-{product_name}-{unit_price}-{quantity}"
+            sf_line_item_id = _str(_cell(row, headers, "Id", "Line Item ID", "OpportunityLineItem.Id"))
+            if not sf_line_item_id:
+                sf_line_item_id = "EXCL_" + hashlib.md5(line_key.encode()).hexdigest()[:13].upper()
+
+            licence_period = _decimal(
+                _cell(row, headers, "Licence period (months)", "Meses", "Licence_Period_Months__c")
+            )
+
+            yield {
+                "sf_opportunity_id": sf_opportunity_id,
+                "sf_line_item_id": sf_line_item_id,
+                "opportunity_owner": _str(_cell(row, headers, "Propietario de oportunidad", "Propietario", "Owner.Name")) or "Unknown",
+                "account_name": account_name,
+                "opportunity_name": opportunity_name,
+                "opportunity_type": _str(_cell(row, headers, "Tipo", "Opportunity.Type")),
+                "channel_type": _str(_cell(row, headers, "Tipo de oportunidad", "LeadSource", "Canal")),
+                "opportunity_amount": _decimal(_cell(row, headers, "Importe", "Amount")),
+                "close_date": close_date,
+                "product_name": product_name,
+                "unit_price": unit_price,
+                "subscription_start_date": _parse_date_text(_cell(row, headers, "Subscription Start Date", "Inicio", "ServiceDate")),
+                "subscription_end_date": _parse_date_text(_cell(row, headers, "Subscription End Date", "Fin", "EndDate")),
+                "licence_period_months": int(licence_period) if licence_period is not None else None,
+                "business_line": _str(_cell(row, headers, "Línea de negocio", "Linea de negocio", "Product2.Family")),
+                "quantity": quantity,
+                "product_code": _str(_cell(row, headers, "Product", "ProductCode", "Código producto", "Codigo")),
+            }
+            continue
+
         if row[9] is None and row[2] is None:
             continue
 
@@ -168,6 +303,24 @@ def load_opos_rows(wb):
             "quantity": quantity,
             "product_code": _str(row[16]),
         }
+
+
+def infer_product_classifications_from_rows(rows: list[dict]) -> dict:
+    result = {}
+    for row in rows:
+        product_name = row["product_name"]
+        if product_name in result:
+            continue
+        product_type = _infer_product_type(product_name, row.get("business_line"), row)
+        if product_type:
+            result[product_name] = {
+                "product_code": row.get("product_code"),
+                "business_line": row.get("business_line"),
+                "category": "Salesforce raw",
+                "subcategory": None,
+                "product_type": product_type,
+            }
+    return result
 
 
 def upsert_product_classifications(session: Session, products: dict):
@@ -390,6 +543,9 @@ def import_excel_workbook(
         raise ExcelImportError("El Excel no contiene filas validas en 'Opos con Productos'.")
 
     try:
+        if not products:
+            products = infer_product_classifications_from_rows(rows)
+
         upsert_product_classifications(session, products)
         upsert_consultant_countries(session, countries)
 

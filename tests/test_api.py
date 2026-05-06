@@ -282,6 +282,60 @@ def _build_excel_bytes() -> bytes:
     return buffer.getvalue()
 
 
+def _build_raw_salesforce_excel_bytes() -> bytes:
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Opos con Productos"
+    ws.append(
+        [
+            "Propietario de oportunidad",
+            "Nombre de la cuenta",
+            "Nombre de la oportunidad",
+            "Tipo",
+            "Tipo de oportunidad",
+            "Importe",
+            "Fecha de cierre",
+            "Fecha de creación",
+            "Etapa",
+            "Nombre del producto",
+            "Precio de venta",
+            "Subscription Start Date",
+            "Subscription End Date",
+            "Licence period (months)",
+            "Línea de negocio",
+            "Cantidad",
+            "Product",
+            "Creado por",
+        ]
+    )
+    ws.append(
+        [
+            "Maria Lopez",
+            "Acme Corp",
+            "Renewal ACME",
+            "Negocio existente",
+            "Inbound",
+            12000,
+            "15/01/2026",
+            "10/01/2026",
+            "Ganada",
+            "Usuarios LMS",
+            12000,
+            "01/01/2026",
+            "31/12/2026",
+            12,
+            "isEazy LMS",
+            1,
+            "LMS-RAW",
+            "Maria Lopez",
+        ]
+    )
+
+    buffer = BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
+
+
 # ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
@@ -421,6 +475,32 @@ def test_import_excel_creates_completed_snapshot(client):
     summary = client.get("/api/arr/summary")
     assert summary.status_code == 200
     assert len(summary.json()["months"]) >= 1
+
+
+def test_import_raw_salesforce_export_without_calculated_sheets(client):
+    excel_bytes = _build_raw_salesforce_excel_bytes()
+
+    r = client.post(
+        "/api/imports/excel",
+        files={
+            "file": (
+                "Opos con Productos.xlsx",
+                excel_bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert r.status_code == 200
+    data = r.json()
+    assert data["status"] == "completed"
+    assert data["records_processed"] == 1
+
+    summary = client.get("/api/arr/summary")
+    assert summary.status_code == 200
+    months = summary.json()["months"]
+    assert len(months) >= 1
+    assert Decimal(months[-1]["by_product_type"]["SaaS LMS"]) > 0
 
 
 # ---------------------------------------------------------------------------
