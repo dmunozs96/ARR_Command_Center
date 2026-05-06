@@ -3,7 +3,6 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -25,46 +24,25 @@ type SnapshotContextValue = {
 
 const SnapshotContext = createContext<SnapshotContextValue | null>(null);
 
+function readStoredSnapshotId(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return window.localStorage.getItem(STORAGE_KEY);
+}
+
 export function SnapshotProvider({ children }: { children: ReactNode }) {
-  const [activeSnapshotId, setActiveSnapshotIdState] = useState<string | null>(null);
-  const [hasHydrated, setHasHydrated] = useState(false);
+  const [activeSnapshotId, setActiveSnapshotIdState] = useState<string | null>(
+    readStoredSnapshotId,
+  );
 
   const { data, isLoading } = useQuery({
     queryKey: ["snapshots"],
     queryFn: api.getSnapshots,
   });
 
-  const snapshots = data ?? [];
+  const snapshots = useMemo(() => data ?? [], [data]);
   const latestSnapshot = snapshots[0] ?? null;
-
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setActiveSnapshotIdState(stored);
-      }
-    } finally {
-      setHasHydrated(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!hasHydrated || snapshots.length === 0) {
-      return;
-    }
-
-    const hasCurrentSelection = activeSnapshotId
-      ? snapshots.some((snapshot) => snapshot.id === activeSnapshotId)
-      : false;
-
-    if (!hasCurrentSelection) {
-      const fallbackId = latestSnapshot?.id ?? null;
-      setActiveSnapshotIdState(fallbackId);
-      if (fallbackId) {
-        window.localStorage.setItem(STORAGE_KEY, fallbackId);
-      }
-    }
-  }, [activeSnapshotId, hasHydrated, latestSnapshot?.id, snapshots]);
 
   const activeSnapshot = useMemo(() => {
     if (!activeSnapshotId) {
@@ -81,11 +59,13 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
       activeSnapshotId: activeSnapshot?.id ?? null,
       setActiveSnapshotId: (snapshotId: string) => {
         setActiveSnapshotIdState(snapshotId);
-        window.localStorage.setItem(STORAGE_KEY, snapshotId);
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(STORAGE_KEY, snapshotId);
+        }
       },
-      isLoading: isLoading || !hasHydrated,
+      isLoading,
     }),
-    [activeSnapshot, hasHydrated, isLoading, latestSnapshot, snapshots]
+    [activeSnapshot, isLoading, latestSnapshot, snapshots]
   );
 
   return <SnapshotContext.Provider value={value}>{children}</SnapshotContext.Provider>;

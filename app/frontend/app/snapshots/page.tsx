@@ -1,7 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { Suspense, useMemo, useState } from "react";
+import Link from "next/link";
+import { useQueries } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useSnapshotContext } from "@/lib/snapshot-context";
@@ -32,29 +33,8 @@ function SnapshotsPageContent() {
     isLoading: snapshotsLoading,
   } = useSnapshotContext();
 
-  const [leftSnapshotId, setLeftSnapshotId] = useState<string>("");
-  const [rightSnapshotId, setRightSnapshotId] = useState<string>("");
-
-  useEffect(() => {
-    if (snapshots.length === 0) {
-      return;
-    }
-
-    const urlActive = searchParams.get("active");
-    const urlLeft = searchParams.get("left");
-    const urlRight = searchParams.get("right");
-
-    const ids = new Set(snapshots.map((snapshot) => snapshot.id));
-    const fallbackLeft = snapshots[1]?.id ?? snapshots[0]?.id ?? "";
-    const fallbackRight = snapshots[0]?.id ?? "";
-
-    if (urlActive && ids.has(urlActive)) {
-      setActiveSnapshotId(urlActive);
-    }
-
-    setLeftSnapshotId(urlLeft && ids.has(urlLeft) ? urlLeft : fallbackLeft);
-    setRightSnapshotId(urlRight && ids.has(urlRight) ? urlRight : fallbackRight);
-  }, [searchParams, setActiveSnapshotId, snapshots]);
+  const [leftSnapshotId, setLeftSnapshotId] = useState<string | null>(null);
+  const [rightSnapshotId, setRightSnapshotId] = useState<string | null>(null);
 
   const snapshotSummaryQueries = useQueries({
     queries: snapshots.map((snapshot) => ({
@@ -73,13 +53,22 @@ function SnapshotsPageContent() {
     ) as Record<string, number | null>;
   }, [snapshotSummaryQueries, snapshots]);
 
-  const comparisonSnapshotIds = useMemo(
-    () => ({
-      left: leftSnapshotId || snapshots[1]?.id || snapshots[0]?.id || "",
-      right: rightSnapshotId || activeSnapshotId || snapshots[0]?.id || "",
-    }),
-    [activeSnapshotId, leftSnapshotId, rightSnapshotId, snapshots]
-  );
+  const comparisonSnapshotIds = useMemo(() => {
+    const ids = new Set(snapshots.map((snapshot) => snapshot.id));
+    const urlLeft = searchParams.get("left");
+    const urlRight = searchParams.get("right");
+    const fallbackLeft = snapshots[1]?.id ?? snapshots[0]?.id ?? "";
+    const fallbackRight = activeSnapshotId ?? snapshots[0]?.id ?? "";
+
+    return {
+      left:
+        leftSnapshotId ??
+        (urlLeft && ids.has(urlLeft) ? urlLeft : fallbackLeft),
+      right:
+        rightSnapshotId ??
+        (urlRight && ids.has(urlRight) ? urlRight : fallbackRight),
+    };
+  }, [activeSnapshotId, leftSnapshotId, rightSnapshotId, searchParams, snapshots]);
 
   const [leftSummaryQuery, rightSummaryQuery, leftItemsQuery, rightItemsQuery] = useQueries({
     queries: [
@@ -189,12 +178,12 @@ function SnapshotsPageContent() {
             Selecciona el snapshot activo para todo el frontend y compara sincronizaciones.
           </p>
         </div>
-        <a
+        <Link
           href="/"
           className="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
         >
           Volver al dashboard
-        </a>
+        </Link>
       </div>
 
       <section className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
