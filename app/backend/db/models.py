@@ -126,6 +126,7 @@ class ARRLineItem(Base):
 
     consultant_country = Column(String(100))
     data_quality_flags = Column(JSONB, default=list)
+    excluded_from_arr = Column(Boolean, nullable=False, default=False)
 
     created_at = Column(DateTime, default=func.now())
 
@@ -177,6 +178,8 @@ class SnapshotAlert(Base):
     review_note = Column(Text)
     reviewed_at = Column(DateTime)
     reviewed_by = Column(Text)
+    # For OVERLAPPING_CONTRACTS: the ARRLineItem this alert proposes to exclude
+    arr_line_item_id = Column(UUID(as_uuid=True), ForeignKey("arr_line_items.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=func.now())
 
     snapshot = relationship("Snapshot", back_populates="alerts")

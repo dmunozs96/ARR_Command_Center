@@ -16,6 +16,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.backend.core.arr_calculator import ARRCalculator, RawLineItem, _last_day_of_month
+from app.backend.core.alert_checker import check_overlapping_contracts
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -366,3 +367,111 @@ class TestExcelParity:
 
 
 TOLERANCE = Decimal("0.01")
+
+
+# ---------------------------------------------------------------------------
+# Overlapping contracts detection (Fase I-B)
+# ---------------------------------------------------------------------------
+
+class TestOverlappingContracts:
+
+    def test_no_overlap_different_accounts(self):
+        calc = make_calc()
+        raw_a = make_raw(
+            sf_line_item_id="LI_A",
+            account_name="Acme Corp",
+            subscription_start_date=date(2024, 1, 1),
+            subscription_end_date=date(2024, 12, 31),
+        )
+        raw_b = make_raw(
+            sf_line_item_id="LI_B",
+            account_name="Other Corp",
+            subscription_start_date=date(2024, 6, 1),
+            subscription_end_date=date(2025, 5, 31),
+        )
+        snap = calc.process_all([raw_a, raw_b])
+        alerts = check_overlapping_contracts(snap)
+        assert len(alerts) == 0
+
+    def test_no_overlap_same_account_different_product_type(self):
+        calc = make_calc()
+        raw_a = make_raw(
+            sf_line_item_id="LI_A",
+            product_name="SaaS LMS Estándar",
+            account_name="Acme Corp",
+            subscription_start_date=date(2024, 1, 1),
+            subscription_end_date=date(2024, 12, 31),
+        )
+        raw_b = make_raw(
+            sf_line_item_id="LI_B",
+            product_name="SaaS Author",
+            account_name="Acme Corp",
+            subscription_start_date=date(2024, 6, 1),
+            subscription_end_date=date(2025, 5, 31),
+        )
+        snap = calc.process_all([raw_a, raw_b])
+        alerts = check_overlapping_contracts(snap)
+        assert len(alerts) == 0
+
+    def test_no_overlap_sequential_contracts(self):
+        calc = make_calc()
+        raw_a = make_raw(
+            sf_line_item_id="LI_A",
+            account_name="Acme Corp",
+            subscription_start_date=date(2024, 1, 1),
+            subscription_end_date=date(2024, 12, 31),
+        )
+        raw_b = make_raw(
+            sf_line_item_id="LI_B",
+            account_name="Acme Corp",
+            subscription_start_date=date(2025, 1, 1),
+            subscription_end_date=date(2025, 12, 31),
+        )
+        snap = calc.process_all([raw_a, raw_b])
+        alerts = check_overlapping_contracts(snap)
+        assert len(alerts) == 0
+
+    def test_overlap_same_account_same_product_generates_two_alerts(self):
+        """One overlapping pair → two alerts (one per line item)."""
+        calc = make_calc()
+        raw_a = make_raw(
+            sf_line_item_id="LI_A",
+            sf_opportunity_id="OPP_A",
+            account_name="Acme Corp",
+            subscription_start_date=date(2024, 1, 1),
+            subscription_end_date=date(2024, 12, 31),
+        )
+        raw_b = make_raw(
+            sf_line_item_id="LI_B",
+            sf_opportunity_id="OPP_B",
+            account_name="Acme Corp",
+            subscription_start_date=date(2024, 6, 1),
+            subscription_end_date=date(2025, 5, 31),
+        )
+        snap = calc.process_all([raw_a, raw_b])
+        alerts = check_overlapping_contracts(snap)
+        assert len(alerts) == 2
+        for alert in alerts:
+            assert alert["alert_type"] == "OVERLAPPING_CONTRACTS"
+            assert alert["severity"] == "warning"
+            assert alert["account_name"] == "Acme Corp"
+            assert "_sf_line_item_id" in alert
+
+        sf_line_ids = {a["_sf_line_item_id"] for a in alerts}
+        assert sf_line_ids == {"LI_A", "LI_B"}
+
+    def test_overlap_three_contracts_generates_all_pairs(self):
+        """Three mutually overlapping contracts → 6 alerts (3 pairs × 2 each)."""
+        calc = make_calc()
+        items = [
+            make_raw(
+                sf_line_item_id=f"LI_{i}",
+                account_name="BigCorp",
+                subscription_start_date=date(2024, 1, 1),
+                subscription_end_date=date(2024, 12, 31),
+            )
+            for i in range(3)
+        ]
+        snap = calc.process_all(items)
+        alerts = check_overlapping_contracts(snap)
+        assert len(alerts) == 6

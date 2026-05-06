@@ -21,17 +21,19 @@ export default function DashboardPage() {
   const [productType, setProductType] = useState("");
   const [monthFrom, setMonthFrom] = useState(DEFAULT_MONTH_FROM);
   const [monthTo, setMonthTo] = useState(DEFAULT_MONTH_TO);
+  const [arrMode, setArrMode] = useState<"from_start" | "from_close">("from_start");
   const { activeSnapshot, isLoading: snapshotsLoading } = useSnapshotContext();
   const currentMonth = currentMonthStart();
 
   const arrQuery = useQuery({
-    queryKey: ["arr-summary", activeSnapshot?.id, monthFrom, monthTo, productType],
+    queryKey: ["arr-summary", activeSnapshot?.id, monthFrom, monthTo, productType, arrMode],
     queryFn: () =>
       api.getARRSummary({
         snapshot_id: activeSnapshot?.id,
         month_from: monthFrom,
         month_to: monthTo,
         product_type: productType || undefined,
+        mode: arrMode,
       }),
     enabled: !!activeSnapshot,
   });
@@ -77,7 +79,7 @@ export default function DashboardPage() {
             Snapshot activo: {activeSnapshot ? formatDateTime(activeSnapshot.created_at) : "-"}
           </p>
         </div>
-        <div className="flex items-start gap-3">
+        <div className="flex flex-wrap items-start gap-2">
           {unreviewedCount > 0 && (
             <a
               href="/alerts"
@@ -86,6 +88,32 @@ export default function DashboardPage() {
               {unreviewedCount} alerta{unreviewedCount !== 1 ? "s" : ""} pendientes
             </a>
           )}
+          <div
+            role="group"
+            aria-label="Criterio ARR"
+            className="flex overflow-hidden rounded-full border border-stone-300 bg-white text-sm"
+          >
+            <button
+              onClick={() => setArrMode("from_start")}
+              className={`px-3 py-1.5 transition-colors ${
+                arrMode === "from_start"
+                  ? "bg-stone-900 text-white"
+                  : "text-stone-600 hover:bg-stone-50"
+              }`}
+            >
+              Desde inicio
+            </button>
+            <button
+              onClick={() => setArrMode("from_close")}
+              className={`border-l border-stone-300 px-3 py-1.5 transition-colors ${
+                arrMode === "from_close"
+                  ? "bg-stone-900 text-white"
+                  : "text-stone-600 hover:bg-stone-50"
+              }`}
+            >
+              Desde cierre
+            </button>
+          </div>
           <ExcelUploadButton />
           <SyncButton />
         </div>

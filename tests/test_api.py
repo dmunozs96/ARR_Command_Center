@@ -155,25 +155,35 @@ def _make_raw(db, snap_id, sf_opp_id="OPP001", sf_line_id="LI001", product="SaaS
     return raw
 
 
-def _make_arr(db, snap_id, raw_id, product_type="SaaS LMS", arr=Decimal("10000")):
+def _make_arr(
+    db,
+    snap_id,
+    raw_id,
+    product_type="SaaS LMS",
+    arr=Decimal("10000"),
+    start_month=date(2025, 1, 1),
+    end_month_normalized=date(2025, 12, 31),
+    excluded_from_arr=False,
+):
     arr_item = ARRLineItem(
         id=uuid.uuid4(),
         snapshot_id=snap_id,
         raw_line_item_id=raw_id,
         product_type=product_type,
         is_saas=True,
-        effective_start_date=date(2025, 1, 1),
-        effective_end_date=date(2025, 12, 31),
+        effective_start_date=start_month,
+        effective_end_date=end_month_normalized,
         used_start_fallback=False,
         used_end_fallback=False,
-        start_month=date(2025, 1, 1),
-        end_month_normalized=date(2025, 12, 31),
-        service_days=364,
+        start_month=start_month,
+        end_month_normalized=end_month_normalized,
+        service_days=(end_month_normalized - start_month).days or 1,
         real_price=Decimal("10000"),
         daily_price=Decimal("27.47"),
         annualized_value=arr,
         consultant_country="Spain",
         data_quality_flags=[],
+        excluded_from_arr=excluded_from_arr,
     )
     db.add(arr_item)
     db.flush()
@@ -425,8 +435,22 @@ def test_arr_summary_no_snapshot(client):
 def test_arr_summary_returns_months(client):
     db = TestingSessionLocal()
     snap = _make_snapshot(db)
-    _make_summary(db, snap.id, date(2025, 1, 1), "SaaS LMS", Decimal("12000"))
-    _make_summary(db, snap.id, date(2025, 2, 1), "SaaS LMS", Decimal("13000"))
+    # Two non-overlapping contracts: Jan-only and Feb-only
+    raw_jan = _make_raw(db, snap.id, sf_opp_id="OPP_JAN", sf_line_id="LI_JAN")
+    raw_jan.subscription_start_date = date(2025, 1, 1)
+    raw_jan.subscription_end_date = date(2025, 1, 31)
+    raw_feb = _make_raw(db, snap.id, sf_opp_id="OPP_FEB", sf_line_id="LI_FEB")
+    raw_feb.subscription_start_date = date(2025, 2, 1)
+    raw_feb.subscription_end_date = date(2025, 2, 28)
+    db.flush()
+    _make_arr(
+        db, snap.id, raw_jan.id, arr=Decimal("12000"),
+        start_month=date(2025, 1, 1), end_month_normalized=date(2025, 1, 30),
+    )
+    _make_arr(
+        db, snap.id, raw_feb.id, arr=Decimal("13000"),
+        start_month=date(2025, 2, 1), end_month_normalized=date(2025, 2, 27),
+    )
     db.commit()
     db.close()
 
@@ -441,8 +465,18 @@ def test_arr_summary_returns_months(client):
 def test_arr_summary_filter_by_product_type(client):
     db = TestingSessionLocal()
     snap = _make_snapshot(db)
-    _make_summary(db, snap.id, date(2025, 1, 1), "SaaS LMS", Decimal("12000"))
-    _make_summary(db, snap.id, date(2025, 1, 1), "SaaS Skills", Decimal("8000"))
+    raw_lms = _make_raw(db, snap.id, sf_opp_id="OPP_LMS", sf_line_id="LI_LMS")
+    raw_skills = _make_raw(db, snap.id, sf_opp_id="OPP_SKL", sf_line_id="LI_SKL")
+    db.flush()
+    # Both items span only Jan 2025 to keep the test focused on the filter
+    _make_arr(
+        db, snap.id, raw_lms.id, product_type="SaaS LMS", arr=Decimal("12000"),
+        start_month=date(2025, 1, 1), end_month_normalized=date(2025, 1, 30),
+    )
+    _make_arr(
+        db, snap.id, raw_skills.id, product_type="SaaS Skills", arr=Decimal("8000"),
+        start_month=date(2025, 1, 1), end_month_normalized=date(2025, 1, 30),
+    )
     db.commit()
     db.close()
 
@@ -658,6 +692,152 @@ def test_cron_daily_sync_rejects_wrong_secret(client, monkeypatch):
     monkeypatch.setenv("CRON_SECRET", "correct-secret")
     r = client.post("/api/sync/cron/daily", headers={"x-cron-secret": "wrong"})
     assert r.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# ARR mode=from_close
+# ---------------------------------------------------------------------------
+
+def test_arr_summary_from_close_mode(client):
+    """mode=from_close uses close_date as the start, potentially shifting months."""
+    db = TestingSessionLocal()
+    snap = _make_snapshot(db)
+    # Contract: service starts Jan 2025, but close_date was Nov 2024
+    raw = _make_raw(db, snap.id, sf_opp_id="OPP_CLOSE", sf_line_id="LI_CLOSE")
+    raw.close_date = date(2024, 11, 1)
+    raw.subscription_start_date = date(2025, 1, 1)
+    raw.subscription_end_date = date(2025, 12, 31)
+    db.flush()
+    _make_arr(
+        db, snap.id, raw.id,
+        arr=Decimal("10000"),
+        start_month=date(2025, 1, 1),
+        end_month_normalized=date(2025, 12, 30),
+    )
+    db.commit()
+    db.close()
+
+    r_start = client.get("/api/arr/summary?mode=from_start")
+    assert r_start.status_code == 200
+    first_month_start = r_start.json()["months"][0]["month"]
+
+    r_close = client.get("/api/arr/summary?mode=from_close")
+    assert r_close.status_code == 200
+    first_month_close = r_close.json()["months"][0]["month"]
+
+    # from_close should start in Nov 2024, from_start in Jan 2025
+    assert first_month_close < first_month_start
+
+
+# ---------------------------------------------------------------------------
+# ARR line item exclusion
+# ---------------------------------------------------------------------------
+
+def test_patch_line_item_exclude(client):
+    """PATCH /api/arr/line-items/{id} toggles excluded_from_arr."""
+    db = TestingSessionLocal()
+    snap = _make_snapshot(db)
+    raw = _make_raw(db, snap.id)
+    arr_item = _make_arr(db, snap.id, raw.id, arr=Decimal("10000"))
+    db.commit()
+    arr_id = arr_item.id
+    db.close()
+
+    # Initially included — summary returns data
+    r1 = client.get("/api/arr/summary")
+    assert r1.status_code == 200
+    assert len(r1.json()["months"]) > 0
+
+    # Exclude the item
+    r_patch = client.patch(f"/api/arr/line-items/{arr_id}", json={"excluded_from_arr": True})
+    assert r_patch.status_code == 200
+    assert r_patch.json()["excluded_from_arr"] is True
+
+    # Summary should now be empty
+    r2 = client.get("/api/arr/summary")
+    assert r2.status_code == 200
+    assert len(r2.json()["months"]) == 0
+
+    # Re-include
+    r_patch2 = client.patch(f"/api/arr/line-items/{arr_id}", json={"excluded_from_arr": False})
+    assert r_patch2.json()["excluded_from_arr"] is False
+
+    r3 = client.get("/api/arr/summary")
+    assert len(r3.json()["months"]) > 0
+
+
+def test_patch_line_item_not_found(client):
+    r = client.patch(f"/api/arr/line-items/{uuid.uuid4()}", json={"excluded_from_arr": True})
+    assert r.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Overlap alerts generated on sync
+# ---------------------------------------------------------------------------
+
+def test_sync_generates_overlap_alerts(client, monkeypatch):
+    """Two overlapping contracts for same account+product generate OVERLAPPING_CONTRACTS alerts."""
+    db = TestingSessionLocal()
+    db.add(ProductClassification(product_name="Licencias LMS", product_type="SaaS LMS"))
+    db.add(ConsultantCountry(consultant_name="Maria Lopez", country="Spain"))
+    db.commit()
+    db.close()
+
+    from app.backend.core.arr_calculator import RawLineItem as RL
+    raw_items = [
+        RL(
+            sf_opportunity_id="OPP_A",
+            sf_line_item_id="LI_A",
+            opportunity_name="Contrato A",
+            account_name="Acme Corp",
+            opportunity_owner="Maria Lopez",
+            opportunity_type="New Business",
+            channel_type="Inbound",
+            close_date=date(2025, 1, 1),
+            product_name="Licencias LMS",
+            unit_price=Decimal("12000"),
+            quantity=Decimal("1"),
+            subscription_start_date=date(2025, 1, 1),
+            subscription_end_date=date(2025, 12, 31),
+            licence_period_months=12,
+            business_line="isEazy LMS",
+        ),
+        RL(
+            sf_opportunity_id="OPP_B",
+            sf_line_item_id="LI_B",
+            opportunity_name="Contrato B",
+            account_name="Acme Corp",
+            opportunity_owner="Maria Lopez",
+            opportunity_type="Renewal",
+            channel_type="Inbound",
+            close_date=date(2025, 6, 1),
+            product_name="Licencias LMS",
+            unit_price=Decimal("13000"),
+            quantity=Decimal("1"),
+            subscription_start_date=date(2025, 6, 1),
+            subscription_end_date=date(2026, 5, 31),
+            licence_period_months=12,
+            business_line="isEazy LMS",
+        ),
+    ]
+
+    from app.backend.api.routes import sync as sync_route
+
+    class DummyExtractor:
+        def fetch_raw_line_items(self):
+            return raw_items
+
+    monkeypatch.setattr(sync_route, "SalesforceExtractor", lambda: DummyExtractor())
+
+    r = client.post("/api/sync", json={"triggered_by": "test"})
+    assert r.status_code == 200
+
+    alerts_r = client.get("/api/alerts?alert_type=OVERLAPPING_CONTRACTS")
+    assert alerts_r.status_code == 200
+    overlap_alerts = alerts_r.json()
+    assert len(overlap_alerts) == 2
+    for alert in overlap_alerts:
+        assert alert["arr_line_item_id"] is not None
 
 
 def test_cron_daily_sync_skips_when_data_unchanged(client, monkeypatch):

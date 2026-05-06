@@ -267,3 +267,20 @@ Di al agente: "Lee docs/handover/CURRENT_STATE.md y docs/handover/NEXT_STEPS.md 
 
 **Instruccion para la proxima conversacion:**
 Di al agente: "Lee CURRENT_STATE.md y NEXT_STEPS.md. Si hay credenciales SF disponibles, cierra Fase E y activa el cron en Railway. Si no, implementa Fase I-A (toggle ARR desde cierre) o Fase I-B (solapamientos), priorizando lo que el CFO indique."
+
+## 2026-05-06 - Sesion 18 (Fases I-A e I-B)
+**Agente:** Claude Sonnet 4.6
+- Implementada Fase I-A: toggle ARR "desde inicio" / "desde cierre" en el dashboard.
+  - Nuevo param `mode=from_start|from_close` en `GET /api/arr/summary`.
+  - El summary ahora se calcula en vivo desde `arr_line_items` (no desde `ARRMonthlySummary`), lo que permite respetar exclusiones en tiempo real.
+  - Toggle visual en la cabecera del dashboard.
+- Implementada Fase I-B: deteccion y gestion de solapamientos de contratos.
+  - Nueva columna `excluded_from_arr` en `arr_line_items` + `arr_line_item_id` en `snapshot_alerts`.
+  - Migración `0003_add_overlaps.py`.
+  - `check_overlapping_contracts()` en `alert_checker.py`: genera 2 alertas por par solapado.
+  - `PATCH /api/arr/line-items/{id}` para que el CFO excluya/incluya contratos solapados.
+  - UI de alertas: botón "Excluir del ARR" / "Incluir en ARR" en alertas `OVERLAPPING_CONTRACTS`.
+- Tests: de 27 a 57 (30 tests nuevos). pytest 57/57. TypeScript OK. E2E 3/3 OK.
+
+**Instruccion para la proxima conversacion:**
+Di al agente: "Lee CURRENT_STATE.md y NEXT_STEPS.md. Si hay credenciales SF, cierra Fase E. Si no, el siguiente pendiente de negocio es confirmar con el CFO el comportamiento de exclusiones entre snapshots (ver NEXT_STEPS.md)."

@@ -2,6 +2,7 @@ import axios from "axios";
 import type {
   ARRSummaryResponse,
   ARRByConsultantResponse,
+  ARRLineItemOut,
   ARRLineItemsResponse,
   SnapshotSummary,
   AlertOut,
@@ -27,6 +28,7 @@ export const api = {
     month_from?: string;
     month_to?: string;
     product_type?: string;
+    mode?: "from_start" | "from_close";
   }) =>
     client
       .get<ARRSummaryResponse>("/arr/summary", { params })
@@ -72,6 +74,9 @@ export const api = {
 
   patchAlert: (id: string, data: { reviewed: boolean; review_note?: string; reviewed_by?: string }) =>
     client.patch<AlertOut>(`/alerts/${id}`, data).then((r) => r.data),
+
+  patchLineItemExclusion: (id: string, excluded_from_arr: boolean) =>
+    client.patch<ARRLineItemOut>(`/arr/line-items/${id}`, { excluded_from_arr }).then((r) => r.data),
 
   // Config - Products
   getProducts: () =>

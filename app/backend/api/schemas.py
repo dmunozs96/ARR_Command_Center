@@ -94,8 +94,13 @@ class ARRLineItemOut(BaseModel):
     data_quality_flags: List[str]
     used_start_fallback: bool
     used_end_fallback: bool
+    excluded_from_arr: bool
 
     model_config = {"from_attributes": True}
+
+
+class LineItemExcludePatch(BaseModel):
+    excluded_from_arr: bool
 
 
 class ARRLineItemsResponse(BaseModel):
@@ -124,6 +129,7 @@ class AlertOut(BaseModel):
     review_note: Optional[str]
     reviewed_at: Optional[datetime]
     reviewed_by: Optional[str]
+    arr_line_item_id: Optional[UUID]
     created_at: Optional[datetime]
 
     model_config = {"from_attributes": True}

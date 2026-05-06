@@ -3,6 +3,7 @@ Alert checker: validates raw line items before calculation and
 post-processes ARRSnapshot to surface data quality issues.
 """
 
+from itertools import combinations
 from typing import List
 
 from app.backend.core.arr_calculator import ARRSnapshot, RawLineItem
@@ -35,6 +36,48 @@ def check_raw_items(raw_items: List[RawLineItem], known_products: set, known_con
                 "product_name": item.product_name,
                 "description": f"Consultor '{item.opportunity_owner}' no tiene país asignado.",
             })
+    return alerts
+
+
+def check_overlapping_contracts(snapshot: ARRSnapshot) -> List[dict]:
+    """
+    Detect pairs of SaaS line items for the same (account_name, product_type)
+    with overlapping active date ranges. Returns two alerts per overlapping pair,
+    one per line item, so the user can choose which to exclude.
+
+    Each alert dict includes a private key '_sf_line_item_id' that
+    snapshot_manager uses to resolve the arr_line_item_id FK.
+    """
+    saas_items = [i for i in snapshot.line_items if i.is_saas and not i.exclude_from_arr]
+
+    groups: dict[tuple, list] = {}
+    for item in saas_items:
+        key = (item.raw.account_name, item.product_type)
+        groups.setdefault(key, []).append(item)
+
+    alerts = []
+    for (account, product_type), items in groups.items():
+        for a, b in combinations(items, 2):
+            if a.start_month <= b.end_month_normalized and b.start_month <= a.end_month_normalized:
+                for primary, other in [(a, b), (b, a)]:
+                    alerts.append({
+                        "alert_type": "OVERLAPPING_CONTRACTS",
+                        "severity": "warning",
+                        "sf_opportunity_id": primary.raw.sf_opportunity_id,
+                        "opportunity_name": primary.raw.opportunity_name,
+                        "account_name": account,
+                        "product_name": primary.raw.product_name,
+                        "description": (
+                            f"Solapamiento detectado: '{primary.raw.opportunity_name}' "
+                            f"({primary.start_month} – {primary.end_month_normalized}) "
+                            f"se solapa con '{other.raw.opportunity_name}' "
+                            f"({other.start_month} – {other.end_month_normalized}) "
+                            f"para el cliente {account} [{product_type}]. "
+                            f"ARR en riesgo de doble conteo: {primary.annualized_value:.0f}€. "
+                            f"Decide si excluir este contrato del ARR."
+                        ),
+                        "_sf_line_item_id": primary.raw.sf_line_item_id,
+                    })
     return alerts
 
 

@@ -1,28 +1,23 @@
 # Next Steps
-**Ultima actualizacion:** 2026-05-04
+**Ultima actualizacion:** 2026-05-06
 
 ---
 
 ## Estado actual
 
-Fases A-H completadas. Cron diario implementado.
+Fases A-H + I-A + I-B completadas. Tests: 57/57 OK. TypeScript OK. E2E: 3/3 OK.
 
 Bloqueos que siguen abiertos:
 - faltan credenciales reales de Salesforce en `.env`
 - PostgreSQL local no configurado en este entorno
 - `npm run build` compila pero termina con `spawn EPERM` en Windows (no afecta Railway)
 
-Verificaciones recientes:
-- `pytest tests/` → **27/27 OK**
-- `npx tsc --noEmit` → **OK**
-- `npm run test:e2e` → **3/3 OK**
-
 ---
 
 ## FASE E — Integracion real con Salesforce
 
 Pendiente para cerrarla de verdad:
-- [ ] Levantar PostgreSQL local y cargar snapshot base Excel si aun no existe
+- [ ] Levantar PostgreSQL local y ejecutar migración `alembic upgrade head` (incluye 0003)
 - [ ] Configurar credenciales reales en `.env`:
   - `SF_USERNAME`, `SF_PASSWORD`, `SF_SECURITY_TOKEN`, `SF_DOMAIN`
 - [ ] Ejecutar `python scripts/test_sf_connection.py --sample-size 5`
@@ -43,33 +38,19 @@ Pendiente para cerrarla de verdad:
 
 ---
 
-## FASE I-A — Toggle ARR "desde cierre" vs "desde inicio" (Q-03)
+## Pendientes de negocio menores
 
-El CFO quiere poder alternar en el dashboard entre dos criterios de ARR:
-- **Desde inicio:** fecha efectiva de inicio del servicio (comportamiento actual)
-- **Desde cierre (backlog):** fecha en que la oportunidad se marco como ganada (`close_date`)
+### Comportamiento exclusion entre snapshots
+Actualmente `excluded_from_arr` vive en `arr_line_items` y es por snapshot. Al hacer un nuevo sync, los nuevos ARRLineItems tienen `excluded_from_arr=false` por defecto. Esto significa que las exclusiones de solapamientos del CFO no se transfieren al snapshot siguiente.
 
-Implementacion necesaria:
-- [ ] Verificar que `close_date` se extrae de SF y se persiste en `RawOpportunityLineItem`
-- [ ] Nuevo campo calculado en `ARRLineItem`: `arr_from_close_date`
-- [ ] Toggle en el dashboard (UI) que alterna el criterio de calculo
-- [ ] Endpoint o parametro en `GET /api/arr/summary` para `mode=from_start|from_close`
-- [ ] Tests actualizados
+Opciones:
+- **Opcion A (actual):** CFO re-revisa y re-excluye en cada snapshot nuevo. Simple, explícito.
+- **Opcion B:** Al crear snapshot nuevo, copiar flags de exclusión del snapshot anterior para los mismos `sf_line_item_id`. Más automático pero puede "colar" exclusiones obsoletas.
 
----
+Pendiente: confirmar con el CFO qué comportamiento prefiere.
 
-## FASE I-B — Deteccion y gestion de solapamientos (Q-06)
-
-Cuando dos line items del mismo cliente y producto se solapan en fechas, el ARR se dobla.
-
-Implementacion necesaria:
-- [ ] Logica de deteccion en `ARRCalculator` o `alert_checker`: comparar pares (account, product_type) con fechas solapadas
-- [ ] Nueva alerta tipo `OVERLAPPING_CONTRACTS` con severidad `WARNING`
-  - Incluir ambas oportunidades (IDs, nombres, fechas) en la descripcion
-- [ ] Nuevo campo `excluded_from_arr` (bool) en `SnapshotAlert` o en `ARRLineItem`
-- [ ] Toggle en la UI de alertas para incluir/excluir el line item solapado del ARR
-- [ ] El calculo de ARR del dashboard debe respetar los flags de exclusion del snapshot activo
-- [ ] Tests para el detector y para el endpoint PATCH que cambia el flag
+### Toggle "desde cierre" en vista de consultores
+El endpoint `/api/arr/by-consultant` aún usa `from_start` implícitamente. Si el CFO quiere ver el modo backlog también por consultor, añadir `mode` param al endpoint y la UI correspondiente.
 
 ---
 
@@ -84,8 +65,16 @@ cd app/frontend
 npx tsc --noEmit
 npm run test:e2e
 
+# Migraciones (con PG local)
+alembic upgrade head
+
 # Sync manual
 curl -X POST http://localhost:8000/api/sync -H "Content-Type: application/json"
+
+# Excluir un line item del ARR
+curl -X PATCH http://localhost:8000/api/arr/line-items/<uuid> \
+  -H "Content-Type: application/json" \
+  -d '{"excluded_from_arr": true}'
 
 # Cron test local
 curl -X POST http://localhost:8000/api/sync/cron/daily \

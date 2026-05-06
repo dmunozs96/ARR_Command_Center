@@ -10,6 +10,8 @@ import { useSnapshotContext } from "@/lib/snapshot-context";
 import type { AlertOut } from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
 
+type ExclusionState = Record<string, boolean | undefined>; // arr_line_item_id → excluded
+
 const SEVERITY_COLOR: Record<string, string> = {
   ERROR: "border-red-200 bg-red-50 text-red-700",
   WARNING: "border-amber-200 bg-amber-50 text-amber-700",
@@ -21,6 +23,7 @@ const ALERT_TYPE_LABELS: Record<string, string> = {
   MISSING_START_DATE: "Fecha de inicio ausente",
   MISSING_END_DATE: "Fecha de fin ausente",
   LONG_SERVICE_PERIOD: "Duracion anomala",
+  OVERLAPPING_CONTRACTS: "Solapamiento de contratos",
 };
 
 function severityLabel(severity: string): string {
@@ -44,6 +47,9 @@ function AlertCard({
   onNoteChange,
   onMarkReviewed,
   isMutating,
+  isExcluded,
+  onToggleExclusion,
+  isExclusionMutating,
 }: {
   alert: AlertOut;
   expanded: boolean;
@@ -52,6 +58,9 @@ function AlertCard({
   onNoteChange: (value: string) => void;
   onMarkReviewed: () => void;
   isMutating: boolean;
+  isExcluded?: boolean;
+  onToggleExclusion?: () => void;
+  isExclusionMutating?: boolean;
 }) {
   const severity = alert.severity.toUpperCase();
 
@@ -119,6 +128,19 @@ function AlertCard({
             >
               Ir a config
             </Link>
+          )}
+          {alert.alert_type === "OVERLAPPING_CONTRACTS" && alert.arr_line_item_id && onToggleExclusion && (
+            <button
+              onClick={onToggleExclusion}
+              disabled={isExclusionMutating}
+              className={`rounded-full border px-3 py-1.5 text-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                isExcluded
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                  : "border-red-300 bg-red-50 text-red-800 hover:bg-red-100"
+              }`}
+            >
+              {isExcluded ? "Incluir en ARR" : "Excluir del ARR"}
+            </button>
           )}
         </div>
       </div>
@@ -209,6 +231,7 @@ function AlertsPageContent() {
   const [alertType, setAlertType] = useState("ALL");
   const [expandedAlertId, setExpandedAlertId] = useState(initialAlertId);
   const [noteInput, setNoteInput] = useState<Record<string, string>>({});
+  const [exclusionState, setExclusionState] = useState<ExclusionState>({});
 
   const { data: alerts, isLoading, isError, error } = useQuery({
     queryKey: ["alerts", activeSnapshot?.id, showReviewed, alertType],
@@ -227,6 +250,15 @@ function AlertsPageContent() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["alerts"] });
       qc.invalidateQueries({ queryKey: ["alerts-unreviewed"] });
+    },
+  });
+
+  const exclusionMutation = useMutation({
+    mutationFn: ({ lineItemId, excluded }: { lineItemId: string; excluded: boolean }) =>
+      api.patchLineItemExclusion(lineItemId, excluded),
+    onSuccess: (_, { lineItemId, excluded }) => {
+      setExclusionState((prev) => ({ ...prev, [lineItemId]: excluded }));
+      qc.invalidateQueries({ queryKey: ["arr-summary"] });
     },
   });
 
@@ -347,27 +379,37 @@ function AlertsPageContent() {
       )}
 
       <div className="space-y-4" data-testid="alerts-list">
-        {(alerts ?? []).map((alert) => (
-          <AlertCard
-            key={alert.id}
-            alert={alert}
-            expanded={expandedAlertId === alert.id}
-            note={noteInput[alert.id] ?? alert.review_note ?? ""}
-            onToggle={() =>
-              setExpandedAlertId((current) => (current === alert.id ? "" : alert.id))
-            }
-            onNoteChange={(value) =>
-              setNoteInput((prev) => ({
-                ...prev,
-                [alert.id]: value,
-              }))
-            }
-            onMarkReviewed={() =>
-              mutation.mutate({ id: alert.id, note: noteInput[alert.id] ?? alert.review_note ?? "" })
-            }
-            isMutating={mutation.isPending}
-          />
-        ))}
+        {(alerts ?? []).map((alert) => {
+          const lineItemId = alert.arr_line_item_id;
+          const isExcluded = lineItemId != null
+            ? (exclusionState[lineItemId] ?? false)
+            : false;
+          return (
+            <AlertCard
+              key={alert.id}
+              alert={alert}
+              expanded={expandedAlertId === alert.id}
+              note={noteInput[alert.id] ?? alert.review_note ?? ""}
+              onToggle={() =>
+                setExpandedAlertId((current) => (current === alert.id ? "" : alert.id))
+              }
+              onNoteChange={(value) =>
+                setNoteInput((prev) => ({ ...prev, [alert.id]: value }))
+              }
+              onMarkReviewed={() =>
+                mutation.mutate({ id: alert.id, note: noteInput[alert.id] ?? alert.review_note ?? "" })
+              }
+              isMutating={mutation.isPending}
+              isExcluded={isExcluded}
+              onToggleExclusion={
+                lineItemId
+                  ? () => exclusionMutation.mutate({ lineItemId, excluded: !isExcluded })
+                  : undefined
+              }
+              isExclusionMutating={exclusionMutation.isPending}
+            />
+          );
+        })}
       </div>
 
       {mutation.isError && (

@@ -22,6 +22,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.backend.core.arr_calculator import ARRCalculator, ARRSnapshot, RawLineItem
+from app.backend.core.alert_checker import check_overlapping_contracts
 from app.backend.db.models import (
     ARRLineItem,
     ARRMonthlySummary,
@@ -157,6 +158,9 @@ class SnapshotManager:
         calculator = ARRCalculator(product_map, consultant_map)
         arr_snapshot: ARRSnapshot = calculator.process_all(raw_items)
 
+        # Append overlap alerts (detected on in-memory snapshot after calculation)
+        arr_snapshot.alerts.extend(check_overlapping_contracts(arr_snapshot))
+
         # Persist ARRLineItem rows
         arr_rows = []
         for result in arr_snapshot.line_items:
@@ -217,6 +221,9 @@ class SnapshotManager:
         # Persist alerts
         alert_rows = []
         for a in arr_snapshot.alerts:
+            # For OVERLAPPING_CONTRACTS, resolve the DB UUID of the linked ARRLineItem
+            sf_li_id = a.get("_sf_line_item_id")
+            arr_li_db_id = id_map.get(sf_li_id) if sf_li_id else None
             alert_rows.append(
                 SnapshotAlert(
                     id=uuid.uuid4(),
@@ -228,6 +235,7 @@ class SnapshotManager:
                     account_name=a.get("account_name"),
                     product_name=a.get("product_name"),
                     description=a["description"],
+                    arr_line_item_id=arr_li_db_id,
                 )
             )
         self.db.bulk_save_objects(alert_rows)

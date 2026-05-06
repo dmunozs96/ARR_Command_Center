@@ -1,6 +1,6 @@
 # Current State
-**Ultima actualizacion:** 2026-05-04
-**Agente:** Claude Sonnet 4.6 (sesion 17)
+**Ultima actualizacion:** 2026-05-06
+**Agente:** Claude Sonnet 4.6 (sesion 18)
 
 ---
 
@@ -20,45 +20,50 @@ La app calcula, visualiza y audita el ARR de isEazy.
 
 | Fase | Nombre | Estado | Verificacion |
 |------|--------|--------|--------------|
-| A | Motor de calculo + infraestructura | completa | 17/17 |
-| B | Backend API FastAPI | completa | parte de `pytest tests/` |
+| A | Motor de calculo + infraestructura | completa | 57/57 |
+| B | Backend API FastAPI | completa | 57/57 |
 | C | Frontend Next.js | completa | TypeScript OK |
 | D | Historial de snapshots en UI | completa | TypeScript OK |
 | E | Integracion real con Salesforce | bloqueada | pendiente credenciales SF |
-| F | Panel de alertas completo | completa | tests OK |
-| G | Stripe UI completa + consultores exportables | completa | tests OK |
-| H | Endurecimiento, e2e y UX final | **completa** | 27/27 backend, 3/3 e2e |
-| — | Cron diario con dedup por hash | **completa** | 27/27 backend |
+| F | Panel de alertas completo | completa | 57/57 |
+| G | Stripe UI completa + consultores exportables | completa | 57/57 |
+| H | Endurecimiento, e2e y UX final | completa | 57/57 backend, 3/3 e2e |
+| — | Cron diario con dedup por hash | completa | 57/57 |
+| I-A | Toggle ARR "desde cierre" vs "desde inicio" | **completa** | 57/57 |
+| I-B | Deteccion y gestion de solapamientos | **completa** | 57/57 |
 
-**Tests backend:** `pytest tests/` → **27/27 OK**  
+**Tests backend:** `pytest tests/` → **57/57 OK**  
 **Frontend:** `npx tsc --noEmit` OK  
-**E2E:** `npm run test:e2e` → **3/3 OK** (Playwright + Chromium instalados)
+**E2E:** `npm run test:e2e` → **3/3 OK**
 
 ---
 
-## Lo implementado en la sesion 17
+## Lo implementado en la sesion 18
 
-### Fase H cerrada
-- Playwright + Chromium instalados en `app/frontend`
-- `playwright.config.ts` corregido: `baseURL` cambiado a `localhost`, timeouts a 15s
-- `next.config.ts` con `allowedDevOrigins` para evitar bloqueo cross-origin en dev
-- Tests e2e corregidos con locators precisos (combobox del sidebar vs main, texto duplicado)
-- **3/3 tests e2e pasan**: dashboard, alertas (filtro + revision), stripe + consultores
+### Fase I-A — Toggle ARR "desde inicio" / "desde cierre"
 
-### Cron diario con dedup por hash
-- `compute_raw_hash()`: SHA-256 de los line items SF ordenados; detecta cualquier cambio
-- `SnapshotManager.latest_data_hash()`: busca hash del ultimo snapshot SF completado
-- `POST /api/sync`: ahora guarda `data_hash` en el snapshot; devuelve `skipped=true` si datos sin cambios
-- `POST /api/sync/cron/daily`: nuevo endpoint protegido por header `x-cron-secret` (env `CRON_SECRET`)
-- Migration `0002_add_snapshot_data_hash.py` para nueva columna en `snapshots`
-- `SyncResponse`: ampliado con campos `skipped` y `skip_reason`
-- 2 tests nuevos: rechazo de secret incorrecto, skip en datos identicos
+- `/api/arr/summary` recibe nuevo param `mode=from_start|from_close`
+- `from_start` (default): usa `start_month` del `ARRLineItem` (comportamiento anterior)
+- `from_close`: usa `close_date.replace(day=1)` de `RawOpportunityLineItem` como inicio
+- El summary se calcula **en vivo desde `arr_line_items`** (ya no desde `ARRMonthlySummary`), lo que permite respetar `excluded_from_arr`
+- Dashboard: toggle "Desde inicio / Desde cierre" en la cabecera
 
-### Preguntas de negocio resueltas (CFO)
-- Q-03: ARR desde close won — backlog approach, toggle desde cierre vs desde inicio en Resumen
-- Q-05: TaaS excluido del ARR SaaS — confirmado por SUMIF del Excel
-- Q-06: Solapamientos — detectar + decidir linea a linea incluir/excluir; nueva alerta `OVERLAPPING_CONTRACTS` pendiente
-- Q-07: Sync diaria con Opcion A (full fetch + skip por hash) — implementada
+### Fase I-B — Solapamientos de contratos
+
+- Nueva columna `excluded_from_arr` (boolean, default false) en `arr_line_items`
+- Nueva columna `arr_line_item_id` (UUID FK nullable) en `snapshot_alerts`
+- Migración `0003_add_overlaps.py`
+- `check_overlapping_contracts()` en `alert_checker.py`: detecta pares de items SaaS del mismo (account, product_type) con fechas solapadas; genera 2 alertas por par (una por line item), con `_sf_line_item_id` para que snapshot_manager resuelva el FK
+- `snapshot_manager.py` llama al checker y persiste `arr_line_item_id` en cada alerta
+- `PATCH /api/arr/line-items/{id}` con body `{"excluded_from_arr": true/false}` para que el usuario excluya/incluya desde la UI
+- El summary respeta `excluded_from_arr` en tiempo real (no hay re-sync necesario)
+- UI de alertas: botón "Excluir del ARR" / "Incluir en ARR" en alertas tipo `OVERLAPPING_CONTRACTS`; al hacer toggle invalida la query del summary del dashboard
+
+### Tests nuevos (57 total, antes 27)
+
+- 5 tests en `test_arr_calculator.py`: overlap detection (no overlap por cuenta distinta, no overlap mismo cliente distinto producto, no overlap contratos consecutivos, solapamiento genera 2 alertas, 3 contratos solapados generan 6 alertas)
+- 4 tests en `test_api.py`: `from_close` mode cambia primer mes, PATCH exclusion vacía el summary, PATCH 404 para ID inexistente, sync con 2 contratos solapados genera alertas `OVERLAPPING_CONTRACTS` con `arr_line_item_id` no nulo
+- 2 tests de summary actualizados de `ARRMonthlySummary` a `ARRLineItem` (fuente de verdad ahora)
 
 ---
 
@@ -76,19 +81,18 @@ La app calcula, visualiza y audita el ARR de isEazy.
 
 ## Archivos clave para el siguiente agente
 
-- `app/backend/api/routes/sync.py` — logica de cron + dedup
-- `app/backend/core/snapshot_manager.py` — `compute_raw_hash`, `latest_data_hash`
-- `app/backend/db/migrations/versions/0002_add_snapshot_data_hash.py`
-- `app/frontend/playwright.config.ts` + `tests/e2e/`
-- `docs/specs/12_open_questions_and_risks.md` — Q-03/Q-06 pendientes de implementar
-- `docs/specs/18_daily_sync_cron.md` — instrucciones Railway cron
+- `app/backend/core/alert_checker.py` — `check_overlapping_contracts()`
+- `app/backend/api/routes/arr.py` — summary live + PATCH line-item
+- `app/backend/db/migrations/versions/0003_add_overlaps.py`
+- `app/frontend/app/page.tsx` — toggle from_start/from_close
+- `app/frontend/app/alerts/page.tsx` — toggle excluir/incluir
 
 ---
 
 ## Proximo paso recomendado
 
-**Prioridad 1 (cuando haya credenciales SF):** Cerrar Fase E — `test_sf_connection.py`, sync real, `validate_vs_excel.py`, activar cron en Railway con `CRON_SECRET`.
+**Prioridad 1 (cuando haya credenciales SF):** Cerrar Fase E — credenciales en `.env`, `test_sf_connection.py`, sync real, `validate_vs_excel.py`, activar cron en Railway.
 
-**Prioridad 2 (funcionalidades de negocio pendientes):**
-- Fase I-A: Toggle "desde cierre vs desde inicio" en dashboard (Q-03)
-- Fase I-B: Deteccion de solapamientos + flag excluir/incluir por linea (Q-06)
+**Prioridad 2 (funcionalidad de negocio):**
+- Fase I-C: Toggle "desde cierre" en vista de consultores (actualmente solo en el dashboard general)
+- Validar que `excluded_from_arr` se resetea correctamente en cada nuevo snapshot (comportamiento actual: cada snapshot genera nuevas alertas de solapamiento; las exclusiones de snapshots anteriores no se transfieren automáticamente — decisión de negocio pendiente)

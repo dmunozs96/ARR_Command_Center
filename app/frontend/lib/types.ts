@@ -64,6 +64,7 @@ export interface ARRLineItemOut {
   data_quality_flags: string[];
   used_start_fallback: boolean;
   used_end_fallback: boolean;
+  excluded_from_arr: boolean;
 }
 
 export interface ARRLineItemsResponse {
@@ -88,6 +89,7 @@ export interface AlertOut {
   review_note: string | null;
   reviewed_at: string | null;
   reviewed_by: string | null;
+  arr_line_item_id: string | null;
   created_at: string | null;
 }
 

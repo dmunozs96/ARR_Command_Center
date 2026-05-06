@@ -1,11 +1,12 @@
 """
 ARR endpoints:
-  GET /api/arr/summary
-  GET /api/arr/by-consultant
-  GET /api/arr/line-items
+  GET   /api/arr/summary
+  GET   /api/arr/by-consultant
+  GET   /api/arr/line-items
+  PATCH /api/arr/line-items/{id}
 """
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
@@ -21,6 +22,7 @@ from app.backend.api.schemas import (
     ARRMonthPoint,
     ARRSummaryResponse,
     ConsultantARR,
+    LineItemExcludePatch,
 )
 from app.backend.db.connection import get_db
 from app.backend.db.models import ARRLineItem, ARRMonthlySummary, RawOpportunityLineItem, Snapshot
@@ -40,33 +42,110 @@ def _latest_snapshot_id(db: Session) -> UUID:
     return snap.id
 
 
+def _last_day_of_month(first_day: date) -> date:
+    if first_day.month == 12:
+        return first_day.replace(day=31)
+    return first_day.replace(month=first_day.month + 1) - timedelta(days=1)
+
+
+def _month_range(start: date, end: date) -> List[date]:
+    months = []
+    current = start.replace(day=1)
+    end_first = end.replace(day=1)
+    while current <= end_first:
+        months.append(current)
+        if current.month == 12:
+            current = current.replace(year=current.year + 1, month=1)
+        else:
+            current = current.replace(month=current.month + 1)
+    return months
+
+
 @router.get("/summary", response_model=ARRSummaryResponse)
 def arr_summary(
     snapshot_id: Optional[UUID] = Query(None),
     month_from: Optional[date] = Query(None),
     month_to: Optional[date] = Query(None),
     product_type: Optional[str] = Query(None),
+    mode: str = Query("from_start", description="from_start | from_close"),
     db: Session = Depends(get_db),
 ):
+    """
+    Returns ARR monthly series computed live from arr_line_items, respecting
+    excluded_from_arr flags. Two modes:
+      from_start (default): item start = subscription start date
+      from_close:           item start = opportunity close_date (backlog view)
+    """
     sid = snapshot_id or _latest_snapshot_id(db)
 
-    q = db.query(ARRMonthlySummary).filter(ARRMonthlySummary.snapshot_id == sid)
-    if month_from:
-        q = q.filter(ARRMonthlySummary.month >= month_from)
-    if month_to:
-        q = q.filter(ARRMonthlySummary.month <= month_to)
+    if mode == "from_close":
+        rows = (
+            db.query(ARRLineItem, RawOpportunityLineItem)
+            .join(RawOpportunityLineItem, ARRLineItem.raw_line_item_id == RawOpportunityLineItem.id)
+            .filter(
+                ARRLineItem.snapshot_id == sid,
+                ARRLineItem.is_saas == True,
+                ARRLineItem.excluded_from_arr == False,
+            )
+            .all()
+        )
+        # (effective_start_month, end_month, product_type, annualized_value)
+        active_items = [
+            (
+                raw.close_date.replace(day=1),
+                arr.end_month_normalized,
+                arr.product_type,
+                Decimal(str(arr.annualized_value)),
+            )
+            for arr, raw in rows
+            if raw.close_date.replace(day=1) <= arr.end_month_normalized
+        ]
+    else:
+        arr_items = (
+            db.query(ARRLineItem)
+            .filter(
+                ARRLineItem.snapshot_id == sid,
+                ARRLineItem.is_saas == True,
+                ARRLineItem.excluded_from_arr == False,
+            )
+            .all()
+        )
+        active_items = [
+            (
+                i.start_month,
+                i.end_month_normalized,
+                i.product_type,
+                Decimal(str(i.annualized_value)),
+            )
+            for i in arr_items
+        ]
+
+    if not active_items:
+        return ARRSummaryResponse(snapshot_id=sid, months=[])
+
+    # Determine visible month range
+    range_start = month_from.replace(day=1) if month_from else min(i[0] for i in active_items)
+    range_end = month_to.replace(day=1) if month_to else max(i[1] for i in active_items)
+
+    if range_start > range_end:
+        return ARRSummaryResponse(snapshot_id=sid, months=[])
+
+    # Optional product_type filter
     if product_type:
-        q = q.filter(ARRMonthlySummary.product_type == product_type)
+        active_items = [i for i in active_items if i[2] == product_type]
 
-    rows = q.order_by(ARRMonthlySummary.month).all()
+    months_list = _month_range(range_start, range_end)
 
-    # Group by month
-    months_map: dict[date, dict] = {}
-    for row in rows:
-        m = row.month
-        if m not in months_map:
-            months_map[m] = {}
-        months_map[m][row.product_type] = Decimal(str(row.arr_value))
+    months_map: dict[date, dict[str, Decimal]] = {}
+    for month_start in months_list:
+        month_end = _last_day_of_month(month_start)
+        by_type: dict[str, Decimal] = {}
+        for start, end, ptype, arr_val in active_items:
+            if start <= month_end and end >= month_start:
+                pt = ptype or "Unknown"
+                by_type[pt] = by_type.get(pt, Decimal("0")) + arr_val
+        if by_type:
+            months_map[month_start] = by_type
 
     sorted_months = sorted(months_map.keys())
     points: List[ARRMonthPoint] = []
@@ -118,12 +197,12 @@ def arr_by_consultant(
 
     month_start = month.replace(day=1)
 
-    # Query arr_line_items + raw for the given month
     q = (
         db.query(ARRLineItem, RawOpportunityLineItem)
         .join(RawOpportunityLineItem, ARRLineItem.raw_line_item_id == RawOpportunityLineItem.id)
         .filter(ARRLineItem.snapshot_id == sid)
         .filter(ARRLineItem.is_saas == True)
+        .filter(ARRLineItem.excluded_from_arr == False)
         .filter(ARRLineItem.start_month <= month_start)
         .filter(ARRLineItem.end_month_normalized >= month_start)
     )
@@ -134,7 +213,6 @@ def arr_by_consultant(
 
     rows = q.all()
 
-    # Build by-consultant aggregation
     consultant_data: dict[str, dict] = {}
     for arr_item, raw_item in rows:
         name = raw_item.opportunity_owner or "Unknown"
@@ -151,7 +229,6 @@ def arr_by_consultant(
             + Decimal(str(arr_item.annualized_value))
         )
 
-    # Compute MoM for each consultant using previous month
     if month_start.month == 1:
         prev_month = month_start.replace(year=month_start.year - 1, month=12)
     else:
@@ -162,6 +239,7 @@ def arr_by_consultant(
         .join(RawOpportunityLineItem, ARRLineItem.raw_line_item_id == RawOpportunityLineItem.id)
         .filter(ARRLineItem.snapshot_id == sid)
         .filter(ARRLineItem.is_saas == True)
+        .filter(ARRLineItem.excluded_from_arr == False)
         .filter(ARRLineItem.start_month <= prev_month)
         .filter(ARRLineItem.end_month_normalized >= prev_month)
         .group_by(RawOpportunityLineItem.opportunity_owner)
@@ -249,6 +327,7 @@ def arr_line_items(
                 data_quality_flags=arr_item.data_quality_flags or [],
                 used_start_fallback=arr_item.used_start_fallback,
                 used_end_fallback=arr_item.used_end_fallback,
+                excluded_from_arr=arr_item.excluded_from_arr or False,
             )
         )
 
@@ -258,4 +337,47 @@ def arr_line_items(
         page=page,
         page_size=page_size,
         items=items,
+    )
+
+
+@router.patch("/line-items/{item_id}", response_model=ARRLineItemOut)
+def patch_line_item(item_id: UUID, body: LineItemExcludePatch, db: Session = Depends(get_db)):
+    """Toggle excluded_from_arr on a single ARRLineItem."""
+    arr_item = db.query(ARRLineItem).filter(ARRLineItem.id == item_id).first()
+    if not arr_item:
+        raise HTTPException(status_code=404, detail="Line item not found")
+
+    raw_item = (
+        db.query(RawOpportunityLineItem)
+        .filter(RawOpportunityLineItem.id == arr_item.raw_line_item_id)
+        .first()
+    )
+
+    arr_item.excluded_from_arr = body.excluded_from_arr
+    db.commit()
+    db.refresh(arr_item)
+
+    return ARRLineItemOut(
+        id=arr_item.id,
+        snapshot_id=arr_item.snapshot_id,
+        sf_opportunity_id=raw_item.sf_opportunity_id if raw_item else "",
+        sf_line_item_id=raw_item.sf_line_item_id if raw_item else "",
+        opportunity_name=raw_item.opportunity_name if raw_item else None,
+        account_name=raw_item.account_name if raw_item else None,
+        opportunity_owner=raw_item.opportunity_owner if raw_item else None,
+        product_name=raw_item.product_name if raw_item else "",
+        product_type=arr_item.product_type,
+        is_saas=arr_item.is_saas,
+        effective_start_date=arr_item.effective_start_date,
+        effective_end_date=arr_item.effective_end_date,
+        start_month=arr_item.start_month,
+        end_month_normalized=arr_item.end_month_normalized,
+        service_days=arr_item.service_days,
+        real_price=arr_item.real_price,
+        annualized_value=arr_item.annualized_value,
+        consultant_country=arr_item.consultant_country,
+        data_quality_flags=arr_item.data_quality_flags or [],
+        used_start_fallback=arr_item.used_start_fallback,
+        used_end_fallback=arr_item.used_end_fallback,
+        excluded_from_arr=arr_item.excluded_from_arr,
     )
