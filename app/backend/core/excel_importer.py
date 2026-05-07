@@ -403,6 +403,18 @@ def add_missing_product_placeholders(session: Session, products: dict, rows: lis
     return merged
 
 
+def add_inferred_product_classifications(session: Session, products: dict, inferred: dict) -> dict:
+    existing_names = {
+        name for (name,) in session.query(ProductClassification.product_name).all()
+    }
+    merged = dict(products)
+    for product_name, info in inferred.items():
+        if product_name in merged or product_name in existing_names:
+            continue
+        merged[product_name] = info
+    return merged
+
+
 def upsert_consultant_countries(session: Session, countries: dict):
     for name, country in countries.items():
         existing = session.query(ConsultantCountry).filter_by(consultant_name=name).first()
@@ -617,12 +629,16 @@ def import_excel_workbook(
     products = load_product_classifications(wb)
     countries = load_consultant_countries(wb)
     rows = list(load_opos_rows(wb))
-    products = {**infer_product_classifications_from_rows(rows), **products}
 
     if not rows:
         raise ExcelImportError("El Excel no contiene filas validas en 'Opos con Productos'.")
 
     try:
+        products = add_inferred_product_classifications(
+            session,
+            products,
+            infer_product_classifications_from_rows(rows),
+        )
         products = add_missing_product_placeholders(session, products, rows)
         countries = add_missing_consultant_placeholders(session, countries, rows)
 

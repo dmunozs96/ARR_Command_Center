@@ -568,6 +568,90 @@ def test_import_raw_salesforce_export_without_calculated_sheets(client):
     assert any(alert["product_name"] == "Media Jornada de Formación" for alert in alerts.json())
 
 
+def test_import_raw_salesforce_export_does_not_overwrite_existing_product_master(client):
+    db = TestingSessionLocal()
+    db.add(
+        ProductClassification(
+            product_name="Setup Engage",
+            product_type="Implantacion",
+            business_line="isEazy Engage",
+        )
+    )
+    db.commit()
+    db.close()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Opos con Productos"
+    ws.append(
+        [
+            "Propietario de oportunidad",
+            "Nombre de la cuenta",
+            "Nombre de la oportunidad",
+            "Tipo",
+            "Tipo de oportunidad",
+            "Importe",
+            "Fecha de cierre",
+            "Fecha de creaciÃ³n",
+            "Etapa",
+            "Nombre del producto",
+            "Precio de venta",
+            "Subscription Start Date",
+            "Subscription End Date",
+            "Licence period (months)",
+            "LÃ­nea de negocio",
+            "Cantidad",
+            "Product",
+            "Creado por",
+        ]
+    )
+    ws.append(
+        [
+            "Maria Lopez",
+            "Acme Corp",
+            "Setup Engage ACME",
+            "Nuevo negocio",
+            "Inbound",
+            1000,
+            "15/01/2026",
+            "10/01/2026",
+            "Ganada",
+            "Setup Engage",
+            1000,
+            "01/01/2026",
+            "31/12/2026",
+            12,
+            "isEazy Engage",
+            1,
+            "SETUP-ENG",
+            "Maria Lopez",
+        ]
+    )
+    buffer = BytesIO()
+    wb.save(buffer)
+
+    r = client.post(
+        "/api/imports/excel",
+        files={
+            "file": (
+                "raw.xlsx",
+                buffer.getvalue(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert r.status_code == 200
+
+    products = client.get("/api/config/products")
+    product_by_name = {item["product_name"]: item for item in products.json()}
+    assert product_by_name["Setup Engage"]["product_type"] == "Implantacion"
+
+    line_items = client.get("/api/arr/line-items?is_saas=false")
+    assert line_items.status_code == 200
+    assert line_items.json()["total"] == 1
+
+
 def test_import_masters_accepts_plain_pais_consultor_sheet(client):
     excel_bytes = _build_masters_excel_bytes("Pais Consultor")
 
