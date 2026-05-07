@@ -73,8 +73,11 @@ async def upload_masters(file: UploadFile = File(...), db: Session = Depends(get
     except Exception as exc:
         raise HTTPException(status_code=400, detail="No se pudo abrir el fichero Excel.") from exc
 
-    products = load_product_classifications(wb)
-    countries = load_consultant_countries(wb)
+    try:
+        products = load_product_classifications(wb)
+        countries = load_consultant_countries(wb)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Error al leer las hojas maestras: {exc}") from exc
 
     if not products and not countries:
         raise HTTPException(
@@ -88,9 +91,13 @@ async def upload_masters(file: UploadFile = File(...), db: Session = Depends(get
     # Compound keys (name|business_line) are for in-memory lookup only — skip them
     plain_products = {k: v for k, v in products.items() if "|" not in k}
 
-    upsert_product_classifications(db, products)
-    upsert_consultant_countries(db, countries)
-    db.commit()
+    try:
+        upsert_product_classifications(db, products)
+        upsert_consultant_countries(db, countries)
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al guardar los maestros en BBDD: {exc}") from exc
 
     return MastersImportResponse(
         products_loaded=len(plain_products),

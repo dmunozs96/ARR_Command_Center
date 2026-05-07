@@ -172,18 +172,18 @@ def load_product_classifications(wb) -> dict:
 
     result = {}
     for i, row in enumerate(ws.iter_rows(values_only=True)):
-        if i == 0 or row[1] is None:
+        if i == 0 or len(row) < 2 or row[1] is None:
             continue
         name = _str(row[1])
         if not name:
             continue
-        business_line = _str(row[4])
+        business_line = _str(row[4]) if len(row) > 4 else None
         info = {
-            "product_code": _str(row[2]),
+            "product_code": _str(row[2]) if len(row) > 2 else None,
             "business_line": business_line,
-            "category": _str(row[5]),
-            "subcategory": _str(row[6]),
-            "product_type": _str(row[7]),
+            "category": _str(row[5]) if len(row) > 5 else None,
+            "subcategory": _str(row[6]) if len(row) > 6 else None,
+            "product_type": _str(row[7]) if len(row) > 7 else None,
         }
         # Compound key for exact (name, business_line) lookups
         if business_line:
