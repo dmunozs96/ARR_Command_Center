@@ -11,7 +11,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.backend.api.schemas import StripeMRROut, StripeMRRUpsert
+from app.backend.api.schemas import StripeMRRBulkResult, StripeMRRBulkUpsert, StripeMRROut, StripeMRRUpsert
 from app.backend.db.connection import get_db
 from app.backend.db.models import Snapshot, SnapshotStripeMRR
 
@@ -54,6 +54,47 @@ def get_stripe_mrr(
             )
         )
     return result
+
+
+@router.post("/bulk", response_model=StripeMRRBulkResult, status_code=200)
+def bulk_upsert_stripe_mrr(body: StripeMRRBulkUpsert, db: Session = Depends(get_db)):
+    inserted = 0
+    updated = 0
+    out_rows = []
+    for item in body.rows:
+        existing = (
+            db.query(SnapshotStripeMRR)
+            .filter(
+                SnapshotStripeMRR.snapshot_id == body.snapshot_id,
+                SnapshotStripeMRR.month == item.month,
+            )
+            .first()
+        )
+        if existing:
+            existing.mrr = item.mrr
+            existing.entered_by = body.entered_by
+            updated += 1
+        else:
+            existing = SnapshotStripeMRR(
+                snapshot_id=body.snapshot_id,
+                month=item.month,
+                mrr=item.mrr,
+                entered_by=body.entered_by,
+            )
+            db.add(existing)
+            inserted += 1
+        db.flush()
+        out_rows.append(
+            StripeMRROut(
+                month=existing.month,
+                mrr=Decimal(str(existing.mrr)),
+                arr_equivalent=Decimal(str(existing.mrr)) * 12,
+                entered_by=existing.entered_by,
+                entered_at=existing.entered_at,
+            )
+        )
+    db.commit()
+    return StripeMRRBulkResult(inserted=inserted, updated=updated, rows=out_rows)
 
 
 @router.put("", response_model=StripeMRROut, status_code=200)

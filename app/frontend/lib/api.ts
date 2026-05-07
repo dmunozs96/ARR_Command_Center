@@ -126,6 +126,15 @@ export const api = {
   upsertStripeMRR: (data: { snapshot_id: string; month: string; mrr: number; entered_by?: string }) =>
     client.put<StripeMRROut>("/stripe-mrr", data).then((r) => r.data),
 
+  bulkUpsertStripeMRR: (data: {
+    snapshot_id: string;
+    rows: { month: string; mrr: number }[];
+    entered_by?: string;
+  }) =>
+    client
+      .post<{ inserted: number; updated: number; rows: StripeMRROut[] }>("/stripe-mrr/bulk", data)
+      .then((r) => r.data),
+
   // Health
   health: () => client.get("/health").then((r) => r.data),
 };

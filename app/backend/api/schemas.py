@@ -215,6 +215,23 @@ class StripeMRRUpsert(BaseModel):
     entered_by: Optional[str] = None
 
 
+class StripeMRRBulkItem(BaseModel):
+    month: date
+    mrr: Decimal
+
+
+class StripeMRRBulkUpsert(BaseModel):
+    snapshot_id: UUID
+    rows: List[StripeMRRBulkItem]
+    entered_by: Optional[str] = None
+
+
+class StripeMRRBulkResult(BaseModel):
+    inserted: int
+    updated: int
+    rows: List[StripeMRROut]
+
+
 # ---------------------------------------------------------------------------
 # Masters import
 # ---------------------------------------------------------------------------
