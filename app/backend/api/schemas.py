@@ -132,12 +132,23 @@ class AlertOut(BaseModel):
     arr_line_item_id: Optional[UUID]
     created_at: Optional[datetime]
     arr_impact: Optional[Decimal] = None
+    # Grouping fields — count of raw alerts collapsed into this group
+    occurrence_count: int = 1
+    alert_ids: List[str] = []
+    reviewed_count: int = 0
 
     model_config = {"from_attributes": True}
 
 
 class AlertPatch(BaseModel):
     reviewed: bool
+    review_note: Optional[str] = None
+    reviewed_by: Optional[str] = None
+
+
+class BulkAlertPatch(BaseModel):
+    alert_ids: List[str]
+    reviewed: bool = True
     review_note: Optional[str] = None
     reviewed_by: Optional[str] = None
 

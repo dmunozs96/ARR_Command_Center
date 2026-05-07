@@ -92,6 +92,9 @@ export interface AlertOut {
   arr_line_item_id: string | null;
   created_at: string | null;
   arr_impact: number | null;
+  occurrence_count: number;
+  alert_ids: string[];
+  reviewed_count: number;
 }
 
 export interface ProductOut {

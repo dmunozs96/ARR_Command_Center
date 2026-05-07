@@ -86,6 +86,9 @@ export const api = {
   patchAlert: (id: string, data: { reviewed: boolean; review_note?: string; reviewed_by?: string }) =>
     client.patch<AlertOut>(`/alerts/${id}`, data).then((r) => r.data),
 
+  bulkReviewAlerts: (data: { alert_ids: string[]; reviewed: boolean; review_note?: string; reviewed_by?: string }) =>
+    client.patch<AlertOut[]>("/alerts/bulk-review", data).then((r) => r.data),
+
   patchLineItemExclusion: (id: string, excluded_from_arr: boolean) =>
     client.patch<ARRLineItemOut>(`/arr/line-items/${id}`, { excluded_from_arr }).then((r) => r.data),
 

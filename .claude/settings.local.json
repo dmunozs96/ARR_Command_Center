@@ -24,7 +24,9 @@
       "Bash(railway link *)",
       "Bash(railway ps *)",
       "Bash(railway --help)",
-      "Bash(railway redeploy *)"
+      "Bash(railway redeploy *)",
+      "Bash(python scripts/compare_monthly_arr.py --year 2025)",
+      "Bash(python scripts/compare_monthly_arr.py --year 2025 --show-ok)"
     ]
   }
 }

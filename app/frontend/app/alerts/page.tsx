@@ -98,9 +98,14 @@ function AlertCard({
                 Revisada
               </span>
             )}
+            {alert.occurrence_count > 1 && (
+              <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[11px] font-semibold text-stone-600">
+                {alert.occurrence_count} ocurrencias
+              </span>
+            )}
             {alert.arr_impact != null && (
               <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-900">
-                Impacto ARR: {formatEUR(alert.arr_impact)}
+                ARR en riesgo: {formatEUR(alert.arr_impact)}
               </span>
             )}
           </div>
@@ -162,6 +167,13 @@ function AlertCard({
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Detalle</p>
               <div className="mt-2 space-y-2 text-sm text-stone-600">
+                {alert.occurrence_count > 1 && (
+                  <p>
+                    <span className="font-medium text-stone-800">Ocurrencias:</span>{" "}
+                    {alert.occurrence_count} casos con la misma causa raíz
+                    {alert.reviewed_count > 0 && ` (${alert.reviewed_count} revisadas)`}
+                  </p>
+                )}
                 <p>
                   <span className="font-medium text-stone-800">Alert ID:</span> {alert.id}
                 </p>
@@ -242,7 +254,9 @@ function AlertCard({
                   disabled={isMutating}
                   className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-400"
                 >
-                  Marcar revisada
+                  {alert.occurrence_count > 1
+                    ? `Marcar ${alert.occurrence_count} revisadas`
+                    : "Marcar revisada"}
                 </button>
               )}
             </div>
@@ -283,8 +297,8 @@ function AlertsPageContent() {
   });
 
   const mutation = useMutation({
-    mutationFn: ({ id, note }: { id: string; note: string }) =>
-      api.patchAlert(id, { reviewed: true, review_note: note, reviewed_by: "CFO" }),
+    mutationFn: ({ alert_ids, note }: { alert_ids: string[]; note: string }) =>
+      api.bulkReviewAlerts({ alert_ids, reviewed: true, review_note: note, reviewed_by: "CFO" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["alerts"] });
       qc.invalidateQueries({ queryKey: ["alerts-unreviewed"] });
@@ -311,7 +325,8 @@ function AlertsPageContent() {
       } else {
         await api.createProduct({ product_name: productName, product_type: productType });
       }
-      await api.patchAlert(alert.id, {
+      await api.bulkReviewAlerts({
+        alert_ids: alert.alert_ids.length > 0 ? alert.alert_ids : [alert.id],
         reviewed: true,
         review_note: `Clasificado como "${productType}" y guardado en maestros.`,
         reviewed_by: "CFO",
@@ -442,7 +457,10 @@ function AlertsPageContent() {
               }
               onNoteChange={(value) => setNoteInput((prev) => ({ ...prev, [alert.id]: value }))}
               onMarkReviewed={() =>
-                mutation.mutate({ id: alert.id, note: noteInput[alert.id] ?? alert.review_note ?? "" })
+                mutation.mutate({
+                  alert_ids: alert.alert_ids.length > 0 ? alert.alert_ids : [alert.id],
+                  note: noteInput[alert.id] ?? alert.review_note ?? "",
+                })
               }
               isMutating={mutation.isPending}
               isExcluded={isExcluded}
