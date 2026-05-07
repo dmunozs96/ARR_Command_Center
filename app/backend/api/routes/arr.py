@@ -25,7 +25,7 @@ from app.backend.api.schemas import (
     LineItemExcludePatch,
 )
 from app.backend.db.connection import get_db
-from app.backend.db.models import ARRLineItem, ARRMonthlySummary, RawOpportunityLineItem, Snapshot
+from app.backend.db.models import ARRLineItem, ARRMonthlySummary, RawOpportunityLineItem, Snapshot, SnapshotStripeMRR
 
 router = APIRouter()
 
@@ -120,12 +120,27 @@ def arr_summary(
             for i in arr_items
         ]
 
-    if not active_items:
+    include_stripe = not product_type or product_type == "Author Online"
+    stripe_by_month: dict[date, Decimal] = {}
+    if include_stripe:
+        stripe_rows = (
+            db.query(SnapshotStripeMRR)
+            .filter(SnapshotStripeMRR.snapshot_id == sid)
+            .all()
+        )
+        stripe_by_month = {
+            row.month.replace(day=1): Decimal(str(row.mrr)) * Decimal("12")
+            for row in stripe_rows
+        }
+
+    if not active_items and not stripe_by_month:
         return ARRSummaryResponse(snapshot_id=sid, months=[])
 
     # Determine visible month range
-    range_start = month_from.replace(day=1) if month_from else min(i[0] for i in active_items)
-    range_end = month_to.replace(day=1) if month_to else max(i[1] for i in active_items)
+    candidate_starts = [i[0] for i in active_items] + list(stripe_by_month.keys())
+    candidate_ends = [i[1] for i in active_items] + list(stripe_by_month.keys())
+    range_start = month_from.replace(day=1) if month_from else min(candidate_starts)
+    range_end = month_to.replace(day=1) if month_to else max(candidate_ends)
 
     if range_start > range_end:
         return ARRSummaryResponse(snapshot_id=sid, months=[])
@@ -144,6 +159,8 @@ def arr_summary(
             if start <= month_end and end >= month_start:
                 pt = ptype or "Unknown"
                 by_type[pt] = by_type.get(pt, Decimal("0")) + arr_val
+        if month_start in stripe_by_month:
+            by_type["Author Online"] = by_type.get("Author Online", Decimal("0")) + stripe_by_month[month_start]
         if by_type:
             months_map[month_start] = by_type
 

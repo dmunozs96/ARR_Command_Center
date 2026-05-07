@@ -25,6 +25,7 @@ from app.backend.db.models import (
     RawOpportunityLineItem,
     Snapshot,
     SnapshotAlert,
+    SnapshotStripeMRR,
 )
 
 
@@ -231,6 +232,41 @@ def load_consultant_countries(wb) -> dict:
         country = _str(row[country_index]) if country_index is not None and country_index < len(row) else None
         if name and country:
             result[name] = country
+    return result
+
+
+def load_stripe_mrr(wb) -> dict[date, Decimal]:
+    ws = _worksheet_by_name(wb, "Mtricas_de_suscripciones_mensua", "Metricas_de_suscripciones_mensua")
+    if ws is None:
+        return {}
+
+    try:
+        header = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
+    except StopIteration:
+        return {}
+
+    ending_mrr_row = None
+    online_arr_row = None
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        label = _normalize_key(_str(row[0]) if row else None)
+        if label == "ending mrr":
+            ending_mrr_row = row
+        elif label == "online anual":
+            online_arr_row = row
+
+    source_row = ending_mrr_row or online_arr_row
+    if source_row is None:
+        return {}
+
+    result: dict[date, Decimal] = {}
+    for index, month_label in enumerate(header[2:], start=2):
+        month = _parse_date_text(f"{month_label}-01") if isinstance(month_label, str) else _parse_date_text(month_label)
+        if month is None:
+            continue
+        value = _decimal(source_row[index] if index < len(source_row) else None)
+        if value is None:
+            continue
+        result[month.replace(day=1)] = value if ending_mrr_row is not None else value / Decimal("12")
     return result
 
 
@@ -453,6 +489,49 @@ def create_snapshot(session: Session, *, triggered_by: str, notes: str) -> Snaps
     return snap
 
 
+def latest_completed_snapshot_id(session: Session):
+    snap = (
+        session.query(Snapshot)
+        .filter(Snapshot.status == "completed")
+        .order_by(Snapshot.created_at.desc())
+        .first()
+    )
+    return snap.id if snap else None
+
+
+def store_stripe_mrr(session: Session, snapshot_id, stripe_mrr: dict[date, Decimal], *, entered_by: str):
+    for month, mrr in stripe_mrr.items():
+        session.add(
+            SnapshotStripeMRR(
+                snapshot_id=snapshot_id,
+                month=month,
+                mrr=mrr,
+                entered_by=entered_by,
+            )
+        )
+    session.flush()
+
+
+def copy_stripe_mrr(session: Session, *, source_snapshot_id, target_snapshot_id):
+    if not source_snapshot_id:
+        return
+    rows = (
+        session.query(SnapshotStripeMRR)
+        .filter(SnapshotStripeMRR.snapshot_id == source_snapshot_id)
+        .all()
+    )
+    for row in rows:
+        session.add(
+            SnapshotStripeMRR(
+                snapshot_id=target_snapshot_id,
+                month=row.month,
+                mrr=row.mrr,
+                entered_by=row.entered_by,
+            )
+        )
+    session.flush()
+
+
 def insert_raw_items(session: Session, snapshot_id, rows) -> list[RawOpportunityLineItem]:
     inserted = []
     for row in rows:
@@ -628,12 +707,14 @@ def import_excel_workbook(
 
     products = load_product_classifications(wb)
     countries = load_consultant_countries(wb)
+    stripe_mrr = load_stripe_mrr(wb)
     rows = list(load_opos_rows(wb))
 
     if not rows:
         raise ExcelImportError("El Excel no contiene filas validas en 'Opos con Productos'.")
 
     try:
+        previous_snapshot_id = latest_completed_snapshot_id(session)
         products = add_inferred_product_classifications(
             session,
             products,
@@ -652,6 +733,14 @@ def import_excel_workbook(
         )
         raw_items = insert_raw_items(session, snapshot.id, rows)
         run_calculation_and_store(session, snapshot, raw_items)
+        if stripe_mrr:
+            store_stripe_mrr(session, snapshot.id, stripe_mrr, entered_by=triggered_by)
+        else:
+            copy_stripe_mrr(
+                session,
+                source_snapshot_id=previous_snapshot_id,
+                target_snapshot_id=snapshot.id,
+            )
 
         snapshot.duration_seconds = round((datetime.now() - t0).total_seconds(), 2)
         session.commit()
