@@ -72,6 +72,9 @@ cd app/backend && alembic upgrade head
 
 - GitHub repo actual
 - Root Directory: `/app/frontend`
+- Branch: `main`
+- Watch Paths recomendados:
+  - `/app/frontend/**`
 
 ### Variables
 
@@ -90,6 +93,30 @@ npm ci && npm run build
 ```bash
 npm run start
 ```
+
+### Fallback CLI seguro
+
+Si el servicio no tiene GitHub conectado o Railway no detecta un push, desplegar desde la raiz del repo con:
+
+```powershell
+.\scripts\deploy_railway.ps1 -Service frontend -Message "Deploy frontend"
+```
+
+Ese script usa `app/frontend` como root del artefacto. No usar `railway up` desde la raiz para el frontend, porque Railway puede leer el `railway.json` del backend.
+
+## Activar deploy automatico desde GitHub
+
+Ahora mismo, si `railway status --json` muestra `"source": {"repo": null}` para `frontend-web` o `backend-api`, ese servicio no puede detectar pushes de GitHub. Hay que conectar cada servicio en Railway:
+
+1. Abrir el servicio en Railway.
+2. Ir a `Settings` -> `Source`.
+3. Conectar el repo `dmunozs96/ARR_Command_Center`.
+4. Seleccionar branch `main`.
+5. Para `frontend-web`, configurar `Root Directory` como `/app/frontend`.
+6. Para `backend-api`, configurar `Root Directory` como `/`.
+7. Configurar los `Watch Paths` recomendados para evitar despliegues innecesarios.
+
+Despues de eso, cualquier `git push origin main` deberia crear un deployment automaticamente.
 
 ## Postgres
 

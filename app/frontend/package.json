@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "node .next/standalone/server.js",
     "lint": "eslint",
+    "deploy:railway": "railway up . --path-as-root --service frontend-web --environment production",
     "test:e2e": "playwright test"
   },
   "dependencies": {
