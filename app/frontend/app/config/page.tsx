@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { useRef, Suspense, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
+import { Upload, CheckCircle2, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
-import type { ConsultantOut, ProductOut } from "@/lib/types";
+import type { ConsultantOut, MastersImportResponse, ProductOut } from "@/lib/types";
 
 const PRODUCT_TYPES = [
   "[SIN ASIGNAR]",
@@ -208,6 +209,80 @@ function ConsultantRow({
   );
 }
 
+function MastersUploadCard({ onSuccess }: { onSuccess: () => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [result, setResult] = useState<MastersImportResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const upload = useMutation({
+    mutationFn: (file: File) => api.importMasters(file),
+    onSuccess: (data) => {
+      setResult(data);
+      setError(null);
+      onSuccess();
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+        "Error al cargar los maestros.";
+      setError(msg);
+      setResult(null);
+    },
+  });
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) upload.mutate(file);
+    e.target.value = "";
+  }
+
+  return (
+    <section className="rounded-3xl border border-[#e7e1f2] bg-[#fbfaff] p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-1">
+          <h2 className="text-base font-bold text-[#2f185f]">Cargar Maestros</h2>
+          <p className="text-sm text-[#6f6a80]">
+            Sube el Excel que contiene las hojas{" "}
+            <span className="font-medium text-[#2f185f]">Productos SF SAAS</span> y{" "}
+            <span className="font-medium text-[#2f185f]">Pais Consultor</span>. Estos maestros se
+            guardan en la app y se aplican automaticamente a todos los imports de BBDD.
+          </p>
+        </div>
+
+        <div className="shrink-0">
+          <input ref={fileRef} type="file" accept=".xlsx" className="hidden" onChange={handleFile} />
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={upload.isPending}
+            className="flex items-center gap-2 rounded-full bg-[#2f185f] px-5 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-[#3d2175] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Upload size={15} />
+            {upload.isPending ? "Cargando..." : "Subir fichero de maestros"}
+          </button>
+        </div>
+      </div>
+
+      {result && (
+        <div className="mt-4 flex items-start gap-3 rounded-2xl border border-green-200 bg-green-50 px-4 py-3">
+          <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-green-600" />
+          <p className="text-sm text-green-800">
+            Maestros cargados correctamente:{" "}
+            <span className="font-semibold">{result.products_loaded} productos</span> y{" "}
+            <span className="font-semibold">{result.consultants_loaded} consultores</span> actualizados.
+          </p>
+        </div>
+      )}
+
+      {error && (
+        <div className="mt-4 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
+          <AlertCircle size={17} className="mt-0.5 shrink-0 text-red-500" />
+          <p className="text-sm text-red-800">{error}</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function ConfigPageContent() {
   const qc = useQueryClient();
   const searchParams = useSearchParams();
@@ -295,8 +370,15 @@ function ConfigPageContent() {
     [productFromAlert, products],
   );
 
+  function handleMastersLoaded() {
+    qc.invalidateQueries({ queryKey: ["products"] });
+    qc.invalidateQueries({ queryKey: ["consultants-config"] });
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-8 p-6">
+      <MastersUploadCard onSuccess={handleMastersLoaded} />
+
       <div className="space-y-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>

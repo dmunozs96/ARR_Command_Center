@@ -169,7 +169,13 @@ class ARRCalculator:
         flags: List[str] = []
 
         # --- Classify product (col U in Excel) ---
-        product_type = self.product_classifications.get(raw.product_name)
+        # Prefer compound key "(name)|(business_line)" for precision; fall back to name alone
+        compound_key = f"{raw.product_name}|{raw.business_line}" if raw.business_line else None
+        product_type = (
+            self.product_classifications.get(compound_key)
+            if compound_key
+            else None
+        ) or self.product_classifications.get(raw.product_name)
         if product_type is None or product_type == "[SIN ASIGNAR]":
             flags.append("UNCLASSIFIED_PRODUCT")
             return ARRLineItemResult(

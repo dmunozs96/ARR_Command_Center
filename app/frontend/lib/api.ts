@@ -10,6 +10,7 @@ import type {
   ConsultantOut,
   StripeMRROut,
   SyncResponse,
+  MastersImportResponse,
 } from "./types";
 
 const client = axios.create({ baseURL: "/api" });
@@ -63,6 +64,16 @@ export const api = {
     formData.append("file", file);
     return client
       .post<SyncResponse>("/imports/excel", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      .then((r) => r.data);
+  },
+
+  importMasters: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return client
+      .post<MastersImportResponse>("/imports/masters", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       })
       .then((r) => r.data);

@@ -156,6 +156,15 @@ def _infer_product_type(product_name: str, business_line: str | None, row: dict)
 
 
 def load_product_classifications(wb) -> dict:
+    """
+    Returns {product_name: classification_info}.
+
+    When the same product name appears in multiple business lines, the lookup
+    key is enriched internally using the business_line (col 4 = Línea de Negocio2,
+    which uses the same format as the BBDD, e.g. 'isEazy LMS'). The returned dict
+    uses compound keys "(name)|(business_line)" so callers can look up by both.
+    A plain product_name key is also kept as fallback (first occurrence wins).
+    """
     if "Productos SF SAAS" not in wb.sheetnames:
         return {}
 
@@ -168,13 +177,22 @@ def load_product_classifications(wb) -> dict:
         name = _str(row[1])
         if not name:
             continue
-        result[name] = {
+        business_line = _str(row[4])
+        info = {
             "product_code": _str(row[2]),
-            "business_line": _str(row[4]),
+            "business_line": business_line,
             "category": _str(row[5]),
             "subcategory": _str(row[6]),
             "product_type": _str(row[7]),
         }
+        # Compound key for exact (name, business_line) lookups
+        if business_line:
+            compound = f"{name}|{business_line}"
+            result[compound] = info
+        # Plain name fallback — only first occurrence, so we don't overwrite with a
+        # different classification for the same product in another business line
+        if name not in result:
+            result[name] = info
     return result
 
 
@@ -327,6 +345,9 @@ def infer_product_classifications_from_rows(rows: list[dict]) -> dict:
 
 def upsert_product_classifications(session: Session, products: dict):
     for name, info in products.items():
+        # Skip compound keys — they exist only for in-memory lookup resolution
+        if "|" in name:
+            continue
         existing = session.query(ProductClassification).filter_by(product_name=name).first()
         if existing:
             existing.product_type = info["product_type"] or "UNCLASSIFIED"
@@ -355,6 +376,7 @@ def add_missing_product_placeholders(session: Session, products: dict, rows: lis
     merged = dict(products)
     for row in rows:
         product_name = row["product_name"]
+        # Ignore compound keys in the check — plain name is the DB key
         if product_name in merged or product_name in existing_names:
             continue
         merged[product_name] = {
@@ -449,9 +471,16 @@ def _all_months_in_snapshot(arr_snapshot) -> list[date]:
 
 
 def run_calculation_and_store(session: Session, snapshot: Snapshot, raw_items):
-    products = {
-        p.product_name: p.product_type for p in session.query(ProductClassification).all()
-    }
+    # Build lookup dict that supports (name, business_line) compound key resolution.
+    # ARRCalculator still receives a flat {key: product_type} dict; compound keys
+    # like "Usuarios|isEazy LMS" take precedence over plain "Usuarios" when the
+    # raw item carries a business_line value.
+    classifications = session.query(ProductClassification).all()
+    products: dict[str, str] = {}
+    for p in classifications:
+        products[p.product_name] = p.product_type
+        if p.business_line:
+            products[f"{p.product_name}|{p.business_line}"] = p.product_type
     countries = {
         c.consultant_name: c.country for c in session.query(ConsultantCountry).all()
     }
@@ -579,8 +608,6 @@ def import_excel_workbook(
         raise ExcelImportError("El Excel no contiene filas validas en 'Opos con Productos'.")
 
     try:
-        if not products:
-            products = infer_product_classifications_from_rows(rows)
         products = add_missing_product_placeholders(session, products, rows)
         countries = add_missing_consultant_placeholders(session, countries, rows)
 

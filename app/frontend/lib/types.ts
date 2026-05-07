@@ -125,3 +125,8 @@ export interface SyncResponse {
   alerts_count: number | null;
   duration_seconds: number | null;
 }
+
+export interface MastersImportResponse {
+  products_loaded: number;
+  consultants_loaded: number;
+}
