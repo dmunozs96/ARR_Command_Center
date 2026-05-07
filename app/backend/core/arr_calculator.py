@@ -247,11 +247,11 @@ class ARRCalculator:
         start_month = effective_start.replace(day=1)
         raw_days = (effective_end - effective_start).days   # col AB
 
-        if raw_days <= 0:
+        if raw_days == 0:
             flags.append("DURATION_ZERO_FALLBACK")
-            raw_days = 30
-
-        end_month_normalized = start_month + timedelta(days=raw_days - 1)  # col Z
+            end_month_normalized = start_month + timedelta(days=30)
+        else:
+            end_month_normalized = start_month + timedelta(days=raw_days - 1)  # col Z
 
         # --- Service days = AH (same as AA in Excel) ---
         service_days = (end_month_normalized - start_month).days
@@ -298,6 +298,11 @@ class ARRCalculator:
 
     def _alerts_from(self, item: ARRLineItemResult) -> List[dict]:
         alerts = []
+        non_actionable_flags = {
+            "MISSING_START_DATE",
+            "MISSING_END_DATE",
+            "DURATION_ZERO_FALLBACK",
+        }
         severity_map = {
             "UNCLASSIFIED_PRODUCT": "error",
             "INVALID_DATES": "error",
@@ -311,6 +316,8 @@ class ARRCalculator:
             "MISSING_COUNTRY": "info",
         }
         for flag in item.data_quality_flags:
+            if flag in non_actionable_flags:
+                continue
             alerts.append({
                 "alert_type": flag,
                 "severity": severity_map.get(flag, "info"),

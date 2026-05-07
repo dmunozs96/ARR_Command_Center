@@ -116,6 +116,26 @@ class TestCoreFormula:
         assert item.real_price == real_price
         assert abs(item.annualized_value - expected) < Decimal("0.0001")
 
+    def test_zero_day_contract_matches_excel_fallback(self):
+        """When start=end, Excel sets fin_mes=start_month+30 and service_days=30."""
+        calc = make_calc()
+        raw = make_raw(
+            subscription_start_date=date(2026, 4, 3),
+            subscription_end_date=date(2026, 4, 3),
+            unit_price=Decimal("1914.47"),
+            quantity=Decimal("1"),
+        )
+        snap = calc.process_all([raw])
+        item = snap.line_items[0]
+
+        assert item.start_month == date(2026, 4, 1)
+        assert item.end_month_normalized == date(2026, 5, 1)
+        assert item.service_days == 30
+        expected = (Decimal("1914.47") / Decimal("30")) * Decimal("365")
+        assert abs(item.annualized_value - expected) < Decimal("0.0001")
+        assert "DURATION_ZERO_FALLBACK" in item.data_quality_flags
+        assert snap.alerts == []
+
 
 # ---------------------------------------------------------------------------
 # Date fallback rules (AS-01, AS-02)
@@ -309,9 +329,10 @@ class TestExcelParity:
         real_price = Decimal(str(unit_price)) * Decimal(str(quantity))
         start_month = start.replace(day=1)
         raw_days = (end - start).days
-        if raw_days <= 0:
-            raw_days = 30
-        end_month_norm = start_month + timedelta(days=raw_days - 1)
+        if raw_days == 0:
+            end_month_norm = start_month + timedelta(days=30)
+        else:
+            end_month_norm = start_month + timedelta(days=raw_days - 1)
         service_days = (end_month_norm - start_month).days
         if service_days <= 0:
             service_days = 30
