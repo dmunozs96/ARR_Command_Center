@@ -82,7 +82,7 @@ export function ARRYearBarsChart({ months, monthTo, loading }: Props) {
             <LabelList
               dataKey="arr"
               position="top"
-              formatter={(v: number) => formatCompactEUR(v)}
+              formatter={(v: unknown) => formatCompactEUR(Number(v ?? 0))}
               style={{ fontSize: 11, fontWeight: 700, fill: "#2f185f" }}
             />
             {data.map((entry, index) => (
