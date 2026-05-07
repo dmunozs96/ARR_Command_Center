@@ -1,24 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Building2, CalendarRange, Layers3 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useSnapshotContext } from "@/lib/snapshot-context";
 import { useBLGrouping } from "@/lib/bl-grouping-context";
-import { applyBLGrouping } from "@/lib/utils";
 import { ClientARRTable } from "@/components/ClientARRTable";
 import { ClientARRChart } from "@/components/ClientARRChart";
-import type { ARRByAccountResponse } from "@/lib/types";
-
-const ALL_PRODUCT_TYPES = [
-  "SaaS LMS",
-  "SaaS AIO",
-  "SaaS Author",
-  "SaaS Engage",
-  "SaaS Skills",
-  "Author Online",
-];
 
 function buildProductTypeOptions(combineLmsAio: boolean, combineAuthor: boolean) {
   const options: { label: string; value: string; queryValues: string[] }[] = [
@@ -60,7 +49,7 @@ export default function ClientsPage() {
   const selectedOption = blOptions.find((o) => o.value === selectedBL) ?? blOptions[0];
   const productTypesParam = selectedOption.queryValues.join(",") || undefined;
 
-  const { data: rawData, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["arr-by-account", activeSnapshot?.id, productTypesParam, monthFrom, monthTo],
     queryFn: () =>
       api.getARRByAccount({
@@ -72,14 +61,6 @@ export default function ClientsPage() {
       }),
     enabled: !!activeSnapshot,
   });
-
-  // Apply BL grouping to by_month data if a combined option is selected
-  const data: ARRByAccountResponse | undefined = useMemo(() => {
-    if (!rawData || selectedOption.queryValues.length <= 1) return rawData;
-    // If we queried multiple product types (combined BL), the accounts already have the sum
-    // No additional transformation needed since the backend sums by account across types
-    return rawData;
-  }, [rawData, selectedOption]);
 
   return (
     <div className="min-h-screen">
@@ -159,16 +140,9 @@ export default function ClientsPage() {
           </section>
         )}
 
-        {/* Table + Chart */}
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          <ClientARRTable data={data} isLoading={isLoading && !!activeSnapshot} />
-          <div className="hidden xl:block">
-            <ClientARRChart data={data} isLoading={isLoading && !!activeSnapshot} />
-          </div>
-        </div>
-        <div className="xl:hidden">
-          <ClientARRChart data={data} isLoading={isLoading && !!activeSnapshot} />
-        </div>
+        {/* Chart on top, table below (full width) */}
+        <ClientARRChart data={data} isLoading={isLoading && !!activeSnapshot} />
+        <ClientARRTable data={data} isLoading={isLoading && !!activeSnapshot} />
       </div>
     </div>
   );

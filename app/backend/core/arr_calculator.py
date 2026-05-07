@@ -269,7 +269,7 @@ class ARRCalculator:
         daily_price = Decimal(str(real_price)) / Decimal(str(service_days))
         annualized_value = daily_price * Decimal("365")
 
-        if annualized_value > Decimal("1000000"):
+        if is_saas and annualized_value > Decimal("1000000"):
             flags.append("HIGH_ARR_FLAG")
 
         # --- Consultant country (col AG) ---
