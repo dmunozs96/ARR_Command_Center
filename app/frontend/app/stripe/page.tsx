@@ -46,15 +46,15 @@ function MRRModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
       <div className="w-80 space-y-4 rounded-xl bg-white p-6 shadow-xl">
-        <h3 className="font-semibold text-gray-900">MRR Stripe - {formatMonthLabel(row.month)}</h3>
+        <h3 className="font-semibold text-gray-900">ARR Stripe - {formatMonthLabel(row.month)}</h3>
         <div>
-          <label className="mb-1 block text-xs text-gray-500">MRR (EUR)</label>
+          <label className="mb-1 block text-xs text-gray-500">ARR (EUR)</label>
           <input
             type="number"
             value={mrr}
             onChange={(event) => setMrr(event.target.value)}
             className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            placeholder="Ej: 9500"
+            placeholder="Ej: 114000"
             autoFocus
           />
         </div>
@@ -86,9 +86,9 @@ function MRRModal({
 function downloadTemplate() {
   const wb = XLSX.utils.book_new();
   const data = [
-    ["Mes (YYYY-MM-DD)", "MRR (EUR)"],
-    ["2024-01-01", 9500],
-    ["2024-02-01", 10200],
+    ["Mes (YYYY-MM-DD)", "ARR (EUR)"],
+    ["2024-01-01", 114000],
+    ["2024-02-01", 122400],
   ];
   const ws = XLSX.utils.aoa_to_sheet(data);
   ws["!cols"] = [{ wch: 20 }, { wch: 14 }];
@@ -164,7 +164,7 @@ function BulkUploadModal({
             <thead>
               <tr className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <th className="px-4 py-2 text-left">Mes</th>
-                <th className="px-4 py-2 text-right">MRR (EUR)</th>
+                <th className="px-4 py-2 text-right">ARR (EUR)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -246,7 +246,7 @@ export default function StripePage() {
     <div className="mx-auto max-w-3xl space-y-5 p-6" data-testid="stripe-page">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">isEazy Author Online - MRR de Stripe</h1>
+          <h1 className="text-xl font-bold text-gray-900">isEazy Author Online - ARR de Stripe</h1>
           <p className="mt-0.5 text-xs text-gray-500">
             Input manual - snapshot activo:{" "}
             {activeSnapshot ? formatDateTime(activeSnapshot.created_at) : "-"}
@@ -322,7 +322,7 @@ export default function StripePage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-amber-900">
-                Falta el MRR de Stripe del mes actual
+                Falta el ARR de Stripe del mes actual
               </p>
               <p className="mt-1 text-sm text-amber-800">
                 No hay dato cargado para {formatMonthLabel(currentMonth)} en el snapshot activo.
@@ -344,8 +344,7 @@ export default function StripePage() {
             <thead>
               <tr className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <th className="px-5 py-2.5 text-left">Mes</th>
-                <th className="px-4 py-2.5 text-right">MRR (EUR)</th>
-                <th className="px-4 py-2.5 text-right">ARR Equiv.</th>
+                <th className="px-4 py-2.5 text-right">ARR (EUR)</th>
                 <th className="px-4 py-2.5 text-right">Actualizado</th>
                 <th className="px-5 py-2.5" />
               </tr>
@@ -354,7 +353,7 @@ export default function StripePage() {
               {stripeQuery.isLoading &&
                 [0, 1, 2].map((row) => (
                   <tr key={row} className="animate-pulse">
-                    <td colSpan={5} className="px-5 py-3">
+                    <td colSpan={4} className="px-5 py-3">
                       <div className="h-4 rounded bg-gray-100" />
                     </td>
                   </tr>
@@ -362,7 +361,7 @@ export default function StripePage() {
 
               {!stripeQuery.isLoading && rows.length === 0 && !stripeQuery.isError && (
                 <tr>
-                  <td colSpan={5} className="px-5 py-8 text-center text-gray-400">
+                  <td colSpan={4} className="px-5 py-8 text-center text-gray-400">
                     Sin datos de Stripe aun. Anade el primer mes.
                   </td>
                 </tr>
@@ -372,9 +371,6 @@ export default function StripePage() {
                 <tr key={row.month} className="hover:bg-gray-50">
                   <td className="px-5 py-2.5 text-gray-800">{formatMonthLabel(row.month)}</td>
                   <td className="px-4 py-2.5 text-right text-gray-900">{formatEUR(row.mrr)}</td>
-                  <td className="px-4 py-2.5 text-right text-gray-700">
-                    {formatEUR(row.arr_equivalent)}
-                  </td>
                   <td className="px-4 py-2.5 text-right text-xs text-gray-400">
                     {row.entered_at ? new Date(row.entered_at).toLocaleDateString("es-ES") : "-"}
                   </td>

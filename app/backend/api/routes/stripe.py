@@ -48,7 +48,7 @@ def get_stripe_mrr(
             StripeMRROut(
                 month=r.month,
                 mrr=Decimal(str(r.mrr)),
-                arr_equivalent=Decimal(str(r.mrr)) * 12,
+                arr_equivalent=Decimal(str(r.mrr)),
                 entered_by=r.entered_by,
                 entered_at=r.entered_at,
             )
@@ -88,7 +88,7 @@ def bulk_upsert_stripe_mrr(body: StripeMRRBulkUpsert, db: Session = Depends(get_
             StripeMRROut(
                 month=existing.month,
                 mrr=Decimal(str(existing.mrr)),
-                arr_equivalent=Decimal(str(existing.mrr)) * 12,
+                arr_equivalent=Decimal(str(existing.mrr)),
                 entered_by=existing.entered_by,
                 entered_at=existing.entered_at,
             )
@@ -123,7 +123,7 @@ def upsert_stripe_mrr(body: StripeMRRUpsert, db: Session = Depends(get_db)):
     return StripeMRROut(
         month=existing.month,
         mrr=Decimal(str(existing.mrr)),
-        arr_equivalent=Decimal(str(existing.mrr)) * 12,
+        arr_equivalent=Decimal(str(existing.mrr)),
         entered_by=existing.entered_by,
         entered_at=existing.entered_at,
     )
