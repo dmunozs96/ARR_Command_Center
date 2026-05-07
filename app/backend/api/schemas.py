@@ -131,6 +131,7 @@ class AlertOut(BaseModel):
     reviewed_by: Optional[str]
     arr_line_item_id: Optional[UUID]
     created_at: Optional[datetime]
+    arr_impact: Optional[Decimal] = None
 
     model_config = {"from_attributes": True}
 

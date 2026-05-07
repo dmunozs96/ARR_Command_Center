@@ -18,6 +18,8 @@ import {
 import { api } from "@/lib/api";
 import { getAPIErrorMessage } from "@/lib/api-errors";
 import { KPICards } from "@/components/KPICards";
+import { ARRTotalChart } from "@/components/ARRTotalChart";
+import { ARRYearBarsChart } from "@/components/ARRYearBarsChart";
 import { ARRChart } from "@/components/ARRChart";
 import { ARRBreakdownTable } from "@/components/ARRBreakdownTable";
 import { AlertsPanel } from "@/components/AlertsPanel";
@@ -215,7 +217,7 @@ export default function DashboardPage() {
           </section>
         )}
 
-        <KPICards current={lastMonth} loading={arrQuery.isLoading} unreviewedCount={unreviewedCount} monthsCount={months.length} />
+        <KPICards current={lastMonth} months={months} loading={arrQuery.isLoading} unreviewedCount={unreviewedCount} monthsCount={months.length} />
 
         <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
           <div className="space-y-6">
@@ -231,6 +233,8 @@ export default function DashboardPage() {
               monthTo={monthTo}
               onMonthToChange={setMonthTo}
             />
+            <ARRTotalChart months={months} loading={arrQuery.isLoading} />
+            <ARRYearBarsChart months={months} monthTo={monthTo} loading={arrQuery.isLoading} />
             <ARRChart months={months} loading={arrQuery.isLoading} />
             <ARRBreakdownTable current={lastMonth} prev={prevMonth} loading={arrQuery.isLoading} />
           </div>
