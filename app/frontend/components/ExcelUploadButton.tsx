@@ -21,16 +21,29 @@ export function ExcelUploadButton() {
     setError(null);
     setSuccess(null);
 
+    let response;
     try {
-      const response = await api.importExcel(file);
+      response = await api.importExcel(file);
+    } catch (uploadError) {
+      setError(getAPIErrorMessage(uploadError, "No se pudo importar el Excel."));
+      setLoading(false);
+      event.target.value = "";
+      return;
+    }
+
+    try {
       await qc.invalidateQueries();
       setSuccess(
         response.records_processed != null
           ? `Excel importado: ${response.records_processed} registros procesados.`
           : "Excel importado correctamente.",
       );
-    } catch (uploadError) {
-      setError(getAPIErrorMessage(uploadError, "No se pudo importar el Excel."));
+    } catch {
+      setSuccess(
+        response.records_processed != null
+          ? `Excel importado: ${response.records_processed} registros procesados. Actualiza la pagina si alguna vista no se refresca.`
+          : "Excel importado correctamente. Actualiza la pagina si alguna vista no se refresca.",
+      );
     } finally {
       setLoading(false);
       event.target.value = "";
