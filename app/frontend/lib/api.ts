@@ -1,5 +1,7 @@
 import axios from "axios";
 import type {
+  AccountARR,
+  ARRByAccountResponse,
   ARRSummaryResponse,
   ARRByConsultantResponse,
   ARRLineItemOut,
@@ -33,6 +35,18 @@ export const api = {
   }) =>
     client
       .get<ARRSummaryResponse>("/arr/summary", { params })
+      .then((r) => r.data),
+
+  getARRByAccount: (params: {
+    snapshot_id?: string;
+    month_from?: string;
+    month_to?: string;
+    product_types?: string;
+    limit?: number;
+    mode?: "from_start" | "from_close";
+  }) =>
+    client
+      .get<ARRByAccountResponse>("/arr/by-account", { params })
       .then((r) => r.data),
 
   getARRByConsultant: (params: {

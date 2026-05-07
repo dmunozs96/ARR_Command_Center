@@ -11,7 +11,8 @@ import {
   YAxis,
 } from "recharts";
 import type { ARRMonthPoint } from "@/lib/types";
-import { formatCompactEUR, formatEUR, formatMonth, productTypeColor } from "@/lib/utils";
+import { applyBLGroupingToMonths, formatCompactEUR, formatEUR, formatMonth, productTypeColor } from "@/lib/utils";
+import { useBLGrouping } from "@/lib/bl-grouping-context";
 
 interface Props {
   months: ARRMonthPoint[];
@@ -23,6 +24,9 @@ function formatYAxis(value: number): string {
 }
 
 export function ARRChart({ months, loading }: Props) {
+  const { combineLmsAio, combineAuthor } = useBLGrouping();
+  const groupedMonths = applyBLGroupingToMonths(months, { combineLmsAio, combineAuthor });
+
   if (loading) {
     return (
       <div className="flex h-[420px] items-center justify-center rounded-3xl border border-[#e7e1f2] bg-white p-5 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
@@ -31,7 +35,7 @@ export function ARRChart({ months, loading }: Props) {
     );
   }
 
-  if (months.length === 0) {
+  if (groupedMonths.length === 0) {
     return (
       <div className="flex h-[420px] items-center justify-center rounded-3xl border border-[#e7e1f2] bg-white p-5 text-sm font-semibold text-[#837a9f] shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
         Sin datos para el periodo seleccionado.
@@ -39,11 +43,11 @@ export function ARRChart({ months, loading }: Props) {
     );
   }
 
-  const productTypes = Array.from(new Set(months.flatMap((m) => Object.keys(m.by_product_type))))
+  const productTypes = Array.from(new Set(groupedMonths.flatMap((m) => Object.keys(m.by_product_type))))
     .filter((pt) => pt !== "null" && pt !== "undefined")
     .slice(0, 7);
 
-  const data = months.map((m) => ({
+  const data = groupedMonths.map((m) => ({
     month: formatMonth(m.month),
     total: m.total_arr,
     ...Object.fromEntries(productTypes.map((pt) => [pt, m.by_product_type[pt] ?? 0])),
@@ -62,7 +66,7 @@ export function ARRChart({ months, loading }: Props) {
             Evolucion ARR por linea de negocio
           </h2>
         </div>
-        <p className="text-sm text-[#6f6a80]">{months.length} meses analizados</p>
+        <p className="text-sm text-[#6f6a80]">{groupedMonths.length} meses analizados</p>
       </div>
 
       <ResponsiveContainer width="100%" height={340}>

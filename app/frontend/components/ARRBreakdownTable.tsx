@@ -1,6 +1,7 @@
 "use client";
 
-import { formatEUR, formatPct, formatMoM, productTypeColor } from "@/lib/utils";
+import { applyBLGrouping, formatEUR, formatPct, formatMoM, productTypeColor } from "@/lib/utils";
+import { useBLGrouping } from "@/lib/bl-grouping-context";
 import type { ARRMonthPoint } from "@/lib/types";
 
 interface Props {
@@ -10,6 +11,9 @@ interface Props {
 }
 
 export function ARRBreakdownTable({ current, prev, loading }: Props) {
+  const { combineLmsAio, combineAuthor } = useBLGrouping();
+  const groupOpts = { combineLmsAio, combineAuthor };
+
   if (loading) {
     return (
       <div className="h-96 animate-pulse rounded-3xl border border-[#e7e1f2] bg-white p-5">
@@ -31,7 +35,9 @@ export function ARRBreakdownTable({ current, prev, loading }: Props) {
     );
   }
 
-  const types = Object.entries(current.by_product_type).sort(([, a], [, b]) => b - a);
+  const groupedCurrent = applyBLGrouping(current.by_product_type as Record<string, number>, groupOpts);
+  const groupedPrev = prev ? applyBLGrouping(prev.by_product_type as Record<string, number>, groupOpts) : null;
+  const types = Object.entries(groupedCurrent).sort(([, a], [, b]) => b - a);
   const total = current.total_arr;
 
   return (
@@ -57,7 +63,7 @@ export function ARRBreakdownTable({ current, prev, loading }: Props) {
           </thead>
           <tbody className="divide-y divide-[#f0ebf8]">
             {types.map(([type, arr]) => {
-              const prevArr = prev?.by_product_type[type] ?? null;
+              const prevArr = groupedPrev ? (groupedPrev[type] ?? null) : null;
               const momChange = prevArr != null ? arr - prevArr : null;
               const momPct = prevArr != null && prevArr > 0 ? ((arr - prevArr) / prevArr) * 100 : null;
               const pctTotal = total > 0 ? (arr / total) * 100 : 0;

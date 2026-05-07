@@ -244,6 +244,28 @@ class StripeMRRBulkResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# ARR by Account
+# ---------------------------------------------------------------------------
+
+class AccountARR(BaseModel):
+    rank: int
+    account_name: str
+    total_arr: Decimal
+    by_month: Dict[str, Decimal]   # "YYYY-MM-DD" → ARR
+    first_month_arr: Decimal
+    last_month_arr: Decimal
+    delta: Decimal
+
+
+class ARRByAccountResponse(BaseModel):
+    snapshot_id: UUID
+    months: List[date]             # ordered list of months in range
+    accounts: List[AccountARR]     # top N, sorted by total_arr desc
+    others: AccountARR             # sum of the rest (rank=0, account_name="Otros")
+    total_arr: Decimal             # grand total across all accounts and months
+
+
+# ---------------------------------------------------------------------------
 # Masters import
 # ---------------------------------------------------------------------------
 

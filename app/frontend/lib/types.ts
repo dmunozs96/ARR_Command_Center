@@ -134,3 +134,21 @@ export interface MastersImportResponse {
   products_loaded: number;
   consultants_loaded: number;
 }
+
+export interface AccountARR {
+  rank: number;
+  account_name: string;
+  total_arr: number;
+  by_month: Record<string, number>; // "YYYY-MM-DD" → ARR
+  first_month_arr: number;
+  last_month_arr: number;
+  delta: number;
+}
+
+export interface ARRByAccountResponse {
+  snapshot_id: string;
+  months: string[];            // ["YYYY-MM-DD", ...]
+  accounts: AccountARR[];      // top N sorted by total_arr desc
+  others: AccountARR;          // sum of remaining accounts
+  total_arr: number;
+}

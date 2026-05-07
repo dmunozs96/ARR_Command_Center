@@ -69,18 +69,47 @@ export function snapshotStatusLabel(status: string): string {
   return labels[status] ?? status;
 }
 
-const PRODUCT_TYPE_COLORS: Record<string, string> = {
-  "SaaS LMS": "#6d35ff",
-  "SaaS Skills": "#20c7a8",
-  "SaaS Author": "#ff5f57",
-  "SaaS Engage": "#c83cff",
-  "SaaS AIO": "#00a7d8",
-  "Author Online": "#ffb020",
-  TaaS: "#3557ff",
-  Implantacion: "#837a9f",
-  Otro: "#6f6a80",
-};
+import { PRODUCT_TYPE_COLORS } from "@/lib/constants";
+import type { ARRMonthPoint } from "@/lib/types";
 
 export function productTypeColor(type: string): string {
   return PRODUCT_TYPE_COLORS[type] ?? "#837a9f";
+}
+
+export function applyBLGrouping(
+  byProductType: Record<string, number>,
+  opts: { combineLmsAio: boolean; combineAuthor: boolean },
+): Record<string, number> {
+  const result = { ...byProductType };
+
+  if (opts.combineLmsAio) {
+    const lms = result["SaaS LMS"] ?? 0;
+    const aio = result["SaaS AIO"] ?? 0;
+    delete result["SaaS LMS"];
+    delete result["SaaS AIO"];
+    if (lms + aio > 0) result["LMS & AIO"] = lms + aio;
+  }
+
+  if (opts.combineAuthor) {
+    const author = result["SaaS Author"] ?? 0;
+    const online = result["Author Online"] ?? 0;
+    delete result["SaaS Author"];
+    delete result["Author Online"];
+    if (author + online > 0) result["Author (Total)"] = author + online;
+  }
+
+  return result;
+}
+
+export function applyBLGroupingToMonths(
+  months: ARRMonthPoint[],
+  opts: { combineLmsAio: boolean; combineAuthor: boolean },
+): ARRMonthPoint[] {
+  return months.map((m) => ({
+    ...m,
+    by_product_type: applyBLGrouping(
+      m.by_product_type as Record<string, number>,
+      opts,
+    ),
+  }));
 }

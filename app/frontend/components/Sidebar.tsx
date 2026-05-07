@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell,
+  BrainCircuit,
+  Building2,
   ChartNoAxesCombined,
   ChevronRight,
   Database,
@@ -16,11 +18,16 @@ import { SnapshotSelector } from "@/components/SnapshotSelector";
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/clients", label: "Clientes", icon: Building2 },
   { href: "/snapshots", label: "Snapshots", icon: Database },
   { href: "/consultants", label: "Consultores", icon: UsersRound },
   { href: "/stripe", label: "Stripe MRR", icon: WalletCards },
   { href: "/alerts", label: "Alertas", icon: Bell },
   { href: "/config", label: "Configuracion", icon: Settings },
+];
+
+const NAV_EXPERT = [
+  { href: "/expert", label: "ARR Expert", icon: BrainCircuit },
 ];
 
 export function Sidebar() {
@@ -76,6 +83,36 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+        <div className="pt-3">
+          {NAV_EXPERT.map((item) => {
+            const active = pathname === item.href;
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`group flex items-center justify-between rounded-xl px-3 py-3 text-sm font-semibold transition ${
+                  active
+                    ? "bg-[#2f185f] text-white shadow-sm"
+                    : "text-[#6d35ff] hover:bg-[#efe9ff] hover:text-[#2f185f]"
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <span
+                    className={`flex h-9 w-9 items-center justify-center rounded-lg ${
+                      active ? "bg-[#6d35ff] text-white" : "bg-[#efe9ff] text-[#6d35ff]"
+                    }`}
+                  >
+                    <Icon size={18} />
+                  </span>
+                  {item.label}
+                </span>
+                {active && <ChevronRight size={16} />}
+              </Link>
+            );
+          })}
+        </div>
       </nav>
 
       <div className="rounded-2xl border border-[#e7e1f2] bg-[#fbfaff] p-4">

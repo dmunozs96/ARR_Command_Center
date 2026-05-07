@@ -16,6 +16,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.backend.api.schemas import (
+    AccountARR,
+    ARRByAccountResponse,
     ARRByConsultantResponse,
     ARRLineItemOut,
     ARRLineItemsResponse,
@@ -200,6 +202,178 @@ def arr_summary(
         prev_total = total
 
     return ARRSummaryResponse(snapshot_id=sid, months=points)
+
+
+@router.get("/by-account", response_model=ARRByAccountResponse)
+def arr_by_account(
+    snapshot_id: Optional[UUID] = Query(None),
+    month_from: Optional[date] = Query(None),
+    month_to: Optional[date] = Query(None),
+    product_types: Optional[str] = Query(None, description="CSV of product types"),
+    limit: int = Query(default=20, ge=1, le=100),
+    mode: str = Query(default="from_start", description="from_start | from_close"),
+    db: Session = Depends(get_db),
+):
+    """
+    Returns top N accounts by ARR for a given snapshot, month range, and product type filter.
+    Includes an 'Otros' bucket for the remaining accounts.
+    """
+    sid = snapshot_id or _latest_snapshot_id(db)
+
+    product_type_list: Optional[List[str]] = None
+    if product_types and product_types.strip():
+        product_type_list = [p.strip() for p in product_types.split(",") if p.strip()]
+
+    # Resolve month range using same logic as summary endpoint
+    if mode == "from_close":
+        rows = (
+            db.query(ARRLineItem, RawOpportunityLineItem)
+            .join(RawOpportunityLineItem, ARRLineItem.raw_line_item_id == RawOpportunityLineItem.id)
+            .filter(
+                ARRLineItem.snapshot_id == sid,
+                ARRLineItem.is_saas == True,
+                ARRLineItem.excluded_from_arr == False,
+            )
+            .all()
+        )
+        active_items = []
+        for arr, raw in rows:
+            if product_type_list and arr.product_type not in product_type_list:
+                continue
+            opp_type = (raw.opportunity_type or "").lower().strip()
+            if (
+                opp_type == "nuevo negocio"
+                and raw.subscription_start_date
+                and raw.close_date < raw.subscription_start_date
+            ):
+                active_start = raw.close_date.replace(day=1)
+            else:
+                active_start = arr.start_month
+            if active_start <= arr.end_month_normalized:
+                active_items.append((
+                    active_start,
+                    arr.end_month_normalized,
+                    arr.product_type,
+                    Decimal(str(arr.annualized_value)),
+                    raw.account_name or "Sin cuenta",
+                ))
+    else:
+        q = (
+            db.query(ARRLineItem, RawOpportunityLineItem)
+            .join(RawOpportunityLineItem, ARRLineItem.raw_line_item_id == RawOpportunityLineItem.id)
+            .filter(
+                ARRLineItem.snapshot_id == sid,
+                ARRLineItem.is_saas == True,
+                ARRLineItem.excluded_from_arr == False,
+            )
+        )
+        if product_type_list:
+            q = q.filter(ARRLineItem.product_type.in_(product_type_list))
+        rows = q.all()
+        active_items = [
+            (
+                arr.start_month,
+                arr.end_month_normalized,
+                arr.product_type,
+                Decimal(str(arr.annualized_value)),
+                raw.account_name or "Sin cuenta",
+            )
+            for arr, raw in rows
+        ]
+
+    if not active_items:
+        empty_account = AccountARR(
+            rank=0,
+            account_name="Otros",
+            total_arr=Decimal("0"),
+            by_month={},
+            first_month_arr=Decimal("0"),
+            last_month_arr=Decimal("0"),
+            delta=Decimal("0"),
+        )
+        return ARRByAccountResponse(
+            snapshot_id=sid,
+            months=[],
+            accounts=[],
+            others=empty_account,
+            total_arr=Decimal("0"),
+        )
+
+    # Determine month range
+    candidate_starts = [i[0] for i in active_items]
+    candidate_ends = [i[1] for i in active_items]
+    range_start = month_from.replace(day=1) if month_from else min(candidate_starts)
+    range_end = month_to.replace(day=1) if month_to else max(candidate_ends)
+
+    if range_start > range_end:
+        range_start = range_end
+
+    months_list = _month_range(range_start, range_end)
+
+    # Accumulate ARR by account per month
+    account_by_month: dict[str, dict[date, Decimal]] = {}
+    for item_start, item_end, _ptype, arr_val, account in active_items:
+        if account not in account_by_month:
+            account_by_month[account] = {}
+        for month_start in months_list:
+            month_end = _last_day_of_month(month_start)
+            if item_start <= month_end and item_end >= month_start:
+                account_by_month[account][month_start] = (
+                    account_by_month[account].get(month_start, Decimal("0")) + arr_val
+                )
+
+    # Compute totals and sort
+    account_totals = {
+        acct: sum(monthly.values(), Decimal("0"))
+        for acct, monthly in account_by_month.items()
+    }
+    sorted_accounts = sorted(account_totals.items(), key=lambda x: x[1], reverse=True)
+
+    top_names = [name for name, _ in sorted_accounts[:limit]]
+    other_names = [name for name, _ in sorted_accounts[limit:]]
+
+    first_month = months_list[0]
+    last_month = months_list[-1]
+    months_str = [m.isoformat() for m in months_list]
+
+    def build_account_arr(rank: int, name: str, monthly: dict[date, Decimal]) -> AccountARR:
+        by_month_str = {m.isoformat(): monthly.get(m, Decimal("0")) for m in months_list}
+        total = sum(monthly.values(), Decimal("0"))
+        first_arr = monthly.get(first_month, Decimal("0"))
+        last_arr = monthly.get(last_month, Decimal("0"))
+        return AccountARR(
+            rank=rank,
+            account_name=name,
+            total_arr=total,
+            by_month=by_month_str,
+            first_month_arr=first_arr,
+            last_month_arr=last_arr,
+            delta=last_arr - first_arr,
+        )
+
+    accounts = [
+        build_account_arr(i + 1, name, account_by_month[name])
+        for i, name in enumerate(top_names)
+    ]
+
+    # Build "Otros" bucket
+    others_monthly: dict[date, Decimal] = {}
+    for name in other_names:
+        for m, v in account_by_month[name].items():
+            others_monthly[m] = others_monthly.get(m, Decimal("0")) + v
+
+    others = build_account_arr(0, "Otros", others_monthly)
+    others.account_name = "Otros"
+
+    grand_total = sum(account_totals.values(), Decimal("0"))
+
+    return ARRByAccountResponse(
+        snapshot_id=sid,
+        months=[date.fromisoformat(m) for m in months_str],
+        accounts=accounts,
+        others=others,
+        total_arr=grand_total,
+    )
 
 
 @router.get("/by-consultant", response_model=ARRByConsultantResponse)
