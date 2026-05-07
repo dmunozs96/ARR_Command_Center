@@ -108,7 +108,7 @@ class ARRLineItem(Base):
     snapshot_id = Column(UUID(as_uuid=True), ForeignKey("snapshots.id", ondelete="CASCADE"), nullable=False)
     raw_line_item_id = Column(UUID(as_uuid=True), ForeignKey("raw_opportunity_line_items.id"), nullable=False)
 
-    product_type = Column(String(100))
+    product_type = Column(Text)
     is_saas = Column(Boolean, nullable=False, default=False)
 
     effective_start_date = Column(Date, nullable=False)
@@ -124,7 +124,7 @@ class ARRLineItem(Base):
     daily_price = Column(Numeric(20, 8), nullable=False)
     annualized_value = Column(Numeric(15, 4), nullable=False)
 
-    consultant_country = Column(String(100))
+    consultant_country = Column(Text)
     data_quality_flags = Column(JSONB, default=list)
     excluded_from_arr = Column(Boolean, nullable=False, default=False)
 
@@ -139,7 +139,7 @@ class ARRMonthlySummary(Base):
 
     snapshot_id = Column(UUID(as_uuid=True), ForeignKey("snapshots.id", ondelete="CASCADE"), primary_key=True)
     month = Column(Date, primary_key=True)
-    product_type = Column(String(100), primary_key=True)
+    product_type = Column(Text, primary_key=True)
     arr_value = Column(Numeric(15, 2), nullable=False)
     line_items_count = Column(Integer, nullable=False, default=0)
 
