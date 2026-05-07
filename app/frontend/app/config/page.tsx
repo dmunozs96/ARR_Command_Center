@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { Upload, CheckCircle2, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
+import { getAPIErrorMessage } from "@/lib/api-errors";
 import type { ConsultantOut, MastersImportResponse, ProductOut } from "@/lib/types";
 
 const PRODUCT_TYPES = [
@@ -222,10 +223,7 @@ function MastersUploadCard({ onSuccess }: { onSuccess: () => void }) {
       onSuccess();
     },
     onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-        "Error al cargar los maestros.";
-      setError(msg);
+      setError(getAPIErrorMessage(err, "Error al cargar los maestros."));
       setResult(null);
     },
   });

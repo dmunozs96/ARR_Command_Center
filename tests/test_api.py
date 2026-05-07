@@ -358,6 +358,35 @@ def _build_raw_salesforce_excel_bytes() -> bytes:
     return buffer.getvalue()
 
 
+def _build_masters_excel_bytes(consultants_sheet_name="Pais Consultor") -> bytes:
+    wb = openpyxl.Workbook()
+
+    ws_products = wb.active
+    ws_products.title = "Productos SF SAAS"
+    ws_products.append(
+        [
+            "A",
+            "Nombre producto",
+            "Codigo",
+            "D",
+            "Linea negocio",
+            "Categoria",
+            "Subcategoria",
+            "Tipo producto",
+        ]
+    )
+    ws_products.append(["", "Usuarios LMS", "LMS-002", "", "isEazy LMS", "SaaS", "LMS", "SaaS LMS"])
+
+    ws_consultants = wb.create_sheet(consultants_sheet_name)
+    ws_consultants.append(["", "", "", ""])
+    ws_consultants.append(["", "", "Consultor", "Pais"])
+    ws_consultants.append(["", "", "Maria Lopez", "Spain"])
+
+    buffer = BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
+
+
 # ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
@@ -537,6 +566,32 @@ def test_import_raw_salesforce_export_without_calculated_sheets(client):
     alerts = client.get("/api/alerts?alert_type=UNCLASSIFIED_PRODUCT")
     assert alerts.status_code == 200
     assert any(alert["product_name"] == "Media Jornada de Formación" for alert in alerts.json())
+
+
+def test_import_masters_accepts_plain_pais_consultor_sheet(client):
+    excel_bytes = _build_masters_excel_bytes("Pais Consultor")
+
+    r = client.post(
+        "/api/imports/masters",
+        files={
+            "file": (
+                "maestros.xlsx",
+                excel_bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert r.status_code == 200
+    assert r.json() == {"products_loaded": 1, "consultants_loaded": 1}
+
+    products = client.get("/api/config/products")
+    assert products.status_code == 200
+    assert products.json()[0]["product_name"] == "Usuarios LMS"
+
+    consultants = client.get("/api/config/consultants")
+    assert consultants.status_code == 200
+    assert consultants.json()[0]["consultant_name"] == "Maria Lopez"
 
 
 # ---------------------------------------------------------------------------

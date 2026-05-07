@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import unicodedata
 import uuid
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -107,19 +108,27 @@ def _str(value) -> Optional[str]:
 def _normalize_key(value: str | None) -> str:
     if value is None:
         return ""
-    normalized = value.strip().lower()
-    replacements = {
-        "á": "a",
-        "é": "e",
-        "í": "i",
-        "ó": "o",
-        "ú": "u",
-        "ü": "u",
-        "ñ": "n",
-    }
-    for source, target in replacements.items():
-        normalized = normalized.replace(source, target)
+    normalized = value.strip()
+    for _ in range(2):
+        try:
+            repaired = normalized.encode("latin1").decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            break
+        if repaired == normalized:
+            break
+        normalized = repaired
+    normalized = normalized.lower()
+    normalized = unicodedata.normalize("NFKD", normalized)
+    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
     return re.sub(r"[^a-z0-9]+", " ", normalized).strip()
+
+
+def _worksheet_by_name(wb, *expected_names: str):
+    expected = {_normalize_key(name) for name in expected_names}
+    for sheet_name in wb.sheetnames:
+        if _normalize_key(sheet_name) in expected:
+            return wb[sheet_name]
+    return None
 
 
 def _row_header_map(ws) -> dict[str, int]:
@@ -165,10 +174,9 @@ def load_product_classifications(wb) -> dict:
     uses compound keys "(name)|(business_line)" so callers can look up by both.
     A plain product_name key is also kept as fallback (first occurrence wins).
     """
-    if "Productos SF SAAS" not in wb.sheetnames:
+    ws = _worksheet_by_name(wb, "Productos SF SAAS")
+    if ws is None:
         return {}
-
-    ws = wb["Productos SF SAAS"]
 
     result = {}
     for i, row in enumerate(ws.iter_rows(values_only=True)):
@@ -197,24 +205,30 @@ def load_product_classifications(wb) -> dict:
 
 
 def load_consultant_countries(wb) -> dict:
-    sheet_names = ["PaÃ­s Consultor", "País Consultor"]
-    ws = None
-    for sheet_name in sheet_names:
-        if sheet_name in wb.sheetnames:
-            ws = wb[sheet_name]
-            break
+    ws = _worksheet_by_name(wb, "Pais Consultor", "País Consultor")
     if ws is None:
         return {}
 
     result = {}
-    header_found = False
+    consultant_index = None
+    country_index = None
     for row in ws.iter_rows(values_only=True):
-        if not header_found:
-            if row[2] == "Consultor":
-                header_found = True
+        if consultant_index is None:
+            normalized_cells = [_normalize_key(_str(value)) for value in row]
+            if "consultor" not in normalized_cells:
+                continue
+            consultant_index = normalized_cells.index("consultor")
+            country_index = next(
+                (
+                    index
+                    for index, value in enumerate(normalized_cells)
+                    if value in {"pais", "country"}
+                ),
+                consultant_index + 1,
+            )
             continue
-        name = _str(row[2])
-        country = _str(row[3])
+        name = _str(row[consultant_index]) if consultant_index < len(row) else None
+        country = _str(row[country_index]) if country_index is not None and country_index < len(row) else None
         if name and country:
             result[name] = country
     return result
@@ -603,6 +617,7 @@ def import_excel_workbook(
     products = load_product_classifications(wb)
     countries = load_consultant_countries(wb)
     rows = list(load_opos_rows(wb))
+    products = {**infer_product_classifications_from_rows(rows), **products}
 
     if not rows:
         raise ExcelImportError("El Excel no contiene filas validas en 'Opos con Productos'.")
