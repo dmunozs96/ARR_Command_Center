@@ -22,10 +22,10 @@ class ProductClassification(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     product_name = Column(Text, nullable=False, unique=True)
     product_code = Column(Text)
-    product_type = Column(String(100), nullable=False)
-    category = Column(String(100))
-    subcategory = Column(String(100))
-    business_line = Column(String(100))
+    product_type = Column(Text, nullable=False)
+    category = Column(Text)
+    subcategory = Column(Text)
+    business_line = Column(Text)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -39,7 +39,7 @@ class ConsultantCountry(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     consultant_name = Column(Text, nullable=False, unique=True)
-    country = Column(String(100), nullable=False)
+    country = Column(Text, nullable=False)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
