@@ -89,17 +89,28 @@ def arr_summary(
             )
             .all()
         )
-        # (effective_start_month, end_month, product_type, annualized_value)
-        active_items = [
-            (
-                raw.close_date.replace(day=1),
-                arr.end_month_normalized,
-                arr.product_type,
-                Decimal(str(arr.annualized_value)),
-            )
-            for arr, raw in rows
-            if raw.close_date.replace(day=1) <= arr.end_month_normalized
-        ]
+        # "Fecha de Cierre" logic (mirrors Excel col30 / f.inicial si es NN):
+        # For Nuevo Negocio deals where close_date precedes subscription_start_date,
+        # ARR is recognized from the close month so booked deals appear when signed.
+        # All other deals use start_month (identical to from_start mode).
+        active_items = []
+        for arr, raw in rows:
+            opp_type = (raw.opportunity_type or "").lower().strip()
+            if (
+                opp_type == "nuevo negocio"
+                and raw.subscription_start_date
+                and raw.close_date < raw.subscription_start_date
+            ):
+                active_start = raw.close_date.replace(day=1)
+            else:
+                active_start = arr.start_month
+            if active_start <= arr.end_month_normalized:
+                active_items.append((
+                    active_start,
+                    arr.end_month_normalized,
+                    arr.product_type,
+                    Decimal(str(arr.annualized_value)),
+                ))
     else:
         arr_items = (
             db.query(ARRLineItem)

@@ -135,13 +135,12 @@ def read_excel_ground_truth(ws) -> dict[date, dict[str, Decimal]]:
 # 2. Read Resumen expected values
 # ---------------------------------------------------------------------------
 
-def read_resumen(wb) -> dict[date, dict[str, Decimal]]:
+def read_resumen(wb, section: str = "inicio") -> dict[date, dict[str, Decimal]]:
     """
-    Parse the Resumen sheet — "Fecha de Inicio" section only (rows 8-17).
+    Parse the Resumen sheet.
 
-    The sheet has two calculation modes:
-      row 8  header = "Fecha de Inicio"  (rows 8-17)  ← our methodology
-      row 78 header = "Fecha de Cierre"  (rows 78-87) ← alternative, skip
+    section="inicio"  → "Fecha de Inicio" rows (default, our from_start methodology)
+    section="cierre"  → "Fecha de Cierre" rows (from_close methodology)
 
     Layout:
       row 4  = month dates (first day of month), col 5 onwards;
@@ -163,15 +162,24 @@ def read_resumen(wb) -> dict[date, dict[str, Decimal]]:
 
     result: dict[date, dict[str, Decimal]] = {m: {} for m in col_to_month.values()}
 
-    # Parse product rows — stop when we hit "Fecha de Cierre" header (row 78)
-    in_fecha_inicio_section = False
+    want_cierre = section == "cierre"
+    in_target_section = False
+
     for row in all_rows[7:]:  # data starts row 8 (index 7)
-        # Detect section headers in col 0
         section_label = _normalize_key(str(row[0])) if row and row[0] else ""
         if "fecha de inicio" in section_label:
-            in_fecha_inicio_section = True
+            in_target_section = not want_cierre
+            continue
         elif "fecha de cierre" in section_label:
-            break  # stop — rest is alternative methodology
+            if not want_cierre:
+                break  # stop reading inicio section
+            in_target_section = True
+            continue
+        elif in_target_section and "fecha de" in section_label:
+            break  # another section starts
+
+        if not in_target_section:
+            continue
 
         sublabel_raw = row[3] if len(row) > 3 else None
         if sublabel_raw is None:
@@ -197,7 +205,23 @@ def read_resumen(wb) -> dict[date, dict[str, Decimal]]:
 # 3. Run Python ARRCalculator
 # ---------------------------------------------------------------------------
 
-def run_python_calculator(wb) -> dict[date, dict[str, Decimal]]:
+def _active_start_from_close(item: "ARRLineItemResult") -> "date":
+    """
+    Replicate the Excel col30 / f.inicial si es NN logic for from_close mode:
+    For Nuevo Negocio deals where close_date < subscription_start_date,
+    return close_date first-of-month; otherwise return start_month unchanged.
+    """
+    opp_type = (item.raw.opportunity_type or "").lower().strip()
+    if (
+        opp_type == "nuevo negocio"
+        and item.raw.subscription_start_date
+        and item.raw.close_date < item.raw.subscription_start_date
+    ):
+        return item.raw.close_date.replace(day=1)
+    return item.start_month
+
+
+def run_python_calculator(wb, mode: str = "from_start") -> dict[date, dict[str, Decimal]]:
     products_raw = load_product_classifications(wb)
     countries_raw = load_consultant_countries(wb)
     rows = list(load_opos_rows(wb))
@@ -237,10 +261,10 @@ def run_python_calculator(wb) -> dict[date, dict[str, Decimal]]:
 
     snapshot = calc.process_all(domain_items)
 
-    # Collect all months
+    # Collect all months using the appropriate start per item
     months_set: set[date] = set()
     for item in snapshot.saas_items():
-        m = item.start_month
+        m = _active_start_from_close(item) if mode == "from_close" else item.start_month
         while m <= item.end_month_normalized:
             months_set.add(m)
             if m.month == 12:
@@ -253,7 +277,8 @@ def run_python_calculator(wb) -> dict[date, dict[str, Decimal]]:
         month_end = _last_day_of_month(month)
         by_type: dict[str, Decimal] = {}
         for item in snapshot.saas_items():
-            if item.start_month <= month_end and item.end_month_normalized >= month:
+            active_start = _active_start_from_close(item) if mode == "from_close" else item.start_month
+            if active_start <= month_end and item.end_month_normalized >= month:
                 pt = item.product_type or "UNCLASSIFIED"
                 by_type[pt] = by_type.get(pt, Decimal("0")) + item.annualized_value
         result[month] = by_type
@@ -361,7 +386,11 @@ def main():
     parser.add_argument("--year", type=int, default=None, help="Filter to a single year (e.g. 2025)")
     parser.add_argument("--show-ok", action="store_true", help="Show matching rows too")
     parser.add_argument("--product", default=None, help="Filter by product type (e.g. 'SaaS LMS')")
+    parser.add_argument("--mode", default="from_start", choices=["from_start", "from_close"],
+                        help="Calculation mode: from_start (Fecha de Inicio) or from_close (Fecha de Cierre)")
     args = parser.parse_args()
+
+    resumen_section = "cierre" if args.mode == "from_close" else "inicio"
 
     print(f"Loading: {args.excel}")
     wb = openpyxl.load_workbook(args.excel, read_only=True, data_only=True)
@@ -370,11 +399,11 @@ def main():
     ws_opos = wb["Opos con Productos"]
     excel_gt = read_excel_ground_truth(ws_opos)
 
-    print("Reading Resumen expected values...")
-    resumen = read_resumen(wb)
+    print(f"Reading Resumen expected values (section: {resumen_section})...")
+    resumen = read_resumen(wb, section=resumen_section)
 
-    print("Running Python ARRCalculator...")
-    python_calc = run_python_calculator(wb)
+    print(f"Running Python ARRCalculator (mode: {args.mode})...")
+    python_calc = run_python_calculator(wb, mode=args.mode)
 
     print()
 
