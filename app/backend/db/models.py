@@ -159,7 +159,7 @@ class SnapshotStripeMRR(Base):
 
     @property
     def arr_equivalent(self):
-        return self.mrr * 12
+        return self.mrr
 
 
 class SnapshotAlert(Base):

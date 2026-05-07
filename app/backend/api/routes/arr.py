@@ -140,7 +140,7 @@ def arr_summary(
             .all()
         )
         stripe_by_month = {
-            row.month.replace(day=1): Decimal(str(row.mrr)) * Decimal("12")
+            row.month.replace(day=1): Decimal(str(row.mrr))
             for row in stripe_rows
         }
 
