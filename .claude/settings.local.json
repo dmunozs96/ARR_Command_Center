@@ -11,7 +11,20 @@
       "Bash(python.exe -c ' *)",
       "Bash(git push *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\DanielMuñozSánchez\\\\Documents\\\\ARR_Command_Center\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(railway --version)",
+      "Bash(railway status *)",
+      "Bash(railway service *)",
+      "Bash(railway environment *)",
+      "Bash(railway whoami *)",
+      "Bash(railway up *)",
+      "Bash(railway list *)",
+      "Bash(railway link *)",
+      "Bash(railway ps *)",
+      "Bash(railway --help)",
+      "Bash(railway redeploy *)"
     ]
   }
 }
