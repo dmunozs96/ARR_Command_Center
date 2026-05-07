@@ -158,7 +158,27 @@ def list_alerts(
     if alert_type:
         q = q.filter(SnapshotAlert.alert_type == alert_type)
 
+    # Suppress DURATION_ANOMALY_HIGH — always noise, contracts >2 years are normal
+    q = q.filter(SnapshotAlert.alert_type != "DURATION_ANOMALY_HIGH")
+
     alerts = q.order_by(SnapshotAlert.severity, SnapshotAlert.created_at).all()
+
+    # Suppress HIGH_ARR_FLAG for non-SaaS products (they don't affect ARR)
+    # Build set of sf_opportunity_ids that have at least one SaaS line item
+    saas_opp_rows = (
+        db.query(RawOpportunityLineItem.sf_opportunity_id)
+        .join(ARRLineItem, ARRLineItem.raw_line_item_id == RawOpportunityLineItem.id)
+        .filter(ARRLineItem.snapshot_id == sid, ARRLineItem.is_saas == True)
+        .distinct()
+        .all()
+    )
+    saas_opp_ids = {row[0] for row in saas_opp_rows}
+
+    alerts = [
+        a for a in alerts
+        if a.alert_type != "HIGH_ARR_FLAG" or a.sf_opportunity_id in saas_opp_ids
+    ]
+
     return _build_grouped_alerts(alerts, sid, db)
 
 

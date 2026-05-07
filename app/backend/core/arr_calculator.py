@@ -260,8 +260,6 @@ class ARRCalculator:
             service_days = 30
 
         # --- Duration anomaly flags ---
-        if service_days > 730:
-            flags.append("DURATION_ANOMALY_HIGH")
         if service_days < 15:
             flags.append("DURATION_ANOMALY_LOW")
 
@@ -309,7 +307,6 @@ class ARRCalculator:
             "NEGATIVE_PRICE": "error",
             "MISSING_START_DATE": "warning",
             "MISSING_END_DATE": "warning",
-            "DURATION_ANOMALY_HIGH": "warning",
             "DURATION_ANOMALY_LOW": "warning",
             "DURATION_ZERO_FALLBACK": "warning",
             "HIGH_ARR_FLAG": "warning",
@@ -348,7 +345,6 @@ def _alert_description(flag: str, item: ARRLineItemResult) -> str:
         "NEGATIVE_PRICE": f"Precio negativo ({item.real_price}) en '{item.raw.opportunity_name}'.",
         "MISSING_START_DATE": f"Sin fecha de inicio; se usa close_date ({item.raw.close_date}) como proxy.",
         "MISSING_END_DATE": f"Sin fecha de fin; se asumen 365 días desde el inicio.",
-        "DURATION_ANOMALY_HIGH": f"Duración {item.service_days} días (>730) en '{item.raw.opportunity_name}'. Revisar manualmente.",
         "DURATION_ANOMALY_LOW": f"Duración {item.service_days} días (<15) en '{item.raw.opportunity_name}'.",
         "DURATION_ZERO_FALLBACK": "Duración 0 días; se aplica fallback de 30 días.",
         "HIGH_ARR_FLAG": f"ARR anualizado > 1.000.000€ en '{item.raw.opportunity_name}'. Revisar.",
