@@ -1,6 +1,6 @@
 # Current State
-**Ultima actualizacion:** 2026-05-06
-**Agente:** Claude Sonnet 4.6 (sesion 18)
+**Ultima actualizacion:** 2026-05-08
+**Agente:** Claude Sonnet 4.6 (sesion 19)
 
 ---
 
@@ -29,8 +29,20 @@ La app calcula, visualiza y audita el ARR de isEazy.
 | G | Stripe UI completa + consultores exportables | completa | 57/57 |
 | H | Endurecimiento, e2e y UX final | completa | 57/57 backend, 3/3 e2e |
 | — | Cron diario con dedup por hash | completa | 57/57 |
-| I-A | Toggle ARR "desde cierre" vs "desde inicio" | **completa** | 57/57 |
-| I-B | Deteccion y gestion de solapamientos | **completa** | 57/57 |
+| I-A | Toggle ARR "desde cierre" vs "desde inicio" | completa | 57/57 |
+| I-B | Deteccion y gestion de solapamientos | completa | 57/57 |
+| V2-P1 | Analisis por Cliente y Linea de Negocio | completa | TypeScript OK |
+| V2-P2 | Top 20 Clientes en Dashboard | completa | TypeScript OK |
+| V2-P3 | Agrupacion de Lineas de Negocio | completa | TypeScript OK |
+| V2-P4 | ARR Expert (IA embebida) | completa | TypeScript OK |
+| **V3-P1** | **Correccion matematica BL grouping** | **pendiente** | — |
+| **V3-P2** | **Limpieza de NaN global** | **pendiente** | — |
+| **V3-P3** | **MoM → YTD comparativo** | **pendiente** | — |
+| **V3-P4** | **Top 20 sin "Otros"** | **pendiente** | — |
+| **V3-P5** | **Tabla de clientes corregida** | **pendiente** | — |
+| **V3-P6** | **Consultores — nivel 2 (clientes por BL)** | **pendiente** | — |
+| **V3-P7** | **Exportar Excel snapshot** | **pendiente** | — |
+| **V3-P8** | **Revision y optimizacion de codigo** | **pendiente** | — |
 
 **Tests backend:** `pytest tests/` → **57/57 OK**  
 **Frontend:** `npx tsc --noEmit` OK  
@@ -38,32 +50,30 @@ La app calcula, visualiza y audita el ARR de isEazy.
 
 ---
 
-## Lo implementado en la sesion 18
+## Lo implementado en la sesion 19
 
-### Fase I-A — Toggle ARR "desde inicio" / "desde cierre"
+- Documentacion completa de V3 creada en `docs/specs/`:
+  - `SPEC-V3-overview.md` — vision general y tabla de fases
+  - `SPEC-V3-phase1-bl-math-fix.md` — correccion matematica BL grouping
+  - `SPEC-V3-phase2-nan-fix.md` — limpieza de NaN global
+  - `SPEC-V3-phase3-ytd-metrics.md` — MoM → YTD comparativo
+  - `SPEC-V3-phase4-top20-cleanup.md` — Top 20 sin "Otros"
+  - `SPEC-V3-phase5-client-table.md` — tabla de clientes corregida
+  - `SPEC-V3-phase6-consultants-level2.md` — consultores nivel 2
+  - `SPEC-V3-phase7-excel-export.md` — exportar Excel snapshot
+  - `SPEC-V3-phase8-code-review.md` — revision y optimizacion final
 
-- `/api/arr/summary` recibe nuevo param `mode=from_start|from_close`
-- `from_start` (default): usa `start_month` del `ARRLineItem` (comportamiento anterior)
-- `from_close`: usa `close_date.replace(day=1)` de `RawOpportunityLineItem` como inicio
-- El summary se calcula **en vivo desde `arr_line_items`** (ya no desde `ARRMonthlySummary`), lo que permite respetar `excluded_from_arr`
-- Dashboard: toggle "Desde inicio / Desde cierre" en la cabecera
+---
 
-### Fase I-B — Solapamientos de contratos
+## Bugs conocidos en V2 (a resolver en V3)
 
-- Nueva columna `excluded_from_arr` (boolean, default false) en `arr_line_items`
-- Nueva columna `arr_line_item_id` (UUID FK nullable) en `snapshot_alerts`
-- Migración `0003_add_overlaps.py`
-- `check_overlapping_contracts()` en `alert_checker.py`: detecta pares de items SaaS del mismo (account, product_type) con fechas solapadas; genera 2 alertas por par (una por line item), con `_sf_line_item_id` para que snapshot_manager resuelva el FK
-- `snapshot_manager.py` llama al checker y persiste `arr_line_item_id` en cada alerta
-- `PATCH /api/arr/line-items/{id}` con body `{"excluded_from_arr": true/false}` para que el usuario excluya/incluya desde la UI
-- El summary respeta `excluded_from_arr` en tiempo real (no hay re-sync necesario)
-- UI de alertas: botón "Excluir del ARR" / "Incluir en ARR" en alertas tipo `OVERLAPPING_CONTRACTS`; al hacer toggle invalida la query del summary del dashboard
-
-### Tests nuevos (57 total, antes 27)
-
-- 5 tests en `test_arr_calculator.py`: overlap detection (no overlap por cuenta distinta, no overlap mismo cliente distinto producto, no overlap contratos consecutivos, solapamiento genera 2 alertas, 3 contratos solapados generan 6 alertas)
-- 4 tests en `test_api.py`: `from_close` mode cambia primer mes, PATCH exclusion vacía el summary, PATCH 404 para ID inexistente, sync con 2 contratos solapados genera alertas `OVERLAPPING_CONTRACTS` con `arr_line_item_id` no nulo
-- 2 tests de summary actualizados de `ARRMonthlySummary` a `ARRLineItem` (fuente de verdad ahora)
+| Bug | Fase que lo resuelve | Descripcion |
+|-----|---------------------|-------------|
+| BL grouping suma mal | V3-P1 | Author (Total) y LMS & AIO dan valores incorrectos en algunos meses |
+| NaN por pais | V3-P2 | Spain, Mexico, Brazil muestran NaN € en el widget geografico |
+| NaN en delta clientes | V3-P2 | Columna Δ muestra NaN cuando el primer mes es 0 |
+| NaN ARR AGREGADO | V3-P2 | Fila de totales en tabla de consultores muestra NaN |
+| Total clientes suma meses | V3-P5 | La columna TOTAL suma todos los meses (incorrecto para ARR) |
 
 ---
 
@@ -81,18 +91,23 @@ La app calcula, visualiza y audita el ARR de isEazy.
 
 ## Archivos clave para el siguiente agente
 
-- `app/backend/core/alert_checker.py` — `check_overlapping_contracts()`
-- `app/backend/api/routes/arr.py` — summary live + PATCH line-item
-- `app/backend/db/migrations/versions/0003_add_overlaps.py`
-- `app/frontend/app/page.tsx` — toggle from_start/from_close
-- `app/frontend/app/alerts/page.tsx` — toggle excluir/incluir
+### V3-P1 (empezar aqui)
+- `app/frontend/lib/bl-grouping-context.tsx`
+- `app/frontend/lib/utils.ts`
+- `app/frontend/components/ARRChart.tsx`
+- `app/frontend/components/ARRBreakdownTable.tsx`
 
----
+### V3-P2
+- `app/frontend/lib/utils.ts` — formatter defensivo
+- `app/frontend/components/ClientARRTable.tsx`
+- `app/frontend/app/consultants/page.tsx`
 
-## Proximo paso recomendado
+### V3-P6 (nueva funcionalidad con cambio de backend)
+- `app/backend/api/routes/arr.py`
+- `app/frontend/app/consultants/page.tsx`
 
-**Prioridad 1 (cuando haya credenciales SF):** Cerrar Fase E — credenciales en `.env`, `test_sf_connection.py`, sync real, `validate_vs_excel.py`, activar cron en Railway.
-
-**Prioridad 2 (funcionalidad de negocio):**
-- Fase I-C: Toggle "desde cierre" en vista de consultores (actualmente solo en el dashboard general)
-- Validar que `excluded_from_arr` se resetea correctamente en cada nuevo snapshot (comportamiento actual: cada snapshot genera nuevas alertas de solapamiento; las exclusiones de snapshots anteriores no se transfieren automáticamente — decisión de negocio pendiente)
+### V3-P7 (nuevo endpoint + nuevo componente)
+- Crear `app/backend/core/excel_exporter.py`
+- Crear `app/backend/api/routes/exports.py`
+- Modificar `app/backend/main.py`
+- Modificar `app/frontend/app/page.tsx`
