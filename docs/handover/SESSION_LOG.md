@@ -1,5 +1,37 @@
 # Session Log
 
+## 2026-05-08 - Sesion 21 (V3-P8: auditoria y limpieza de codigo)
+**Agente:** Claude Sonnet 4.6
+
+### Trabajo realizado
+
+Auditoria completa de frontend y backend. Bugs corregidos y dead code eliminado.
+
+**Bugs:**
+- `excel_exporter.py`: `r.arr_eur` → `r.arr_value` (crash en runtime al descargar Excel)
+- `stripe.py`: `arr_equivalent = mrr * 12` en los 3 endpoints del GET/PUT/bulk (devolvía MRR en lugar de ARR)
+- `test_api.py` `_make_raw`: `opportunity_type="Nuevo Negocio"` con espacio, para que el test `test_arr_summary_from_close_mode` active la lógica `from_close`
+
+**Limpieza:**
+- Eliminados `ARRMonthPoint.mom_change` y `ConsultantARR.{mom_change,mom_pct}` de `types.ts` y mocks (nunca usados en producción)
+- `_latest_snapshot_id_or_none()` añadida a `arr.py`; `alerts.py` y `stripe.py` importan desde allí en lugar de duplicar
+
+### Verificacion
+- `pytest tests/` → **61/61 OK** (antes: 2 tests fallando por bugs preexistentes)
+- `npx tsc --noEmit` → **0 errores**
+
+### Commits y push
+- Commit: `Implement V3-P8: code review, 3 bug fixes, type cleanup, helper deduplication`
+- Push a origin/main ✓
+
+### Refactors mayores pendientes de aprobacion
+Ver `docs/logs/V3-P8-audit-report.md` para lista priorizada.
+
+**Instruccion para la proxima conversacion:**
+Di al agente: "Lee CURRENT_STATE.md y NEXT_STEPS.md. V3 esta completa. Revisa el informe `docs/logs/V3-P8-audit-report.md` para decidir que refactors mayores priorizar en V4, o avanza Fase E si ya hay credenciales Salesforce."
+
+---
+
 ## 2026-05-08 - Sesion 20 (Implementacion V3 P1-P7)
 **Agente:** Claude Sonnet 4.6
 

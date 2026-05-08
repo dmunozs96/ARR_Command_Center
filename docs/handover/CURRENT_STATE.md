@@ -1,6 +1,6 @@
 # Current State
 **Ultima actualizacion:** 2026-05-08
-**Agente:** Claude Sonnet 4.6 (sesion 20)
+**Agente:** Claude Sonnet 4.6 (sesion 21)
 
 ---
 
@@ -42,11 +42,30 @@ La app calcula, visualiza y audita el ARR de isEazy.
 | **V3-P5** | **Tabla de clientes corregida** | **completa** | TypeScript OK |
 | **V3-P6** | **Consultores — nivel 2 (clientes por BL)** | **completa** | TypeScript OK |
 | **V3-P7** | **Exportar Excel snapshot** | **completa** | TypeScript OK |
-| **V3-P8** | **Revision y optimizacion de codigo** | **pendiente** | — |
+| **V3-P8** | **Revision y optimizacion de codigo** | **completa** | 61/61 |
 
-**Tests backend:** `pytest tests/` → **57/57 OK** (sin cambios en tests; P6/P7 requieren tests manuales)  
-**Frontend:** `npx tsc --noEmit` → **0 errores**  
+**Tests backend:** `pytest tests/` → **61/61 OK**
+**Frontend:** `npx tsc --noEmit` → **0 errores**
 **E2E:** `npm run test:e2e` → **3/3 OK** (no tocados)
+
+---
+
+## Lo implementado en la sesion 21 (V3-P8)
+
+### V3-P8 — Revision y optimizacion de codigo
+
+**Bugs corregidos:**
+- `excel_exporter.py`: `r.arr_eur` → `r.arr_value` (AttributeError en runtime al exportar Excel)
+- `stripe.py`: `arr_equivalent = mrr * 12` en los 3 endpoints (devolvía el MRR sin anualizar)
+- `tests/test_api.py` `_make_raw`: `opportunity_type` corregido a `"Nuevo Negocio"` (espacio, no guion bajo); solucionó el test `test_arr_summary_from_close_mode`
+
+**Limpieza implementada:**
+- Eliminados `ARRMonthPoint.mom_change` y `ConsultantARR.{mom_change,mom_pct}` de `types.ts` (dead code — nunca usados en producción)
+- Mock `mock-api.ts` actualizado para eliminar campos correspondientes
+- Deduplicada `_latest_snapshot_id`: añadida `_latest_snapshot_id_or_none()` a `arr.py`; `alerts.py` y `stripe.py` la importan en lugar de tener su propia copia
+
+**Informe de auditoria:** `docs/logs/V3-P8-audit-report.md`
+Incluye 6 refactors mayores propuestos pendientes de aprobacion (separar logica de negocio de routes, consolidar agregacion mensual, N+1 Stripe, Recharts constants, etc.)
 
 ---
 
@@ -107,10 +126,15 @@ La app calcula, visualiza y audita el ARR de isEazy.
 
 ## Archivos clave para el siguiente agente
 
-### V3-P8 (empezar aqui)
-- Ver `docs/specs/SPEC-V3-phase8-code-review.md`
-- Objetivo: auditoria de props no usadas, estados duplicados, queries N+1, schemas obsoletos
-- No requiere cambios de arquitectura; solo limpieza y simplificacion
+### Archivos principales modificados en sesion 21
+- `app/backend/api/routes/arr.py` — nueva `_latest_snapshot_id_or_none()`
+- `app/backend/api/routes/alerts.py` — importa helper desde `arr.py`
+- `app/backend/api/routes/stripe.py` — importa helper, `arr_equivalent * 12`
+- `app/backend/core/excel_exporter.py` — `arr_eur` → `arr_value`
+- `app/frontend/lib/types.ts` — dead code eliminado
+- `app/frontend/tests/e2e/helpers/mock-api.ts` — mocks actualizados
+- `tests/test_api.py` — `opportunity_type` corregido en `_make_raw`
+- `docs/logs/V3-P8-audit-report.md` — nuevo, informe completo de auditoria
 
 ### Archivos principales modificados en sesion 20
 - `app/frontend/lib/utils.ts`
