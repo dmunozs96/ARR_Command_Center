@@ -10,6 +10,7 @@ import {
   CalendarDays,
   CircleDollarSign,
   Database,
+  Download,
   Filter,
   Globe2,
   Menu,
@@ -39,6 +40,7 @@ export default function DashboardPage() {
   const [monthFrom, setMonthFrom] = useState(DEFAULT_MONTH_FROM);
   const [monthTo, setMonthTo] = useState(DEFAULT_MONTH_TO);
   const [arrMode, setArrMode] = useState<"from_start" | "from_close">("from_start");
+  const [downloadingExcel, setDownloadingExcel] = useState(false);
   const { activeSnapshot, isLoading: snapshotsLoading } = useSnapshotContext();
   const currentMonth = currentMonthStart();
 
@@ -109,7 +111,8 @@ export default function DashboardPage() {
     const totals = new Map<string, number>();
     for (const consultant of consultantsQuery.data?.consultants ?? []) {
       const key = consultant.country || "Sin pais";
-      totals.set(key, (totals.get(key) ?? 0) + consultant.arr_total);
+      const val = Number.isFinite(consultant.arr_total) ? consultant.arr_total : 0;
+      totals.set(key, (totals.get(key) ?? 0) + val);
     }
     return Array.from(totals.entries())
       .map(([country, arr]) => ({ country, arr }))
@@ -178,6 +181,26 @@ export default function DashboardPage() {
                 </div>
                 <ExcelUploadButton />
                 <SyncButton />
+                <button
+                  disabled={!activeSnapshot || downloadingExcel}
+                  onClick={async () => {
+                    if (!activeSnapshot) return;
+                    setDownloadingExcel(true);
+                    try {
+                      await api.downloadSnapshotExcel(activeSnapshot.id);
+                    } finally {
+                      setDownloadingExcel(false);
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-white/15 px-4 py-2.5 text-sm font-black text-white transition hover:bg-white/25 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {downloadingExcel ? (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                  ) : (
+                    <Download size={16} />
+                  )}
+                  Descargar Snapshot
+                </button>
               </div>
             </div>
 
@@ -251,7 +274,7 @@ export default function DashboardPage() {
             <ARRTotalChart months={months} loading={arrQuery.isLoading} />
             <ARRYearBarsChart months={months} monthTo={monthTo} loading={arrQuery.isLoading} />
             <ARRChart months={months} loading={arrQuery.isLoading} />
-            <ARRBreakdownTable current={lastMonth} prev={prevMonth} loading={arrQuery.isLoading} />
+            <ARRBreakdownTable current={lastMonth} months={months} loading={arrQuery.isLoading} />
 
             <div className="mt-10 mb-4">
               <h2 className="text-xl font-semibold text-gray-800">Distribución por cliente</h2>

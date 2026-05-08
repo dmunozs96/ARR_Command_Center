@@ -1,30 +1,30 @@
-# V3-P2 — Limpieza de NaN global
+﻿# V3-P2 â€” Limpieza de NaN global
 
 **Estado:** Pendiente  
-**Tipo:** Bug crítico  
-**Orden de implementación:** 2
+**Tipo:** Bug crÃ­tico  
+**Orden de implementaciÃ³n:** 2
 
 ---
 
 ## Problema
 
-`NaN €` aparece en múltiples puntos de la interfaz:
+`NaN â‚¬` aparece en mÃºltiples puntos de la interfaz:
 
-| Localización | Contexto |
+| LocalizaciÃ³n | Contexto |
 |---|---|
-| **ARR por país** | Widget de geografía — Spain, Mexico, Brazil muestran `NaN €` |
-| **Tabla de clientes** | Columna delta (Δ) cuando algún mes no tiene dato |
+| **ARR por paÃ­s** | Widget de geografÃ­a â€” Spain, Mexico, Brazil muestran `NaN â‚¬` |
+| **Tabla de clientes** | Columna delta (Î”) cuando algÃºn mes no tiene dato |
 | **ARR AGREGADO (consultores)** | Fila de totales en la tabla de consultores |
-| **Tabla de clientes — columna TOTAL** | Algunos clientes muestran `NaN €` en el total |
+| **Tabla de clientes â€” columna TOTAL** | Algunos clientes muestran `NaN â‚¬` en el total |
 
 ---
 
-## Causa raíz esperada
+## Causa raÃ­z esperada
 
-Tres orígenes posibles (pueden coexistir):
+Tres orÃ­genes posibles (pueden coexistir):
 
-1. **División por cero:** `(nuevo - viejo) / viejo * 100` cuando `viejo === 0`.
-2. **`parseFloat` de string vacío o `undefined`:** el API devuelve `null` o la clave no existe y el frontend intenta operar sobre ese valor.
+1. **DivisiÃ³n por cero:** `(nuevo - viejo) / viejo * 100` cuando `viejo === 0`.
+2. **`parseFloat` de string vacÃ­o o `undefined`:** el API devuelve `null` o la clave no existe y el frontend intenta operar sobre ese valor.
 3. **`undefined + number`:** cuando un mes no tiene dato en el array y se opera directamente.
 
 ---
@@ -32,37 +32,37 @@ Tres orígenes posibles (pueden coexistir):
 ## Archivos a auditar
 
 ```
-app/frontend/components/TopAccountsLinesChart.tsx   — ARR por país / líneas
-app/frontend/components/ClientARRTable.tsx           — tabla clientes
-app/frontend/app/consultants/page.tsx                — tabla consultores + ARR AGREGADO
-app/frontend/lib/utils.ts                            — formatEUR() y helpers de cálculo
+app/frontend/components/TopAccountsLinesChart.tsx   â€” ARR por paÃ­s / lÃ­neas
+app/frontend/components/ClientARRTable.tsx           â€” tabla clientes
+app/frontend/app/consultants/page.tsx                â€” tabla consultores + ARR AGREGADO
+app/frontend/lib/utils.ts                            â€” formatEUR() y helpers de cÃ¡lculo
 ```
 
 ---
 
-## Spec de corrección
+## Spec de correcciÃ³n
 
 ### 1. Formatter defensivo en `utils.ts`
 
 ```typescript
 // Antes
 export function formatEUR(value: number): string {
-  return value.toLocaleString('es-ES') + ' €';
+  return value.toLocaleString('es-ES') + ' â‚¬';
 }
 
-// Después
+// DespuÃ©s
 export function formatEUR(value: number | null | undefined): string {
-  if (value === null || value === undefined || isNaN(value)) return '—';
-  return value.toLocaleString('es-ES') + ' €';
+  if (value === null || value === undefined || isNaN(value)) return 'â€”';
+  return value.toLocaleString('es-ES') + ' â‚¬';
 }
 ```
 
-Aplicar el mismo patrón a `formatPct()` y cualquier formatter de porcentaje.
+Aplicar el mismo patrÃ³n a `formatPct()` y cualquier formatter de porcentaje.
 
-### 2. Guard en cálculos de delta / porcentaje
+### 2. Guard en cÃ¡lculos de delta / porcentaje
 
 ```typescript
-// Patrón correcto para cualquier cálculo de variación
+// PatrÃ³n correcto para cualquier cÃ¡lculo de variaciÃ³n
 function calcDeltaPct(prev: number | null, curr: number | null): number | null {
   if (!prev || !curr) return null;
   if (prev === 0) return null;
@@ -70,24 +70,24 @@ function calcDeltaPct(prev: number | null, curr: number | null): number | null {
 }
 ```
 
-Devolver `null` (no `0`) cuando no se puede calcular, para que el formatter muestre `—`.
+Devolver `null` (no `0`) cuando no se puede calcular, para que el formatter muestre `â€”`.
 
-### 3. ARR por país
+### 3. ARR por paÃ­s
 
-- Auditar el endpoint que devuelve datos geográficos (probablemente `/api/arr/summary` con agrupación por país).
-- Si el problema es en backend: verificar que los campos `country` en `ConsultantCountry` no estén vacíos para los consultores de Spain, Mexico y Brazil.
-- Si el problema es en frontend: el componente que suma ARR por país debe filtrar valores `null`/`undefined` antes de operar.
+- Auditar el endpoint que devuelve datos geogrÃ¡ficos (probablemente `/api/arr/summary` con agrupaciÃ³n por paÃ­s).
+- Si el problema es en backend: verificar que los campos `country` en `ConsultantCountry` no estÃ©n vacÃ­os para los consultores de Spain, Mexico y Brazil.
+- Si el problema es en frontend: el componente que suma ARR por paÃ­s debe filtrar valores `null`/`undefined` antes de operar.
 
 ### 4. ARR AGREGADO en consultores
 
 - Localizar la fila de totales en `app/frontend/app/consultants/page.tsx`.
-- La suma total debe acumular solo valores numéricos válidos: `arr.filter(Number.isFinite).reduce(...)`.
+- La suma total debe acumular solo valores numÃ©ricos vÃ¡lidos: `arr.filter(Number.isFinite).reduce(...)`.
 
 ---
 
-## Criterio de aceptación
+## Criterio de aceptaciÃ³n
 
-Ningún elemento de la UI muestra la cadena `NaN` o `undefined`. Los valores no calculables muestran `—`.
+NingÃºn elemento de la UI muestra la cadena `NaN` o `undefined`. Los valores no calculables muestran `â€”`.
 
 ---
 
@@ -97,4 +97,5 @@ Ningún elemento de la UI muestra la cadena `NaN` o `undefined`. Los valores no 
 cd app/frontend && npx tsc --noEmit
 ```
 
-Verificación visual: cargar cada sección afectada con un snapshot que tenga datos reales.
+VerificaciÃ³n visual: cargar cada secciÃ³n afectada con un snapshot que tenga datos reales.
+

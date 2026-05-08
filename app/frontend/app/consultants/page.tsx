@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { getAPIErrorMessage } from "@/lib/api-errors";
 import { useSnapshotContext } from "@/lib/snapshot-context";
-import { currentMonthStart, formatEUR, formatMoM, formatMonth, formatPct } from "@/lib/utils";
+import { currentMonthStart, formatEUR, formatMonth, formatPct } from "@/lib/utils";
 import type { ConsultantARR } from "@/lib/types";
 
 function escapeCSV(value: string | number | null | undefined): string {
@@ -30,40 +30,111 @@ function downloadCSV(filename: string, rows: string[][]) {
   URL.revokeObjectURL(url);
 }
 
-function buildConsultantsCSVRows(consultants: ConsultantARR[], month: string): string[][] {
+function buildConsultantsCSVRows(
+  consultants: ConsultantARR[],
+  month: string,
+  totalARR: number,
+): string[][] {
   const productTypes = Array.from(
-    new Set(consultants.flatMap((consultant) => Object.keys(consultant.by_product_type))),
+    new Set(consultants.flatMap((c) => Object.keys(c.by_product_type))),
   ).sort((a, b) => a.localeCompare(b));
 
   return [
-    [
-      "Month",
-      "Consultant",
-      "Country",
-      "ARR Total",
-      "MoM EUR",
-      "MoM %",
-      ...productTypes,
-    ],
-    ...consultants.map((consultant) => [
-      month,
-      consultant.name,
-      consultant.country,
-      String(consultant.arr_total),
-      consultant.mom_change != null ? String(consultant.mom_change) : "",
-      consultant.mom_pct != null ? String(consultant.mom_pct) : "",
-      ...productTypes.map((type) =>
-        consultant.by_product_type[type] != null ? String(consultant.by_product_type[type]) : "",
-      ),
-    ]),
+    ["Month", "Consultant", "Country", "ARR Total", "% del Total", ...productTypes],
+    ...consultants.map((c) => {
+      const pct = totalARR > 0 ? ((c.arr_total / totalARR) * 100).toFixed(1) : "";
+      return [
+        month,
+        c.name,
+        c.country,
+        String(c.arr_total),
+        pct,
+        ...productTypes.map((t) =>
+          c.by_product_type[t] != null ? String(c.by_product_type[t]) : "",
+        ),
+      ];
+    }),
   ];
+}
+
+// Level 3: clients for a specific consultant + product_type (lazy)
+function BLClientsLevel({
+  snapshotId,
+  consultantName,
+  productType,
+  month,
+}: {
+  snapshotId: string | undefined;
+  consultantName: string;
+  productType: string;
+  month: string;
+}) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["consultant-bl-clients", snapshotId, consultantName, productType, month],
+    queryFn: () =>
+      api.getARRByAccount({
+        snapshot_id: snapshotId,
+        consultant: consultantName,
+        product_type: productType,
+        month_from: month,
+        month_to: month,
+        limit: 10,
+      }),
+  });
+
+  if (isLoading) {
+    return (
+      <tr className="bg-violet-50">
+        <td colSpan={4} className="py-2 pl-20 text-xs text-gray-400">
+          Cargando clientes...
+        </td>
+      </tr>
+    );
+  }
+
+  const accounts = data?.accounts ?? [];
+  const others = data?.others;
+  const othersTotal =
+    others && Number.isFinite(others.total_arr) && others.total_arr > 0 ? others.total_arr : null;
+
+  if (accounts.length === 0) {
+    return (
+      <tr className="bg-violet-50">
+        <td colSpan={4} className="py-1.5 pl-20 text-xs text-gray-400">
+          Sin datos de clientes.
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <>
+      {accounts.map((acct) => (
+        <tr key={acct.account_name} className="bg-violet-50">
+          <td className="py-1 pl-20 pr-4 text-xs text-gray-500">{acct.account_name}</td>
+          <td className="px-4 py-1 text-xs text-gray-700">{formatEUR(acct.total_arr)}</td>
+          <td colSpan={2} />
+        </tr>
+      ))}
+      {othersTotal !== null && (
+        <tr className="bg-violet-50">
+          <td className="py-1 pl-20 pr-4 text-xs text-gray-400 italic">Otros clientes</td>
+          <td className="px-4 py-1 text-xs text-gray-500">{formatEUR(othersTotal)}</td>
+          <td colSpan={2} />
+        </tr>
+      )}
+    </>
+  );
 }
 
 export default function ConsultantsPage() {
   const [month] = useState(currentMonthStart);
   const [country, setCountry] = useState("");
-  const [sortBy, setSortBy] = useState<"arr_total" | "name" | "mom_change">("arr_total");
-  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<"arr_total" | "name">("arr_total");
+  // expanded consultant row
+  const [expandedConsultant, setExpandedConsultant] = useState<string | null>(null);
+  // expanded BL within a consultant: "consultantName|||productType"
+  const [expandedBL, setExpandedBL] = useState<string | null>(null);
   const { activeSnapshot, isLoading: snapshotsLoading } = useSnapshotContext();
 
   const { data, isLoading, isError, error } = useQuery({
@@ -81,7 +152,6 @@ export default function ConsultantsPage() {
     () =>
       [...(data?.consultants ?? [])].sort((a, b) => {
         if (sortBy === "name") return a.name.localeCompare(b.name);
-        if (sortBy === "mom_change") return (b.mom_change ?? 0) - (a.mom_change ?? 0);
         return b.arr_total - a.arr_total;
       }),
     [data?.consultants, sortBy],
@@ -91,16 +161,29 @@ export default function ConsultantsPage() {
     .filter(Boolean)
     .sort();
 
-  const totalARR = consultants.reduce((sum, consultant) => sum + consultant.arr_total, 0);
+  const totalARR = consultants.reduce(
+    (sum, c) => sum + (Number.isFinite(c.arr_total) ? c.arr_total : 0),
+    0,
+  );
   const totalConsultants = consultants.length;
 
   function handleExport() {
-    if (consultants.length === 0) {
-      return;
-    }
+    if (consultants.length === 0) return;
     const countryLabel = country || "todos";
-    const filename = `consultores_${month}_${countryLabel}.csv`;
-    downloadCSV(filename, buildConsultantsCSVRows(consultants, month));
+    downloadCSV(
+      `consultores_${month}_${countryLabel}.csv`,
+      buildConsultantsCSVRows(consultants, month, totalARR),
+    );
+  }
+
+  function toggleConsultant(name: string) {
+    setExpandedConsultant((prev) => (prev === name ? null : name));
+    setExpandedBL(null);
+  }
+
+  function toggleBL(consultantName: string, productType: string) {
+    const key = `${consultantName}|||${productType}`;
+    setExpandedBL((prev) => (prev === key ? null : key));
   }
 
   return (
@@ -200,8 +283,7 @@ export default function ConsultantsPage() {
                 {[
                   { key: "name", label: "Consultor" },
                   { key: "arr_total", label: "ARR Total" },
-                  { key: "mom_change", label: "MoM (EUR)" },
-                  { key: null, label: "MoM (%)" },
+                  { key: null, label: "% del Total" },
                   { key: null, label: "Pais" },
                 ].map(({ key, label }) => (
                   <th
@@ -210,7 +292,7 @@ export default function ConsultantsPage() {
                     onClick={() => key && setSortBy(key as typeof sortBy)}
                   >
                     {label}
-                    {key && sortBy === key ? " v" : ""}
+                    {key && sortBy === key ? " ↓" : ""}
                   </th>
                 ))}
               </tr>
@@ -219,61 +301,85 @@ export default function ConsultantsPage() {
               {isLoading &&
                 [0, 1, 2, 3, 4].map((row) => (
                   <tr key={row} className="animate-pulse">
-                    <td colSpan={5} className="px-4 py-3">
+                    <td colSpan={4} className="px-4 py-3">
                       <div className="h-4 w-full rounded bg-gray-100" />
                     </td>
                   </tr>
                 ))}
 
               {!isLoading &&
-                consultants.map((consultant) => (
-                  <Fragment key={consultant.name}>
-                    <tr
-                      className="cursor-pointer hover:bg-indigo-50"
-                      onClick={() =>
-                        setExpandedRow(expandedRow === consultant.name ? null : consultant.name)
-                      }
-                    >
-                      <td className="px-4 py-2.5 font-medium text-gray-800">
-                        <span className="mr-1.5 text-gray-400">
-                          {expandedRow === consultant.name ? "v" : ">"}
-                        </span>
-                        {consultant.name}
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-900">{formatEUR(consultant.arr_total)}</td>
-                      <td
-                        className={`px-4 py-2.5 ${
-                          (consultant.mom_change ?? 0) >= 0 ? "text-green-600" : "text-red-600"
-                        }`}
-                      >
-                        {formatMoM(consultant.mom_change)}
-                      </td>
-                      <td
-                        className={`px-4 py-2.5 ${
-                          (consultant.mom_pct ?? 0) >= 0 ? "text-green-600" : "text-red-600"
-                        }`}
-                      >
-                        {formatPct(consultant.mom_pct)}
-                      </td>
-                      <td className="px-4 py-2.5 text-gray-500">{consultant.country}</td>
-                    </tr>
+                consultants.map((consultant) => {
+                  const isConsultantExpanded = expandedConsultant === consultant.name;
+                  const blEntries = Object.entries(consultant.by_product_type).sort(
+                    ([, l], [, r]) => r - l,
+                  );
 
-                    {expandedRow === consultant.name &&
-                      Object.entries(consultant.by_product_type)
-                        .sort(([, left], [, right]) => right - left)
-                        .map(([type, arr]) => (
-                          <tr key={`${consultant.name}-${type}`} className="bg-indigo-50">
-                            <td className="py-1.5 pl-10 pr-4 text-xs text-gray-500">{`> ${type}`}</td>
-                            <td className="px-4 py-1.5 text-xs text-gray-700">{formatEUR(arr)}</td>
-                            <td colSpan={3} />
-                          </tr>
-                        ))}
-                  </Fragment>
-                ))}
+                  return (
+                    <Fragment key={consultant.name}>
+                      {/* Level 1: consultant row */}
+                      <tr
+                        className="cursor-pointer hover:bg-indigo-50"
+                        onClick={() => toggleConsultant(consultant.name)}
+                      >
+                        <td className="px-4 py-2.5 font-medium text-gray-800">
+                          <span className="mr-1.5 text-gray-400">
+                            {isConsultantExpanded ? "▼" : "▶"}
+                          </span>
+                          {consultant.name}
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-900">
+                          {formatEUR(consultant.arr_total)}
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-500">
+                          {totalARR > 0
+                            ? formatPct((consultant.arr_total / totalARR) * 100)
+                            : "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-500">{consultant.country}</td>
+                      </tr>
+
+                      {/* Level 2: BL rows (expandable) */}
+                      {isConsultantExpanded &&
+                        blEntries.map(([type, arr]) => {
+                          const blKey = `${consultant.name}|||${type}`;
+                          const isBLExpanded = expandedBL === blKey;
+                          return (
+                            <Fragment key={blKey}>
+                              <tr
+                                className="cursor-pointer bg-indigo-50 hover:bg-indigo-100"
+                                onClick={() => toggleBL(consultant.name, type)}
+                              >
+                                <td className="py-1.5 pl-10 pr-4 text-xs text-gray-600">
+                                  <span className="mr-1 text-gray-400">
+                                    {isBLExpanded ? "▼" : "▶"}
+                                  </span>
+                                  {type}
+                                </td>
+                                <td className="px-4 py-1.5 text-xs text-gray-700">
+                                  {formatEUR(arr)}
+                                </td>
+                                <td colSpan={2} />
+                              </tr>
+
+                              {/* Level 3: clients (lazy) */}
+                              {isBLExpanded && (
+                                <BLClientsLevel
+                                  snapshotId={activeSnapshot?.id}
+                                  consultantName={consultant.name}
+                                  productType={type}
+                                  month={month}
+                                />
+                              )}
+                            </Fragment>
+                          );
+                        })}
+                    </Fragment>
+                  );
+                })}
 
               {!isLoading && consultants.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={4} className="px-4 py-8 text-center text-gray-400">
                     Sin datos para este mes.
                   </td>
                 </tr>

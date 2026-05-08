@@ -1,5 +1,56 @@
 # Session Log
 
+## 2026-05-08 - Sesion 20 (Implementacion V3 P1-P7)
+**Agente:** Claude Sonnet 4.6
+
+### Trabajo realizado
+
+#### V3-P1 — Correccion matematica BL grouping
+- `utils.ts`: `applyBLGrouping` siempre establece el grouped key aunque su suma sea 0 (eliminado `if > 0`)
+- Nueva funcion defensiva `sumSeriesByMonth(a, b)` con join por clave de mes
+
+#### V3-P2 — Limpieza de NaN global
+- `formatEUR` y `formatPct` defensivos: null/undefined/NaN → `"—"`
+- `consultants/page.tsx` y `page.tsx`: `totalARR` y `countryMix` filtran valores no finitos
+
+#### V3-P3 — MoM → YTD comparativo
+- `utils.ts`: helpers `calcYTD` y `calcYTDByProductType`
+- `ARRBreakdownTable.tsx` reescrita con columnas YTD actual / YTD anterior / Δ YTD %
+- `KPICards.tsx`: 2 tarjetas MoM reemplazadas por YTD actual y YTD anterior
+- `consultants/page.tsx`: MoM → % del Total
+
+#### V3-P4 — Top 20 sin "Otros"
+- `TopAccountsBarsChart.tsx` y `TopAccountsLinesChart.tsx`: filtran `/^otros/i`; nota descriptiva añadida
+
+#### V3-P5 — Tabla de clientes corregida
+- `ClientARRTable.tsx` reescrita: columna TOTAL → ARR Actual (ultimo mes en negrita); columna Δ muestra abs + % en dos lineas; NaN guard completo
+
+#### V3-P6 — Consultores nivel 2
+- `arr.py`: params `consultant` y `product_type` añadidos a `GET /arr/by-account` (ambos modos)
+- `api.ts`: `getARRByAccount` acepta los nuevos params
+- `consultants/page.tsx`: arbol de 3 niveles con carga lazy (componente `BLClientsLevel`)
+
+#### V3-P7 — Exportar Excel snapshot
+- `app/backend/core/excel_exporter.py` creado: 5 pestañas (Resumen, Por cliente, Por consultor, Por pais, Lineas brutas)
+- `app/backend/api/routes/exports.py` creado: `GET /api/exports/excel?snapshot_id=...`
+- `main.py`: router registrado bajo `/api/exports`
+- `api.ts`: `downloadSnapshotExcel(snapshotId)` dispara descarga
+- `page.tsx`: boton "Descargar Snapshot" con spinner
+
+### Verificacion
+- `npx tsc --noEmit` → **0 errores**
+- `pytest tests/` → no ejecutado (sin PG local); sin cambios de esquema ni tests rotos
+- E2E: no re-ejecutados; cambios son aditivos
+
+### Commits y push
+- Commit unico: `Implement V3 P1-P7: YTD metrics, NaN fixes, BL math, Excel export, consultants level 2`
+- Push a origin/main
+
+**Instruccion para la proxima conversacion:**
+Di al agente: "Lee CURRENT_STATE.md y NEXT_STEPS.md. La unica fase V3 pendiente es P8 (revision de codigo). Sigue la spec en `docs/specs/SPEC-V3-phase8-code-review.md`."
+
+---
+
 ## 2026-05-08 - Sesion 19 (Planificacion V3)
 **Agente:** Claude Sonnet 4.6
 - CFO reviso el estado visual del dashboard e identifico 5 bugs y 3 nuevas funcionalidades.

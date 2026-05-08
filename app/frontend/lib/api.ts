@@ -43,6 +43,8 @@ export const api = {
     month_from?: string;
     month_to?: string;
     product_types?: string;
+    product_type?: string;
+    consultant?: string;
     limit?: number;
     mode?: "from_start" | "from_close";
   }) =>
@@ -164,6 +166,20 @@ export const api = {
     client
       .post<ExpertChatResponse>("/expert/chat", data)
       .then((r) => r.data),
+
+  // Exports
+  downloadSnapshotExcel: async (snapshotId: string): Promise<void> => {
+    const response = await client.get("/exports/excel", {
+      params: { snapshot_id: snapshotId },
+      responseType: "blob",
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `arr-snapshot-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  },
 
   // Health
   health: () => client.get("/health").then((r) => r.data),

@@ -1,16 +1,23 @@
 "use client";
 
-import { applyBLGrouping, formatEUR, formatPct, formatMoM, productTypeColor } from "@/lib/utils";
+import {
+  applyBLGrouping,
+  applyBLGroupingToMonths,
+  calcYTDByProductType,
+  formatEUR,
+  formatPct,
+  productTypeColor,
+} from "@/lib/utils";
 import { useBLGrouping } from "@/lib/bl-grouping-context";
 import type { ARRMonthPoint } from "@/lib/types";
 
 interface Props {
   current: ARRMonthPoint | undefined;
-  prev: ARRMonthPoint | undefined;
+  months: ARRMonthPoint[];
   loading: boolean;
 }
 
-export function ARRBreakdownTable({ current, prev, loading }: Props) {
+export function ARRBreakdownTable({ current, months, loading }: Props) {
   const { combineLmsAio, combineAuthor } = useBLGrouping();
   const groupOpts = { combineLmsAio, combineAuthor };
 
@@ -35,10 +42,31 @@ export function ARRBreakdownTable({ current, prev, loading }: Props) {
     );
   }
 
-  const groupedCurrent = applyBLGrouping(current.by_product_type as Record<string, number>, groupOpts);
-  const groupedPrev = prev ? applyBLGrouping(prev.by_product_type as Record<string, number>, groupOpts) : null;
+  const groupedMonths = applyBLGroupingToMonths(months, groupOpts);
+  const groupedCurrent = applyBLGrouping(
+    current.by_product_type as Record<string, number>,
+    groupOpts,
+  );
+
+  const currentMonthKey = current.month.slice(0, 7); // "YYYY-MM"
+  const [currYear, currMonthNum] = currentMonthKey.split("-").map(Number);
+  const prevYearMonthKey = `${currYear - 1}-${String(currMonthNum).padStart(2, "0")}`;
+
   const types = Object.entries(groupedCurrent).sort(([, a], [, b]) => b - a);
   const total = current.total_arr;
+
+  function ytdCurrent(type: string): number {
+    return calcYTDByProductType(groupedMonths, currentMonthKey + "-01", type);
+  }
+
+  function ytdPrev(type: string): number {
+    return calcYTDByProductType(groupedMonths, prevYearMonthKey + "-01", type);
+  }
+
+  const totalYtdCurrent = types.reduce((s, [t]) => s + ytdCurrent(t), 0);
+  const totalYtdPrev = types.reduce((s, [t]) => s + ytdPrev(t), 0);
+  const totalDeltaPct =
+    totalYtdPrev > 0 ? ((totalYtdCurrent - totalYtdPrev) / totalYtdPrev) * 100 : null;
 
   return (
     <section className="overflow-hidden rounded-3xl border border-[#e7e1f2] bg-white shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
@@ -51,41 +79,66 @@ export function ARRBreakdownTable({ current, prev, loading }: Props) {
         </h2>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] text-sm">
+        <table className="w-full min-w-[860px] text-sm">
           <thead>
             <tr className="bg-[#fbfaff] text-xs font-black uppercase tracking-[0.12em] text-[#837a9f]">
               <th className="px-5 py-3 text-left">Linea</th>
               <th className="px-4 py-3 text-right">ARR actual</th>
-              <th className="px-4 py-3 text-right">MoM EUR</th>
-              <th className="px-4 py-3 text-right">MoM %</th>
+              <th className="px-4 py-3 text-right">YTD {currYear}</th>
+              <th className="px-4 py-3 text-right">YTD {currYear - 1}</th>
+              <th className="px-4 py-3 text-right">Δ YTD %</th>
               <th className="px-5 py-3 text-left">Peso</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#f0ebf8]">
             {types.map(([type, arr]) => {
-              const prevArr = groupedPrev ? (groupedPrev[type] ?? null) : null;
-              const momChange = prevArr != null ? arr - prevArr : null;
-              const momPct = prevArr != null && prevArr > 0 ? ((arr - prevArr) / prevArr) * 100 : null;
+              const yCurr = ytdCurrent(type);
+              const yPrev = ytdPrev(type);
+              const deltaPct = yPrev > 0 ? ((yCurr - yPrev) / yPrev) * 100 : null;
               const pctTotal = total > 0 ? (arr / total) * 100 : 0;
               return (
                 <tr key={type} className="transition hover:bg-[#fbfaff]">
                   <td className="px-5 py-4 font-black text-[#151229]">
-                    <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: productTypeColor(type) }} />
+                    <span
+                      className="mr-2 inline-block h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: productTypeColor(type) }}
+                    />
                     {type}
                   </td>
-                  <td className="px-4 py-4 text-right font-bold text-[#151229]">{formatEUR(arr)}</td>
-                  <td className={`px-4 py-4 text-right font-bold ${momChange == null ? "text-[#837a9f]" : momChange >= 0 ? "text-[#0c8f76]" : "text-[#d03932]"}`}>
-                    {formatMoM(momChange)}
+                  <td className="px-4 py-4 text-right font-bold text-[#151229]">
+                    {formatEUR(arr)}
                   </td>
-                  <td className={`px-4 py-4 text-right font-bold ${momPct == null ? "text-[#837a9f]" : momPct >= 0 ? "text-[#0c8f76]" : "text-[#d03932]"}`}>
-                    {formatPct(momPct)}
+                  <td className="px-4 py-4 text-right font-bold text-[#151229]">
+                    {formatEUR(yCurr)}
+                  </td>
+                  <td className="px-4 py-4 text-right text-[#837a9f]">
+                    {formatEUR(yPrev)}
+                  </td>
+                  <td
+                    className={`px-4 py-4 text-right font-bold ${
+                      deltaPct == null
+                        ? "text-[#837a9f]"
+                        : deltaPct >= 0
+                          ? "text-[#0c8f76]"
+                          : "text-[#d03932]"
+                    }`}
+                  >
+                    {formatPct(deltaPct)}
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
                       <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#efe9ff]">
-                        <div className="h-full rounded-full" style={{ width: `${Math.min(pctTotal, 100)}%`, backgroundColor: productTypeColor(type) }} />
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${Math.min(pctTotal, 100)}%`,
+                            backgroundColor: productTypeColor(type),
+                          }}
+                        />
                       </div>
-                      <span className="w-12 text-right font-bold text-[#6f6a80]">{pctTotal.toFixed(1)}%</span>
+                      <span className="w-12 text-right font-bold text-[#6f6a80]">
+                        {pctTotal.toFixed(1)}%
+                      </span>
                     </div>
                   </td>
                 </tr>
@@ -96,8 +149,9 @@ export function ARRBreakdownTable({ current, prev, loading }: Props) {
             <tr className="bg-[#2f185f] font-black text-white">
               <td className="px-5 py-4">TOTAL</td>
               <td className="px-4 py-4 text-right">{formatEUR(total)}</td>
-              <td className="px-4 py-4 text-right">{formatMoM(current.mom_change)}</td>
-              <td className="px-4 py-4 text-right">{formatPct(current.mom_pct)}</td>
+              <td className="px-4 py-4 text-right">{formatEUR(totalYtdCurrent)}</td>
+              <td className="px-4 py-4 text-right">{formatEUR(totalYtdPrev)}</td>
+              <td className="px-4 py-4 text-right">{formatPct(totalDeltaPct)}</td>
               <td className="px-5 py-4 text-right">100%</td>
             </tr>
           </tfoot>

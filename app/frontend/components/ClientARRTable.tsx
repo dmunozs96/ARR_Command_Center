@@ -1,6 +1,6 @@
 "use client";
 
-import { formatEUR } from "@/lib/utils";
+import { formatEUR, formatPct } from "@/lib/utils";
 import type { ARRByAccountResponse } from "@/lib/types";
 
 interface Props {
@@ -21,14 +21,23 @@ function accountColor(index: number): string {
 
 function downloadCSV(data: ARRByAccountResponse) {
   const months = data.months;
-  const header = ["Rank", "Cliente", ...months.map((m) => m.slice(0, 7)), "Total", "Delta"];
-  const rows = [...data.accounts, data.others].map((acct) => [
-    acct.rank === 0 ? "Otros" : String(acct.rank),
-    acct.account_name,
-    ...months.map((m) => String(acct.by_month[m] ?? 0)),
-    String(acct.total_arr),
-    String(acct.delta),
-  ]);
+  const header = ["Rank", "Cliente", ...months.map((m) => m.slice(0, 7)), "ARR Actual", "Δ EUR", "Δ %"];
+  const rows = [...data.accounts, data.others].map((acct) => {
+    const firstVal = acct.by_month[months[0]] ?? null;
+    const lastVal = acct.by_month[months[months.length - 1]] ?? null;
+    const absChange = firstVal !== null && lastVal !== null ? lastVal - firstVal : null;
+    const pctChange = firstVal && firstVal !== 0 && absChange !== null
+      ? (absChange / firstVal) * 100
+      : null;
+    return [
+      acct.rank === 0 ? "Otros" : String(acct.rank),
+      acct.account_name,
+      ...months.map((m) => String(acct.by_month[m] ?? 0)),
+      String(lastVal ?? 0),
+      absChange !== null ? String(absChange) : "",
+      pctChange !== null ? pctChange.toFixed(1) : "",
+    ];
+  });
   const csv = [header, ...rows].map((r) => r.join(";")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
@@ -63,6 +72,74 @@ export function ClientARRTable({ data, isLoading }: Props) {
 
   const { months, accounts, others } = data;
 
+  function renderRow(
+    acct: (typeof accounts)[0],
+    idx: number,
+    isOthers = false,
+  ) {
+    const firstVal = months.length > 0 ? (acct.by_month[months[0]] ?? null) : null;
+    const lastVal = months.length > 0 ? (acct.by_month[months[months.length - 1]] ?? null) : null;
+
+    const absChange =
+      firstVal !== null && lastVal !== null ? lastVal - firstVal : null;
+    const pctChange =
+      firstVal && firstVal !== 0 && absChange !== null
+        ? (absChange / firstVal) * 100
+        : null;
+
+    const deltaColor =
+      absChange == null
+        ? "text-[#837a9f]"
+        : absChange >= 0
+          ? "text-[#0c8f76]"
+          : "text-[#d03932]";
+
+    return (
+      <tr
+        key={acct.account_name}
+        className={`transition hover:bg-[#fbfaff] ${isOthers ? "bg-[#f9f7ff] text-[#6f6a80]" : ""}`}
+      >
+        <td className="sticky left-0 bg-white px-4 py-3">
+          {isOthers ? (
+            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#e5e7eb] text-xs font-black text-[#6f6a80]">
+              +
+            </span>
+          ) : (
+            <span
+              className="flex h-6 w-6 items-center justify-center rounded-lg text-xs font-black text-white"
+              style={{ backgroundColor: accountColor(idx) }}
+            >
+              {acct.rank}
+            </span>
+          )}
+        </td>
+        <td
+          className={`sticky left-8 bg-white px-4 py-3 font-bold min-w-[160px] max-w-[220px] truncate ${isOthers ? "" : "text-[#151229]"}`}
+        >
+          {acct.account_name}
+        </td>
+        {months.map((m) => {
+          const val = acct.by_month[m] ?? 0;
+          return (
+            <td key={m} className="px-3 py-3 text-right text-[#6f6a80]">
+              {val > 0 ? formatEUR(val) : <span className="text-[#d1cde8]">—</span>}
+            </td>
+          );
+        })}
+        <td className="px-4 py-3 text-right font-black text-[#151229]">
+          <strong>{formatEUR(lastVal ?? 0)}</strong>
+        </td>
+        <td className={`px-4 py-3 text-right font-bold ${deltaColor}`}>
+          <span>{formatEUR(absChange)}</span>
+          <br />
+          <span className="text-xs text-[#837a9f]">
+            {pctChange !== null ? formatPct(pctChange) : "—"}
+          </span>
+        </td>
+      </tr>
+    );
+  }
+
   return (
     <section className="overflow-hidden rounded-3xl border border-[#e7e1f2] bg-white shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
       <div className="flex items-center justify-between border-b border-[#eee8f8] px-5 py-4">
@@ -89,64 +166,22 @@ export function ClientARRTable({ data, isLoading }: Props) {
                   {m.slice(0, 7)}
                 </th>
               ))}
-              <th className="px-4 py-3 text-right font-black text-[#2f185f]">Total</th>
+              <th className="px-4 py-3 text-right font-black text-[#2f185f]">ARR Actual</th>
               <th className="px-4 py-3 text-right">Δ</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#f0ebf8]">
-            {accounts.map((acct, idx) => (
-              <tr key={acct.account_name} className="transition hover:bg-[#fbfaff]">
-                <td className="sticky left-0 bg-white px-4 py-3">
-                  <span
-                    className="flex h-6 w-6 items-center justify-center rounded-lg text-xs font-black text-white"
-                    style={{ backgroundColor: accountColor(idx) }}
-                  >
-                    {acct.rank}
-                  </span>
-                </td>
-                <td className="sticky left-8 bg-white px-4 py-3 font-bold text-[#151229] min-w-[160px] max-w-[220px] truncate">
-                  {acct.account_name}
-                </td>
-                {months.map((m) => {
-                  const val = acct.by_month[m] ?? 0;
-                  return (
-                    <td key={m} className="px-3 py-3 text-right text-[#6f6a80]">
-                      {val > 0 ? formatEUR(val) : <span className="text-[#d1cde8]">—</span>}
-                    </td>
-                  );
-                })}
-                <td className="px-4 py-3 text-right font-black text-[#151229]">{formatEUR(acct.total_arr)}</td>
-                <td className={`px-4 py-3 text-right font-bold ${acct.delta >= 0 ? "text-[#0c8f76]" : "text-[#d03932]"}`}>
-                  {acct.delta >= 0 ? "↑" : "↓"} {formatEUR(Math.abs(acct.delta))}
-                </td>
-              </tr>
-            ))}
-            <tr className="bg-[#f9f7ff] text-[#6f6a80]">
-              <td className="sticky left-0 bg-[#f9f7ff] px-4 py-3">
-                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#e5e7eb] text-xs font-black text-[#6f6a80]">
-                  +
-                </span>
-              </td>
-              <td className="sticky left-8 bg-[#f9f7ff] px-4 py-3 font-bold min-w-[160px]">Otros</td>
-              {months.map((m) => {
-                const val = others.by_month[m] ?? 0;
-                return (
-                  <td key={m} className="px-3 py-3 text-right">
-                    {val > 0 ? formatEUR(val) : <span className="text-[#d1cde8]">—</span>}
-                  </td>
-                );
-              })}
-              <td className="px-4 py-3 text-right font-black">{formatEUR(others.total_arr)}</td>
-              <td className={`px-4 py-3 text-right font-bold ${others.delta >= 0 ? "text-[#0c8f76]" : "text-[#d03932]"}`}>
-                {others.delta >= 0 ? "↑" : "↓"} {formatEUR(Math.abs(others.delta))}
-              </td>
-            </tr>
+            {accounts.map((acct, idx) => renderRow(acct, idx))}
+            {renderRow(others, 0, true)}
           </tbody>
           <tfoot>
             <tr className="bg-[#2f185f] font-black text-white">
               <td className="px-4 py-4" colSpan={2}>TOTAL</td>
               {months.map((m) => {
-                const total = [...accounts, others].reduce((sum, a) => sum + (a.by_month[m] ?? 0), 0);
+                const total = [...accounts, others].reduce(
+                  (sum, a) => sum + (a.by_month[m] ?? 0),
+                  0,
+                );
                 return (
                   <td key={m} className="px-3 py-4 text-right">{formatEUR(total)}</td>
                 );

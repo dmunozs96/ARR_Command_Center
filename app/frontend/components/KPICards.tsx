@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, Gauge, LineChart, TrendingUp } from "lucide-react";
-import { formatEUR, formatPct, formatMoM } from "@/lib/utils";
+import { calcYTD, formatEUR, formatPct, formatMoM } from "@/lib/utils";
 import type { ARRMonthPoint } from "@/lib/types";
 
 interface Props {
@@ -45,14 +45,25 @@ export function KPICards({ current, months, loading, unreviewedCount = 0, months
   }
 
   const arr = current?.total_arr ?? 0;
-  const mom = current?.mom_change ?? null;
-  const momPct = current?.mom_pct ?? null;
 
   const yoyMonth = current ? findYoyMonth(months, current.month) : undefined;
   const yoy = yoyMonth != null ? Number(current!.total_arr) - Number(yoyMonth.total_arr) : null;
   const yoyPct =
     yoy != null && yoyMonth != null && Number(yoyMonth.total_arr) !== 0
       ? (yoy / Number(yoyMonth.total_arr)) * 100
+      : null;
+
+  const currentMonthRef = current?.month ?? "";
+  const [currYear] = currentMonthRef.split("-").map(Number);
+  const prevYearRef = currentMonthRef
+    ? `${currYear - 1}-${currentMonthRef.split("-")[1]}-01`
+    : "";
+
+  const ytdCurrent = currentMonthRef ? calcYTD(months, currentMonthRef) : null;
+  const ytdPrev = prevYearRef ? calcYTD(months, prevYearRef) : null;
+  const ytdDeltaPct =
+    ytdCurrent != null && ytdPrev != null && ytdPrev > 0
+      ? ((ytdCurrent - ytdPrev) / ytdPrev) * 100
       : null;
 
   const cards = [
@@ -65,20 +76,20 @@ export function KPICards({ current, months, loading, unreviewedCount = 0, months
       trendValue: null as number | null,
     },
     {
-      label: "Variacion MoM",
-      value: mom != null ? formatMoM(Number(mom)) : "-",
-      detail: "Cambio absoluto frente al mes anterior",
+      label: `YTD ${currYear || ""}`,
+      value: ytdCurrent != null ? formatEUR(ytdCurrent) : "—",
+      detail: "Suma acumulada de ARR desde enero del año en curso",
       icon: LineChart,
-      accent: mom == null || Number(mom) >= 0 ? "bg-[#20c7a8]" : "bg-[#ff5f57]",
-      trendValue: mom != null ? Number(mom) : null,
+      accent: "bg-[#20c7a8]",
+      trendValue: null as number | null,
     },
     {
-      label: "Crecimiento MoM",
-      value: formatPct(momPct),
-      detail: "Tasa mensual de expansion o contraccion",
+      label: `YTD ${(currYear || 1) - 1}`,
+      value: ytdPrev != null ? formatEUR(ytdPrev) : "—",
+      detail: "Suma acumulada de ARR en el mismo periodo del año anterior",
       icon: Gauge,
-      accent: momPct == null || momPct >= 0 ? "bg-[#20c7a8]" : "bg-[#ff5f57]",
-      trendValue: momPct,
+      accent: "bg-[#20c7a8]",
+      trendValue: null as number | null,
     },
     {
       label: "Calidad de dato",
@@ -90,19 +101,19 @@ export function KPICards({ current, months, loading, unreviewedCount = 0, months
     },
     {
       label: "Variacion YoY",
-      value: yoy != null ? formatMoM(yoy) : "-",
+      value: yoy != null ? formatMoM(yoy) : "—",
       detail: "Cambio absoluto frente al mismo mes del año anterior",
       icon: LineChart,
       accent: yoy == null || yoy >= 0 ? "bg-[#6d35ff]" : "bg-[#ff5f57]",
       trendValue: yoy,
     },
     {
-      label: "Crecimiento YoY",
-      value: formatPct(yoyPct),
-      detail: "Tasa anual de expansion o contraccion",
+      label: "Δ YTD %",
+      value: formatPct(ytdDeltaPct),
+      detail: "Variacion del acumulado YTD frente al año anterior",
       icon: Gauge,
-      accent: yoyPct == null || yoyPct >= 0 ? "bg-[#6d35ff]" : "bg-[#ff5f57]",
-      trendValue: yoyPct,
+      accent: ytdDeltaPct == null || ytdDeltaPct >= 0 ? "bg-[#6d35ff]" : "bg-[#ff5f57]",
+      trendValue: ytdDeltaPct,
     },
   ];
 

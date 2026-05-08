@@ -1,50 +1,50 @@
-# V3-P8 — Revisión y optimización de código
+﻿# V3-P8 â€” RevisiÃ³n y optimizaciÃ³n de cÃ³digo
 
 **Estado:** Pendiente  
-**Tipo:** Deuda técnica  
-**Orden de implementación:** 8 (ÚLTIMA fase de V3)
+**Tipo:** Deuda tÃ©cnica  
+**Orden de implementaciÃ³n:** 8 (ÃšLTIMA fase de V3)
 
-**IMPORTANTE:** Esta fase solo comienza cuando P1 a P7 están completas y verificadas. Su propósito es auditar todo el código acumulado y dejarlo listo para el siguiente ciclo de desarrollo.
-
----
-
-## Motivación
-
-Después de V1, V2 y V3, el código habrá crecido de forma incremental. Es el momento de hacer una pasada crítica antes de que la deuda técnica se acumule demasiado: eliminar duplicaciones, simplificar lógica, mejorar tipos, y detectar problemas de rendimiento latentes.
+**IMPORTANTE:** Esta fase solo comienza cuando P1 a P7 estÃ¡n completas y verificadas. Su propÃ³sito es auditar todo el cÃ³digo acumulado y dejarlo listo para el siguiente ciclo de desarrollo.
 
 ---
 
-## Áreas de auditoría
+## MotivaciÃ³n
+
+DespuÃ©s de V1, V2 y V3, el cÃ³digo habrÃ¡ crecido de forma incremental. Es el momento de hacer una pasada crÃ­tica antes de que la deuda tÃ©cnica se acumule demasiado: eliminar duplicaciones, simplificar lÃ³gica, mejorar tipos, y detectar problemas de rendimiento latentes.
+
+---
+
+## Ãreas de auditorÃ­a
 
 ### Frontend
 
-| Área | Qué buscar |
+| Ãrea | QuÃ© buscar |
 |---|---|
-| **Componentes** | Props no usadas, estados duplicados, efectos que podrían ser memos, re-renders innecesarios |
+| **Componentes** | Props no usadas, estados duplicados, efectos que podrÃ­an ser memos, re-renders innecesarios |
 | **`utils.ts`** | Funciones duplicadas o muy similares que puedan unificarse |
 | **`types.ts`** | Interfaces obsoletas de versiones anteriores que ya no se usan |
 | **`api.ts`** | Llamadas duplicadas al mismo endpoint desde distintos lugares |
 | **Imports** | Imports no utilizados en cualquier archivo `.tsx` / `.ts` |
-| **Recharts** | Configuraciones de gráficos duplicadas que podrían extraerse a un componente base |
+| **Recharts** | Configuraciones de grÃ¡ficos duplicadas que podrÃ­an extraerse a un componente base |
 
 ### Backend
 
-| Área | Qué buscar |
+| Ãrea | QuÃ© buscar |
 |---|---|
-| **`arr_calculator.py`** | Queries N+1 o lógica que se podría pre-computar |
-| **`arr.py` (routes)** | Endpoints que hacen demasiado: separar lógica de negocio de la capa HTTP |
+| **`arr_calculator.py`** | Queries N+1 o lÃ³gica que se podrÃ­a pre-computar |
+| **`arr.py` (routes)** | Endpoints que hacen demasiado: separar lÃ³gica de negocio de la capa HTTP |
 | **`schemas.py`** | Schemas Pydantic que ya no corresponden a ninguna ruta activa |
-| **`snapshot_manager.py`** | Código de V1 que quedó para compatibilidad pero ya no se ejecuta |
-| **Tests** | Tests que prueban implementación en lugar de comportamiento (frágiles ante refactor) |
+| **`snapshot_manager.py`** | CÃ³digo de V1 que quedÃ³ para compatibilidad pero ya no se ejecuta |
+| **Tests** | Tests que prueban implementaciÃ³n en lugar de comportamiento (frÃ¡giles ante refactor) |
 
 ---
 
 ## Proceso de esta fase
 
-1. **Auditoría primero, cambios después.** El agente primero produce un informe de los hallazgos y los presenta al CFO para priorizar.
+1. **AuditorÃ­a primero, cambios despuÃ©s.** El agente primero produce un informe de los hallazgos y los presenta al CFO para priorizar.
 2. **No romper funcionalidad.** Cada cambio debe dejar `pytest tests/` en verde y `npx tsc --noEmit` sin errores.
-3. **Un commit por área** para facilitar reversión si algo falla.
-4. **Proponer, no implementar** cualquier refactor estructural que cambie la arquitectura — esperar aprobación explícita del CFO antes de ejecutarlo.
+3. **Un commit por Ã¡rea** para facilitar reversiÃ³n si algo falla.
+4. **Proponer, no implementar** cualquier refactor estructural que cambie la arquitectura â€” esperar aprobaciÃ³n explÃ­cita del CFO antes de ejecutarlo.
 
 ---
 
@@ -56,18 +56,19 @@ Después de V1, V2 y V3, el código habrá crecido de forma incremental. Es el m
    - Simplificaciones aplicadas
    - Refactors mayores propuestos (pero no implementados)
 
-2. **Código limpio** con:
+2. **CÃ³digo limpio** con:
    - Tests pasando al 100%
    - TypeScript sin errores
-   - Sin `console.log` de depuración en producción
-   - Sin código comentado ("dead code")
+   - Sin `console.log` de depuraciÃ³n en producciÃ³n
+   - Sin cÃ³digo comentado ("dead code")
 
 ---
 
-## Criterio de aceptación
+## Criterio de aceptaciÃ³n
 
-- `pytest tests/` → todos en verde
-- `npx tsc --noEmit` → sin errores
-- `eslint` → sin warnings nuevos respecto a antes de la fase
-- El informe de hallazgos está documentado
+- `pytest tests/` â†’ todos en verde
+- `npx tsc --noEmit` â†’ sin errores
+- `eslint` â†’ sin warnings nuevos respecto a antes de la fase
+- El informe de hallazgos estÃ¡ documentado
 - El CFO ha revisado y aprobado (o descartado) los refactors mayores propuestos
+

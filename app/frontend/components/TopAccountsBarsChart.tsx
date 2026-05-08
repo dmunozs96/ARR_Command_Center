@@ -36,12 +36,16 @@ export function TopAccountsBarsChart({ data, isLoading }: Props) {
     );
   }
 
+  const TOP_EXCLUDE = /^otros/i;
+  const visibleAccounts = data.accounts.filter(
+    (a) => !TOP_EXCLUDE.test(a.account_name.trim()),
+  );
+
   const chartData = data.months.map((month) => {
     const point: Record<string, number | string> = { month: formatMonth(month) };
-    data.accounts.forEach((acc) => {
+    visibleAccounts.forEach((acc) => {
       point[acc.account_name] = acc.by_month[month] ?? 0;
     });
-    point["Otros"] = data.others.by_month[month] ?? 0;
     return point;
   });
 
@@ -50,6 +54,7 @@ export function TopAccountsBarsChart({ data, isLoading }: Props) {
       <div className="mb-5">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-[#6d35ff]">Concentración</p>
         <h2 className="mt-1 text-xl font-black tracking-tight text-[#151229]">ARR por cliente — barras apiladas</h2>
+        <p className="mt-1 text-xs text-[#837a9f]">Top 20 cuentas por ARR. El resto se omite para mayor claridad.</p>
       </div>
 
       <ResponsiveContainer width="100%" height={350}>
@@ -81,7 +86,7 @@ export function TopAccountsBarsChart({ data, isLoading }: Props) {
             }}
           />
           <Legend iconType="circle" wrapperStyle={{ fontSize: 11, fontWeight: 600, paddingTop: 12 }} />
-          {data.accounts.map((acc, i) => (
+          {visibleAccounts.map((acc, i) => (
             <Bar
               key={acc.account_name}
               dataKey={acc.account_name}
@@ -89,7 +94,6 @@ export function TopAccountsBarsChart({ data, isLoading }: Props) {
               fill={ACCOUNT_COLORS[i] ?? "#9ca3af"}
             />
           ))}
-          <Bar dataKey="Otros" stackId="a" fill="#e5e7eb" />
         </BarChart>
       </ResponsiveContainer>
     </section>

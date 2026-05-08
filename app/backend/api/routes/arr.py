@@ -210,6 +210,8 @@ def arr_by_account(
     month_from: Optional[date] = Query(None),
     month_to: Optional[date] = Query(None),
     product_types: Optional[str] = Query(None, description="CSV of product types"),
+    product_type: Optional[str] = Query(None, description="Single product type filter (for consultant drill-down)"),
+    consultant: Optional[str] = Query(None, description="Filter by consultant (opportunity_owner)"),
     limit: int = Query(default=20, ge=1, le=100),
     mode: str = Query(default="from_start", description="from_start | from_close"),
     db: Session = Depends(get_db),
@@ -226,7 +228,7 @@ def arr_by_account(
 
     # Resolve month range using same logic as summary endpoint
     if mode == "from_close":
-        rows = (
+        q_close = (
             db.query(ARRLineItem, RawOpportunityLineItem)
             .join(RawOpportunityLineItem, ARRLineItem.raw_line_item_id == RawOpportunityLineItem.id)
             .filter(
@@ -234,11 +236,15 @@ def arr_by_account(
                 ARRLineItem.is_saas == True,
                 ARRLineItem.excluded_from_arr == False,
             )
-            .all()
         )
+        if consultant:
+            q_close = q_close.filter(RawOpportunityLineItem.opportunity_owner == consultant)
+        rows = q_close.all()
         active_items = []
         for arr, raw in rows:
             if product_type_list and arr.product_type not in product_type_list:
+                continue
+            if product_type and arr.product_type != product_type:
                 continue
             opp_type = (raw.opportunity_type or "").lower().strip()
             if (
@@ -269,6 +275,10 @@ def arr_by_account(
         )
         if product_type_list:
             q = q.filter(ARRLineItem.product_type.in_(product_type_list))
+        if product_type:
+            q = q.filter(ARRLineItem.product_type == product_type)
+        if consultant:
+            q = q.filter(RawOpportunityLineItem.opportunity_owner == consultant)
         rows = q.all()
         active_items = [
             (
