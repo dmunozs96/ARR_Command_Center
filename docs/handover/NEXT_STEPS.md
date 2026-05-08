@@ -5,34 +5,15 @@
 
 ## Estado actual
 
-Fases A-H + I-A + I-B + V2 + V3-P1 a P7 completas.  
-Tests: 57/57 OK. TypeScript: 0 errores. E2E: 3/3 OK.
+Fases A-H + I-A + I-B + V2 + V3-P1 a P8 completas.
+Tests: 61/61 OK. TypeScript: 0 errores.
 
-**Siguiente trabajo: V3-P8 — Revision y optimizacion de codigo.**
+**V3 completamente cerrada. Informe de auditoria en `docs/logs/V3-P8-audit-report.md`.**
 
----
-
-## V3-P8 — Revision y optimizacion de codigo (EMPEZAR AQUI)
-
-Ver spec completa: `docs/specs/SPEC-V3-phase8-code-review.md`
-
-### Frontend
-- [ ] Auditar props no usadas en componentes (especialmente `ARRBreakdownTable` — ya no recibe `prev`)
-- [ ] Revisar `utils.ts`: `formatMoM` sigue siendo necesaria (se usa en KPICards para YoY); confirmar
-- [ ] Limpiar imports huerfanos (`formatMoM` en consultants/page.tsx fue eliminado; verificar que no hay otros)
-- [ ] Revisar `types.ts`: `ConsultantARR.mom_change` y `.mom_pct` ya no se usan en UI — decidir si limpiar
-- [ ] `npx tsc --noEmit` en verde
-
-### Backend
-- [ ] Verificar que `ARRMonthlySummary` se puebla correctamente en cada snapshot (lo usa `excel_exporter.py`)
-- [ ] Revisar endpoint `/arr/by-account` — la combinacion de filtros `product_types` (CSV) y `product_type` (single) puede ser confusa; unificar si es posible
-- [ ] Auditar queries N+1 en `excel_exporter.py` (el sheet "Lineas brutas" carga todas las filas a memoria)
-- [ ] `pytest tests/` sin regresiones
-
-### Prueba manual del Excel export
-- [ ] Subir un snapshot real y hacer clic en "Descargar Snapshot"
-- [ ] Verificar que el .xlsx tiene las 5 pestañas con datos correctos
-- [ ] Verificar que los numeros son tipo numero en Excel (no texto)
+Refactors mayores pendientes de aprobacion (no implementados):
+- Separar logica de negocio de la capa HTTP en `arr.py` (propuesta A en informe)
+- Consolidar logica de agregacion mensual duplicada en `arr.py` / `expert.py` (propuesta B)
+- Ver informe completo para propuestas C-F
 
 ---
 

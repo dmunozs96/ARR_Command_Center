@@ -141,7 +141,7 @@ def _make_raw(db, snap_id, sf_opp_id="OPP001", sf_line_id="LI001", product="SaaS
         opportunity_name="Test Opp",
         account_name="Acme Corp",
         opportunity_owner="Miguel V.",
-        opportunity_type="nuevo_negocio",
+        opportunity_type="Nuevo Negocio",
         channel_type="KAM",
         close_date=date(2025, 1, 15),
         product_name=product,

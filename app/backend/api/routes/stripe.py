@@ -11,21 +11,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.backend.api.routes.arr import _latest_snapshot_id_or_none
 from app.backend.api.schemas import StripeMRRBulkResult, StripeMRRBulkUpsert, StripeMRROut, StripeMRRUpsert
 from app.backend.db.connection import get_db
-from app.backend.db.models import Snapshot, SnapshotStripeMRR
+from app.backend.db.models import SnapshotStripeMRR
 
 router = APIRouter()
-
-
-def _latest_snapshot_id(db: Session) -> Optional[UUID]:
-    snap = (
-        db.query(Snapshot)
-        .filter(Snapshot.status == "completed")
-        .order_by(Snapshot.created_at.desc())
-        .first()
-    )
-    return snap.id if snap else None
 
 
 @router.get("", response_model=List[StripeMRROut])
@@ -33,7 +24,7 @@ def get_stripe_mrr(
     snapshot_id: Optional[UUID] = Query(None),
     db: Session = Depends(get_db),
 ):
-    sid = snapshot_id or _latest_snapshot_id(db)
+    sid = snapshot_id or _latest_snapshot_id_or_none(db)
     if not sid:
         return []
     rows = (
@@ -48,7 +39,7 @@ def get_stripe_mrr(
             StripeMRROut(
                 month=r.month,
                 mrr=Decimal(str(r.mrr)),
-                arr_equivalent=Decimal(str(r.mrr)),
+                arr_equivalent=Decimal(str(r.mrr)) * 12,
                 entered_by=r.entered_by,
                 entered_at=r.entered_at,
             )
@@ -88,7 +79,7 @@ def bulk_upsert_stripe_mrr(body: StripeMRRBulkUpsert, db: Session = Depends(get_
             StripeMRROut(
                 month=existing.month,
                 mrr=Decimal(str(existing.mrr)),
-                arr_equivalent=Decimal(str(existing.mrr)),
+                arr_equivalent=Decimal(str(existing.mrr)) * 12,
                 entered_by=existing.entered_by,
                 entered_at=existing.entered_at,
             )
@@ -123,7 +114,7 @@ def upsert_stripe_mrr(body: StripeMRRUpsert, db: Session = Depends(get_db)):
     return StripeMRROut(
         month=existing.month,
         mrr=Decimal(str(existing.mrr)),
-        arr_equivalent=Decimal(str(existing.mrr)),
+        arr_equivalent=Decimal(str(existing.mrr)) * 12,
         entered_by=existing.entered_by,
         entered_at=existing.entered_at,
     )

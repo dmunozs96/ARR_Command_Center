@@ -26,7 +26,6 @@ const arrSummary = {
         "SaaS LMS": 70000,
         "SaaS Skills": 50000,
       },
-      mom_change: 5000,
       mom_pct: 4.35,
     },
     {
@@ -36,7 +35,6 @@ const arrSummary = {
         "SaaS LMS": 76000,
         "SaaS Skills": 52000,
       },
-      mom_change: 8000,
       mom_pct: 6.67,
     },
   ],
@@ -99,8 +97,6 @@ const consultants = {
         "SaaS LMS": 50000,
         "SaaS Skills": 26000,
       },
-      mom_change: 4000,
-      mom_pct: 5.56,
     },
     {
       name: "John Smith",
@@ -109,8 +105,6 @@ const consultants = {
       by_product_type: {
         "SaaS Skills": 52000,
       },
-      mom_change: 1500,
-      mom_pct: 2.97,
     },
   ],
 };

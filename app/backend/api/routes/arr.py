@@ -44,6 +44,16 @@ def _latest_snapshot_id(db: Session) -> UUID:
     return snap.id
 
 
+def _latest_snapshot_id_or_none(db: Session) -> Optional[UUID]:
+    snap = (
+        db.query(Snapshot)
+        .filter(Snapshot.status == "completed")
+        .order_by(Snapshot.created_at.desc())
+        .first()
+    )
+    return snap.id if snap else None
+
+
 def _last_day_of_month(first_day: date) -> date:
     if first_day.month == 12:
         return first_day.replace(day=31)

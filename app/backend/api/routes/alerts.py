@@ -13,21 +13,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.backend.api.routes.arr import _latest_snapshot_id_or_none
 from app.backend.api.schemas import AlertOut, AlertPatch, BulkAlertPatch
 from app.backend.db.connection import get_db
-from app.backend.db.models import ARRLineItem, RawOpportunityLineItem, Snapshot, SnapshotAlert
+from app.backend.db.models import ARRLineItem, RawOpportunityLineItem, SnapshotAlert
 
 router = APIRouter()
-
-
-def _latest_snapshot_id(db: Session) -> Optional[UUID]:
-    snap = (
-        db.query(Snapshot)
-        .filter(Snapshot.status == "completed")
-        .order_by(Snapshot.created_at.desc())
-        .first()
-    )
-    return snap.id if snap else None
 
 
 def _group_key(alert: SnapshotAlert) -> str:
@@ -148,7 +139,7 @@ def list_alerts(
     alert_type: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
-    sid = snapshot_id or _latest_snapshot_id(db)
+    sid = snapshot_id or _latest_snapshot_id_or_none(db)
     if not sid:
         return []
 

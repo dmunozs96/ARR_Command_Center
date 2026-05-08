@@ -18,7 +18,6 @@ export interface ARRMonthPoint {
   month: string; // "YYYY-MM-DD"
   total_arr: number;
   by_product_type: Record<string, number>;
-  mom_change: number | null;
   mom_pct: number | null;
 }
 
@@ -32,8 +31,6 @@ export interface ConsultantARR {
   country: string;
   arr_total: number;
   by_product_type: Record<string, number>;
-  mom_change: number | null;
-  mom_pct: number | null;
 }
 
 export interface ARRByConsultantResponse {

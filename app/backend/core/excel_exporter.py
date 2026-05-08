@@ -78,7 +78,7 @@ def _sheet_resumen(wb, snapshot_id: UUID, db: Session) -> None:
         ws.append([
             r.month.strftime("%Y-%m") if r.month else None,
             r.product_type,
-            float(r.arr_eur) if r.arr_eur is not None else 0,
+            float(r.arr_value) if r.arr_value is not None else 0,
         ])
 
     _autofit(ws)
