@@ -22,6 +22,8 @@ import { ARRTotalChart } from "@/components/ARRTotalChart";
 import { ARRYearBarsChart } from "@/components/ARRYearBarsChart";
 import { ARRChart } from "@/components/ARRChart";
 import { ARRBreakdownTable } from "@/components/ARRBreakdownTable";
+import { TopAccountsBarsChart } from "@/components/TopAccountsBarsChart";
+import { TopAccountsLinesChart } from "@/components/TopAccountsLinesChart";
 import { AlertsPanel } from "@/components/AlertsPanel";
 import { ExcelUploadButton } from "@/components/ExcelUploadButton";
 import { FilterBar } from "@/components/FilterBar";
@@ -66,6 +68,19 @@ export default function DashboardPage() {
   const stripeQuery = useQuery({
     queryKey: ["stripe-mrr", activeSnapshot?.id],
     queryFn: () => api.getStripeMRR({ snapshot_id: activeSnapshot?.id }),
+    enabled: !!activeSnapshot,
+  });
+
+  const accountQuery = useQuery({
+    queryKey: ["arr-by-account", activeSnapshot?.id, monthFrom, monthTo, arrMode],
+    queryFn: () =>
+      api.getARRByAccount({
+        snapshot_id: activeSnapshot?.id,
+        month_from: monthFrom,
+        month_to: monthTo,
+        mode: arrMode,
+        limit: 20,
+      }),
     enabled: !!activeSnapshot,
   });
 
@@ -237,6 +252,15 @@ export default function DashboardPage() {
             <ARRYearBarsChart months={months} monthTo={monthTo} loading={arrQuery.isLoading} />
             <ARRChart months={months} loading={arrQuery.isLoading} />
             <ARRBreakdownTable current={lastMonth} prev={prevMonth} loading={arrQuery.isLoading} />
+
+            <div className="mt-10 mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">Distribución por cliente</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Top 20 cuentas por ARR. El resto se agrupa en &quot;Otros&quot;.
+              </p>
+            </div>
+            <TopAccountsBarsChart data={accountQuery.data} isLoading={accountQuery.isLoading} />
+            <TopAccountsLinesChart data={accountQuery.data} isLoading={accountQuery.isLoading} />
           </div>
 
           <aside className="space-y-6">

@@ -13,6 +13,7 @@ import type {
   StripeMRROut,
   SyncResponse,
   MastersImportResponse,
+  ExpertChatResponse,
 } from "./types";
 
 const client = axios.create({ baseURL: "/api" });
@@ -150,6 +151,18 @@ export const api = {
   }) =>
     client
       .post<{ inserted: number; updated: number; rows: StripeMRROut[] }>("/stripe-mrr/bulk", data)
+      .then((r) => r.data),
+
+  // ARR Expert
+  expertChat: (data: {
+    message: string;
+    conversation_history: { role: "user" | "assistant"; content: string }[];
+    snapshot_id?: string;
+    combine_lms_aio?: boolean;
+    combine_author?: boolean;
+  }) =>
+    client
+      .post<ExpertChatResponse>("/expert/chat", data)
       .then((r) => r.data),
 
   // Health

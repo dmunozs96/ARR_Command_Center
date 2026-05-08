@@ -152,3 +152,23 @@ export interface ARRByAccountResponse {
   others: AccountARR;          // sum of remaining accounts
   total_arr: number;
 }
+
+export interface ExpertResponseBlock {
+  type: "text" | "table" | "chart";
+  content?: string;
+  table_title?: string;
+  columns?: string[];
+  rows?: string[][];
+  chart_type?: "bar" | "line" | "area";
+  chart_title?: string;
+  chart_data?: Record<string, unknown>[];
+  x_key?: string;
+  data_keys?: string[];
+  colors?: string[];
+}
+
+export interface ExpertChatResponse {
+  blocks: ExpertResponseBlock[];
+  tokens_used: number;
+  model: string;
+}
