@@ -1,6 +1,6 @@
 # Current State
 **Ultima actualizacion:** 2026-05-08
-**Agente:** Claude Sonnet 4.6 (sesion 21)
+**Agente:** Codex (sesion 22)
 
 ---
 
@@ -44,9 +44,29 @@ La app calcula, visualiza y audita el ARR de isEazy.
 | **V3-P7** | **Exportar Excel snapshot** | **completa** | TypeScript OK |
 | **V3-P8** | **Revision y optimizacion de codigo** | **completa** | 61/61 |
 
-**Tests backend:** `pytest tests/` → **61/61 OK**
-**Frontend:** `npx tsc --noEmit` → **0 errores**
-**E2E:** `npm run test:e2e` → **3/3 OK** (no tocados)
+**Tests backend:** `python -m pytest tests/ -q` -> **61/61 OK**
+**Frontend lint:** `npm.cmd run lint` -> **OK**
+**Frontend build/TypeScript:** `npm.cmd run build` -> **OK**
+**E2E:** `npm.cmd run test:e2e` -> **3/3 OK**
+
+---
+
+## Lo implementado en la sesion 22 (V3 bugfix final)
+
+Se implemento `docs/v3_bug_report.md` y se hizo una segunda revision critica.
+
+**Correcciones principales:**
+- Backend serializa los `Decimal` de ARR como numeros JSON mediante `JsonDecimal`/`PlainSerializer` en `schemas.py`.
+- `GET /api/arr/summary` acepta `product_types` CSV para soportar filtros combinados.
+- `ARRByAccountResponse.months` queda como `List[str]` y `/arr/by-account` devuelve strings `YYYY-MM-DD`.
+- Frontend incorpora `toFiniteNumber` y usa conversion defensiva en formatos, YTD, BL grouping, tabla de clientes, consultores y ARR por pais.
+- Dashboard anade filtro de linea de negocio encima de las graficas de distribucion por cliente.
+- Filtros combinados `LMS & AIO` y `Author (Total)` se traducen a product types reales antes de llamar a la API.
+- `ExpertTable.tsx` corrige parseo de importes con decimales.
+- `alerts/page.tsx` evita crash si `alert_ids` no viene en alertas no agrupadas.
+- E2E mocks actualizados para cubrir `/arr/by-account` y `/config/products`.
+
+**Resultado:** V3 queda reparada tras el informe `docs/v3_bug_report.md` y verificada con backend, lint, build y Playwright.
 
 ---
 

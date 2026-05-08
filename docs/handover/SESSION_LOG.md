@@ -1,5 +1,43 @@
 # Session Log
 
+## 2026-05-08 - Sesion 22 (V3 bugfix final: Decimal, filtros combinados y e2e)
+**Agente:** Codex
+
+### Trabajo realizado
+
+Implementada la reparacion indicada en `docs/v3_bug_report.md` y una segunda revision critica.
+
+**Bugs V3 corregidos:**
+- `schemas.py`: campos `Decimal` de ARR serializan como numeros JSON con `PlainSerializer`, evitando que el frontend reciba strings en `total_arr`, `arr_total`, `by_product_type`, `by_month`, deltas y totales.
+- `arr.py`: `GET /api/arr/summary` acepta `product_types` CSV, igual que `by-account`, para que filtros combinados funcionen contra product types reales.
+- `arr.py`: `ARRByAccountResponse.months` devuelve `string[]` (`YYYY-MM-DD`) y el schema queda alineado con frontend.
+- `utils.ts`: nuevo `toFiniteNumber`; formatos, YTDs, `sumSeriesByMonth` y `applyBLGrouping` son defensivos ante `number|string`.
+- `app/page.tsx`: filtro especifico de linea de negocio sobre las graficas de distribucion por cliente; los filtros `LMS & AIO` y `Author (Total)` se traducen a `product_types`.
+- `ClientARRTable.tsx`, `consultants/page.tsx`, `countryMix`, rankings y totales usan conversion numerica defensiva.
+- `ExpertTable.tsx`: corregido parseo monetario que podia convertir `1234.56` en `123456`.
+- `alerts/page.tsx`: corregido crash cuando `alert_ids` viene ausente en mocks/respuestas no agrupadas.
+- `bl-grouping-context.tsx`: lectura inicial de `localStorage` sin `setState` sincrono dentro de effect.
+
+**Tests/mocks:**
+- `mock-api.ts`: anadido mock de `/api/arr/by-account` y `/api/config/products`.
+- `dashboard.spec.ts`: actualizado a textos actuales.
+- `eslint.config.mjs`: ignora `test-results/**` y `playwright-report/**`.
+
+### Verificacion
+- `python -m pytest tests/ -q` -> **61/61 OK**
+- `npm.cmd run lint` -> **OK**
+- `npm.cmd run build` -> **OK**
+- `npm.cmd run test:e2e` -> **3/3 OK**
+
+### Commits y push
+- Commit: `Fix V3 Decimal serialization and combined filters`
+- Push a origin/main
+
+**Instruccion para la proxima conversacion:**
+Di al agente: "Lee CURRENT_STATE.md y NEXT_STEPS.md. V3 queda reparada y verificada tras `docs/v3_bug_report.md`; continua con Salesforce si hay credenciales o prioriza V4/refactors si no las hay."
+
+---
+
 ## 2026-05-08 - Sesion 21 (V3-P8: auditoria y limpieza de codigo)
 **Agente:** Claude Sonnet 4.6
 

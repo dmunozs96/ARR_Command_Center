@@ -4,19 +4,43 @@ import type { ExpertResponseBlock } from "@/lib/types";
 
 type Props = Pick<ExpertResponseBlock, "table_title" | "columns" | "rows">;
 
-function isNumeric(str: string): boolean {
-  return !isNaN(Number(str.replace(/[.,€%\s]/g, ""))) && str.trim() !== "";
+function parseNumericCell(value: string): number | null {
+  const normalized = value
+    .replace(/[€%\s]/g, "")
+    .replace(/\((.*)\)/, "-$1")
+    .trim();
+  if (!normalized) return null;
+
+  const lastComma = normalized.lastIndexOf(",");
+  const lastDot = normalized.lastIndexOf(".");
+  let decimalSeparator = "";
+  if (lastComma > -1 && lastDot > -1) {
+    decimalSeparator = lastComma > lastDot ? "," : ".";
+  } else if (lastComma > -1) {
+    const decimals = normalized.length - lastComma - 1;
+    decimalSeparator = decimals > 0 && decimals <= 2 ? "," : "";
+  } else if (lastDot > -1) {
+    const decimals = normalized.length - lastDot - 1;
+    decimalSeparator = decimals > 0 && decimals <= 2 ? "." : "";
+  }
+
+  const numeric =
+    decimalSeparator === ","
+      ? normalized.replace(/\./g, "").replace(",", ".")
+      : decimalSeparator === "."
+        ? normalized.replace(/,/g, "")
+        : normalized.replace(/[.,]/g, "");
+  const parsed = Number(numeric);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function formatCell(value: string, index: number, columns: string[]): string {
   // Try to format numeric cells as EUR if the column header hints at it
   const col = columns[index]?.toLowerCase() ?? "";
   const isMonetary = col.includes("arr") || col.includes("eur") || col.includes("mrr") || col.includes("total") || col.includes("delta");
-  if (isMonetary && isNumeric(value)) {
-    const num = parseFloat(value.replace(/[.,\s]/g, ""));
-    if (!isNaN(num)) {
-      return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(num);
-    }
+  const numericValue = parseNumericCell(value);
+  if (isMonetary && numericValue !== null) {
+    return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(numericValue);
   }
   return value;
 }

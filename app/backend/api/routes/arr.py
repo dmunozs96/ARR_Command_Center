@@ -79,6 +79,7 @@ def arr_summary(
     month_from: Optional[date] = Query(None),
     month_to: Optional[date] = Query(None),
     product_type: Optional[str] = Query(None),
+    product_types: Optional[str] = Query(None, description="CSV of product types"),
     mode: str = Query("from_start", description="from_start | from_close"),
     db: Session = Depends(get_db),
 ):
@@ -89,6 +90,10 @@ def arr_summary(
       from_close:           item start = opportunity close_date (backlog view)
     """
     sid = snapshot_id or _latest_snapshot_id(db)
+
+    product_type_list: Optional[List[str]] = None
+    if product_types and product_types.strip():
+        product_type_list = [p.strip() for p in product_types.split(",") if p.strip()]
 
     if mode == "from_close":
         rows = (
@@ -143,7 +148,11 @@ def arr_summary(
             for i in arr_items
         ]
 
-    include_stripe = not product_type or product_type == "Author Online"
+    include_stripe = (
+        (not product_type and not product_type_list)
+        or product_type == "Author Online"
+        or (product_type_list is not None and "Author Online" in product_type_list)
+    )
     stripe_by_month: dict[date, Decimal] = {}
     if include_stripe:
         stripe_rows = (
@@ -169,6 +178,8 @@ def arr_summary(
         return ARRSummaryResponse(snapshot_id=sid, months=[])
 
     # Optional product_type filter
+    if product_type_list:
+        active_items = [i for i in active_items if i[2] in product_type_list]
     if product_type:
         active_items = [i for i in active_items if i[2] == product_type]
 
@@ -389,7 +400,7 @@ def arr_by_account(
 
     return ARRByAccountResponse(
         snapshot_id=sid,
-        months=[date.fromisoformat(m) for m in months_str],
+        months=months_str,
         accounts=accounts,
         others=others,
         total_arr=grand_total,

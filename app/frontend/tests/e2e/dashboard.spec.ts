@@ -10,5 +10,5 @@ test("dashboard renders snapshot data and stripe warning", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /ARR Total Compania/i })).toBeVisible();
   await expect(page.getByTestId("dashboard-stripe-warning")).toBeVisible();
   await expect(page.getByRole("main").getByText(/128\.000/i).first()).toBeVisible();
-  await expect(page.getByText(/2 alertas pendientes/i)).toBeVisible();
+  await expect(page.getByText(/2 alertas sin revisar/i)).toBeVisible();
 });

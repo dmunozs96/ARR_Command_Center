@@ -46,6 +46,10 @@ function alertTypeLabel(alertType: string): string {
   return ALERT_TYPE_LABELS[alertType] ?? alertType.replaceAll("_", " ");
 }
 
+function getAlertIds(alert: AlertOut): string[] {
+  return alert.alert_ids && alert.alert_ids.length > 0 ? alert.alert_ids : [alert.id];
+}
+
 function AlertCard({
   alert,
   expanded,
@@ -326,7 +330,7 @@ function AlertsPageContent() {
         await api.createProduct({ product_name: productName, product_type: productType });
       }
       await api.bulkReviewAlerts({
-        alert_ids: alert.alert_ids.length > 0 ? alert.alert_ids : [alert.id],
+        alert_ids: getAlertIds(alert),
         reviewed: true,
         review_note: `Clasificado como "${productType}" y guardado en maestros.`,
         reviewed_by: "CFO",
@@ -458,7 +462,7 @@ function AlertsPageContent() {
               onNoteChange={(value) => setNoteInput((prev) => ({ ...prev, [alert.id]: value }))}
               onMarkReviewed={() =>
                 mutation.mutate({
-                  alert_ids: alert.alert_ids.length > 0 ? alert.alert_ids : [alert.id],
+                  alert_ids: getAlertIds(alert),
                   note: noteInput[alert.id] ?? alert.review_note ?? "",
                 })
               }

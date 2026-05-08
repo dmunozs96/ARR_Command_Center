@@ -13,6 +13,7 @@ import {
   Download,
   Filter,
   Globe2,
+  Layers3,
   Menu,
   UsersRound,
 } from "lucide-react";
@@ -27,22 +28,28 @@ import { TopAccountsBarsChart } from "@/components/TopAccountsBarsChart";
 import { TopAccountsLinesChart } from "@/components/TopAccountsLinesChart";
 import { AlertsPanel } from "@/components/AlertsPanel";
 import { ExcelUploadButton } from "@/components/ExcelUploadButton";
-import { FilterBar } from "@/components/FilterBar";
+import { buildProductTypeOptions, FilterBar } from "@/components/FilterBar";
 import { SyncButton } from "@/components/SyncButton";
 import { useSnapshotContext } from "@/lib/snapshot-context";
-import { currentMonthStart, formatCompactEUR, formatDateTime, formatEUR, formatMonth } from "@/lib/utils";
+import { currentMonthStart, formatCompactEUR, formatDateTime, formatEUR, formatMonth, productTypeFilterParams, toFiniteNumber } from "@/lib/utils";
+import { useBLGrouping } from "@/lib/bl-grouping-context";
 
 const DEFAULT_MONTH_FROM = "2021-01-01";
 const DEFAULT_MONTH_TO = `${new Date().toISOString().slice(0, 7)}-01`;
 
 export default function DashboardPage() {
   const [productType, setProductType] = useState("");
+  const [accountProductType, setAccountProductType] = useState("");
   const [monthFrom, setMonthFrom] = useState(DEFAULT_MONTH_FROM);
   const [monthTo, setMonthTo] = useState(DEFAULT_MONTH_TO);
   const [arrMode, setArrMode] = useState<"from_start" | "from_close">("from_start");
   const [downloadingExcel, setDownloadingExcel] = useState(false);
   const { activeSnapshot, isLoading: snapshotsLoading } = useSnapshotContext();
+  const { combineLmsAio, combineAuthor } = useBLGrouping();
   const currentMonth = currentMonthStart();
+  const productTypeParams = productTypeFilterParams(productType);
+  const accountProductTypeParams = productTypeFilterParams(accountProductType);
+  const accountProductTypeOptions = buildProductTypeOptions(combineLmsAio, combineAuthor);
 
   const arrQuery = useQuery({
     queryKey: ["arr-summary", activeSnapshot?.id, monthFrom, monthTo, productType, arrMode],
@@ -51,7 +58,7 @@ export default function DashboardPage() {
         snapshot_id: activeSnapshot?.id,
         month_from: monthFrom,
         month_to: monthTo,
-        product_type: productType || undefined,
+        ...productTypeParams,
         mode: arrMode,
       }),
     enabled: !!activeSnapshot,
@@ -59,7 +66,6 @@ export default function DashboardPage() {
 
   const months = arrQuery.data?.months ?? [];
   const lastMonth = months[months.length - 1];
-  const prevMonth = months[months.length - 2];
 
   const alertsQuery = useQuery({
     queryKey: ["alerts-unreviewed", activeSnapshot?.id],
@@ -74,12 +80,13 @@ export default function DashboardPage() {
   });
 
   const accountQuery = useQuery({
-    queryKey: ["arr-by-account", activeSnapshot?.id, monthFrom, monthTo, arrMode],
+    queryKey: ["arr-by-account", activeSnapshot?.id, monthFrom, monthTo, accountProductType, arrMode],
     queryFn: () =>
       api.getARRByAccount({
         snapshot_id: activeSnapshot?.id,
         month_from: monthFrom,
         month_to: monthTo,
+        ...accountProductTypeParams,
         mode: arrMode,
         limit: 20,
       }),
@@ -103,7 +110,11 @@ export default function DashboardPage() {
     !stripeQuery.data.some((row) => row.month === currentMonth);
 
   const topConsultants = useMemo(
-    () => (consultantsQuery.data?.consultants ?? []).slice().sort((a, b) => b.arr_total - a.arr_total).slice(0, 5),
+    () =>
+      (consultantsQuery.data?.consultants ?? [])
+        .slice()
+        .sort((a, b) => (toFiniteNumber(b.arr_total) ?? 0) - (toFiniteNumber(a.arr_total) ?? 0))
+        .slice(0, 5),
     [consultantsQuery.data],
   );
 
@@ -111,7 +122,7 @@ export default function DashboardPage() {
     const totals = new Map<string, number>();
     for (const consultant of consultantsQuery.data?.consultants ?? []) {
       const key = consultant.country || "Sin pais";
-      const val = Number.isFinite(consultant.arr_total) ? consultant.arr_total : 0;
+      const val = toFiniteNumber(consultant.arr_total) ?? 0;
       totals.set(key, (totals.get(key) ?? 0) + val);
     }
     return Array.from(totals.entries())
@@ -277,10 +288,31 @@ export default function DashboardPage() {
             <ARRBreakdownTable current={lastMonth} months={months} loading={arrQuery.isLoading} />
 
             <div className="mt-10 mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">Distribución por cliente</h2>
-              <p className="text-sm text-gray-500 mt-1">
-                Top 20 cuentas por ARR. El resto se agrupa en &quot;Otros&quot;.
-              </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-800">Distribución por cliente</h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Top 20 cuentas por ARR. El resto se agrupa en &quot;Otros&quot;.
+                  </p>
+                </div>
+                <label className="block min-w-[220px]">
+                  <span className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-[#837a9f]">
+                    <Layers3 size={15} />
+                    Linea de negocio
+                  </span>
+                  <select
+                    value={accountProductType}
+                    onChange={(event) => setAccountProductType(event.target.value)}
+                    className="h-11 w-full rounded-2xl border border-[#e7e1f2] bg-[#fbfaff] px-4 text-sm font-semibold text-[#151229] outline-none transition focus:border-[#6d35ff] focus:ring-4 focus:ring-[#6d35ff]/10"
+                  >
+                    {accountProductTypeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
             </div>
             <TopAccountsBarsChart data={accountQuery.data} isLoading={accountQuery.isLoading} />
             <TopAccountsLinesChart data={accountQuery.data} isLoading={accountQuery.isLoading} />

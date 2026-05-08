@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode } from "react";
 
 interface BLGroupingState {
   combineLmsAio: boolean;
@@ -16,20 +16,27 @@ const BLGroupingContext = createContext<BLGroupingState>({
   setCombineAuthor: () => {},
 });
 
-export function BLGroupingProvider({ children }: { children: ReactNode }) {
-  const [combineLmsAio, setCombineLmsAioState] = useState(false);
-  const [combineAuthor, setCombineAuthorState] = useState(false);
+function readStoredGrouping(): { combineLmsAio: boolean; combineAuthor: boolean } {
+  if (typeof window === "undefined") {
+    return { combineLmsAio: false, combineAuthor: false };
+  }
+  try {
+    const stored = localStorage.getItem("bl-grouping");
+    if (!stored) return { combineLmsAio: false, combineAuthor: false };
+    const parsed = JSON.parse(stored);
+    return {
+      combineLmsAio: parsed.combineLmsAio ?? false,
+      combineAuthor: parsed.combineAuthor ?? false,
+    };
+  } catch {
+    return { combineLmsAio: false, combineAuthor: false };
+  }
+}
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("bl-grouping");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setCombineLmsAioState(parsed.combineLmsAio ?? false);
-        setCombineAuthorState(parsed.combineAuthor ?? false);
-      }
-    } catch {}
-  }, []);
+export function BLGroupingProvider({ children }: { children: ReactNode }) {
+  const [initialGrouping] = useState(readStoredGrouping);
+  const [combineLmsAio, setCombineLmsAioState] = useState(initialGrouping.combineLmsAio);
+  const [combineAuthor, setCombineAuthorState] = useState(initialGrouping.combineAuthor);
 
   const setCombineLmsAio = (v: boolean) => {
     setCombineLmsAioState(v);

@@ -39,9 +39,9 @@ export function ARRTotalChart({ months, loading }: Props) {
     <section className="rounded-3xl border border-[#e7e1f2] bg-white p-5 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#6d35ff]">ARR Total compañía</p>
+          <h2 className="text-xs font-black uppercase tracking-[0.16em] text-[#6d35ff]">ARR Total Compania</h2>
           <div className="mt-1 flex items-baseline gap-3">
-            <h2 className="text-2xl font-black tracking-tight text-[#151229]">{formatEUR(lastTotal)}</h2>
+            <p className="text-2xl font-black tracking-tight text-[#151229]">{formatEUR(lastTotal)}</p>
             {lastMomPct != null && (
               <span className={`text-sm font-black ${lastMomPct >= 0 ? "text-[#0c8f76]" : "text-[#d03932]"}`}>
                 {formatPct(lastMomPct)} MoM

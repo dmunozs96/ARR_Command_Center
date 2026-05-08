@@ -48,10 +48,6 @@ export function KPICards({ current, months, loading, unreviewedCount = 0, months
 
   const yoyMonth = current ? findYoyMonth(months, current.month) : undefined;
   const yoy = yoyMonth != null ? Number(current!.total_arr) - Number(yoyMonth.total_arr) : null;
-  const yoyPct =
-    yoy != null && yoyMonth != null && Number(yoyMonth.total_arr) !== 0
-      ? (yoy / Number(yoyMonth.total_arr)) * 100
-      : null;
 
   const currentMonthRef = current?.month ?? "";
   const [currYear] = currentMonthRef.split("-").map(Number);

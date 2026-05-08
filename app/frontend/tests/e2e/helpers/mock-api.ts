@@ -109,6 +109,50 @@ const consultants = {
   ],
 };
 
+const arrByAccount = {
+  snapshot_id: snapshots[0].id,
+  months: ["2026-03-01", "2026-04-01"],
+  accounts: [
+    {
+      rank: 1,
+      account_name: "ACME Corp",
+      total_arr: 146000,
+      by_month: {
+        "2026-03-01": 70000,
+        "2026-04-01": 76000,
+      },
+      first_month_arr: 70000,
+      last_month_arr: 76000,
+      delta: 6000,
+    },
+    {
+      rank: 2,
+      account_name: "Beta Corp",
+      total_arr: 102000,
+      by_month: {
+        "2026-03-01": 50000,
+        "2026-04-01": 52000,
+      },
+      first_month_arr: 50000,
+      last_month_arr: 52000,
+      delta: 2000,
+    },
+  ],
+  others: {
+    rank: 0,
+    account_name: "Otros",
+    total_arr: 0,
+    by_month: {
+      "2026-03-01": 0,
+      "2026-04-01": 0,
+    },
+    first_month_arr: 0,
+    last_month_arr: 0,
+    delta: 0,
+  },
+  total_arr: 248000,
+};
+
 function json(route: Route, body: unknown) {
   return route.fulfill({
     status: 200,
@@ -143,6 +187,10 @@ export async function installDefaultMocks(page: Page) {
   await page.route(/.*\/api\/stripe-mrr.*/, (route) => json(route, stripeRows));
 
   await page.route(/.*\/api\/arr\/by-consultant.*/, (route) => json(route, consultants));
+
+  await page.route(/.*\/api\/arr\/by-account.*/, (route) => json(route, arrByAccount));
+
+  await page.route(/.*\/api\/config\/products.*/, (route) => json(route, []));
 
   await page.route(/.*\/api\/alerts\/.*/, async (route) => {
     if (route.request().method() === "PATCH") {

@@ -1,6 +1,5 @@
 import axios from "axios";
 import type {
-  AccountARR,
   ARRByAccountResponse,
   ARRSummaryResponse,
   ARRByConsultantResponse,
@@ -32,6 +31,7 @@ export const api = {
     month_from?: string;
     month_to?: string;
     product_type?: string;
+    product_types?: string;
     mode?: "from_start" | "from_close";
   }) =>
     client

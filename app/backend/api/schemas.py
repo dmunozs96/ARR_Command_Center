@@ -2,10 +2,16 @@
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import Annotated, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, PlainSerializer
+
+
+JsonDecimal = Annotated[
+    Decimal,
+    PlainSerializer(lambda value: float(value), return_type=float, when_used="json"),
+]
 
 
 # ---------------------------------------------------------------------------
@@ -38,9 +44,9 @@ class SnapshotDetail(SnapshotSummary):
 
 class ARRMonthPoint(BaseModel):
     month: date
-    total_arr: Decimal
-    by_product_type: Dict[str, Decimal]
-    mom_change: Optional[Decimal]
+    total_arr: JsonDecimal
+    by_product_type: Dict[str, JsonDecimal]
+    mom_change: Optional[JsonDecimal]
     mom_pct: Optional[float]
 
 
@@ -56,9 +62,9 @@ class ARRSummaryResponse(BaseModel):
 class ConsultantARR(BaseModel):
     name: str
     country: str
-    arr_total: Decimal
-    by_product_type: Dict[str, Decimal]
-    mom_change: Optional[Decimal]
+    arr_total: JsonDecimal
+    by_product_type: Dict[str, JsonDecimal]
+    mom_change: Optional[JsonDecimal]
     mom_pct: Optional[float]
 
 
@@ -250,19 +256,19 @@ class StripeMRRBulkResult(BaseModel):
 class AccountARR(BaseModel):
     rank: int
     account_name: str
-    total_arr: Decimal
-    by_month: Dict[str, Decimal]   # "YYYY-MM-DD" → ARR
-    first_month_arr: Decimal
-    last_month_arr: Decimal
-    delta: Decimal
+    total_arr: JsonDecimal
+    by_month: Dict[str, JsonDecimal]   # "YYYY-MM-DD" → ARR
+    first_month_arr: JsonDecimal
+    last_month_arr: JsonDecimal
+    delta: JsonDecimal
 
 
 class ARRByAccountResponse(BaseModel):
     snapshot_id: UUID
-    months: List[date]             # ordered list of months in range
+    months: List[str]              # ordered list of months in range ("YYYY-MM-DD")
     accounts: List[AccountARR]     # top N, sorted by total_arr desc
     others: AccountARR             # sum of the rest (rank=0, account_name="Otros")
-    total_arr: Decimal             # grand total across all accounts and months
+    total_arr: JsonDecimal         # grand total across all accounts and months
 
 
 # ---------------------------------------------------------------------------

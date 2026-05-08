@@ -1,31 +1,41 @@
-export function formatEUR(value: number | null | undefined): string {
-  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+export function toFiniteNumber(value: number | string | null | undefined): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+export function formatEUR(value: number | string | null | undefined): string {
+  const numberValue = toFiniteNumber(value);
+  if (numberValue === null) return "—";
   return new Intl.NumberFormat("es-ES", {
     style: "currency",
     currency: "EUR",
     maximumFractionDigits: 0,
-  }).format(value);
+  }).format(numberValue);
 }
 
-export function formatCompactEUR(value: number): string {
+export function formatCompactEUR(value: number | string): string {
+  const numberValue = toFiniteNumber(value) ?? 0;
   return new Intl.NumberFormat("es-ES", {
     style: "currency",
     currency: "EUR",
     notation: "compact",
     maximumFractionDigits: 1,
-  }).format(value);
+  }).format(numberValue);
 }
 
-export function formatPct(value: number | null | undefined): string {
-  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
-  const sign = value >= 0 ? "+" : "";
-  return `${sign}${value.toFixed(1)}%`;
+export function formatPct(value: number | string | null | undefined): string {
+  const numberValue = toFiniteNumber(value);
+  if (numberValue === null) return "—";
+  const sign = numberValue >= 0 ? "+" : "";
+  return `${sign}${numberValue.toFixed(1)}%`;
 }
 
-export function formatMoM(value: number | null | undefined): string {
-  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
-  const sign = value >= 0 ? "+" : "";
-  return `${sign}${formatEUR(value)}`;
+export function formatMoM(value: number | string | null | undefined): string {
+  const numberValue = toFiniteNumber(value);
+  if (numberValue === null) return "—";
+  const sign = numberValue >= 0 ? "+" : "";
+  return `${sign}${formatEUR(numberValue)}`;
 }
 
 export function calcYTD(
@@ -38,7 +48,7 @@ export function calcYTD(
       const [y, m] = p.month.split("-").map(Number);
       return y === refYear && m <= refMonthNum;
     })
-    .reduce((sum, p) => sum + (p.total_arr ?? 0), 0);
+    .reduce((sum, p) => sum + (toFiniteNumber(p.total_arr) ?? 0), 0);
 }
 
 export function calcYTDByProductType(
@@ -52,7 +62,10 @@ export function calcYTDByProductType(
       const [y, m] = p.month.split("-").map(Number);
       return y === refYear && m <= refMonthNum;
     })
-    .reduce((sum, p) => sum + ((p.by_product_type as Record<string, number>)[productType] ?? 0), 0);
+    .reduce((sum, p) => {
+      const value = (p.by_product_type as Record<string, number | string>)[productType];
+      return sum + (toFiniteNumber(value) ?? 0);
+    }, 0);
 }
 
 export function formatMonth(isoDate: string): string {
@@ -107,22 +120,25 @@ export function productTypeColor(type: string): string {
 // Suma dos series { month → value } haciendo join por clave de mes.
 // Meses presentes en solo una de las series se rellenan con 0 en la otra.
 export function sumSeriesByMonth(
-  a: Record<string, number>,
-  b: Record<string, number>,
+  a: Record<string, number | string>,
+  b: Record<string, number | string>,
 ): Record<string, number> {
   const result: Record<string, number> = {};
   const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
   for (const k of keys) {
-    result[k] = (a[k] ?? 0) + (b[k] ?? 0);
+    result[k] = (toFiniteNumber(a[k]) ?? 0) + (toFiniteNumber(b[k]) ?? 0);
   }
   return result;
 }
 
 export function applyBLGrouping(
-  byProductType: Record<string, number>,
+  byProductType: Record<string, number | string>,
   opts: { combineLmsAio: boolean; combineAuthor: boolean },
 ): Record<string, number> {
-  const result = { ...byProductType };
+  const result: Record<string, number> = {};
+  for (const [key, value] of Object.entries(byProductType)) {
+    result[key] = toFiniteNumber(value) ?? 0;
+  }
 
   if (opts.combineLmsAio) {
     const lms = result["SaaS LMS"] ?? 0;
@@ -150,8 +166,20 @@ export function applyBLGroupingToMonths(
   return months.map((m) => ({
     ...m,
     by_product_type: applyBLGrouping(
-      m.by_product_type as Record<string, number>,
+      m.by_product_type as Record<string, number | string>,
       opts,
     ),
   }));
+}
+
+export function productTypeFilterParams(
+  value: string,
+): { product_type?: string; product_types?: string } {
+  if (value === "LMS & AIO") {
+    return { product_types: "SaaS LMS,SaaS AIO" };
+  }
+  if (value === "Author (Total)") {
+    return { product_types: "SaaS Author,Author Online" };
+  }
+  return value ? { product_type: value } : {};
 }

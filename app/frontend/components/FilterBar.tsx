@@ -12,7 +12,7 @@ interface Props {
   onMonthToChange: (v: string) => void;
 }
 
-function buildProductTypeOptions(combineLmsAio: boolean, combineAuthor: boolean) {
+export function buildProductTypeOptions(combineLmsAio: boolean, combineAuthor: boolean) {
   const options: { label: string; value: string }[] = [{ label: "Todas", value: "" }];
 
   if (combineLmsAio) {

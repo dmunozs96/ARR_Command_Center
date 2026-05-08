@@ -1,6 +1,6 @@
 "use client";
 
-import { formatEUR, formatPct } from "@/lib/utils";
+import { formatEUR, formatPct, toFiniteNumber } from "@/lib/utils";
 import type { ARRByAccountResponse } from "@/lib/types";
 
 interface Props {
@@ -25,15 +25,17 @@ function downloadCSV(data: ARRByAccountResponse) {
   const rows = [...data.accounts, data.others].map((acct) => {
     const firstVal = acct.by_month[months[0]] ?? null;
     const lastVal = acct.by_month[months[months.length - 1]] ?? null;
-    const absChange = firstVal !== null && lastVal !== null ? lastVal - firstVal : null;
-    const pctChange = firstVal && firstVal !== 0 && absChange !== null
-      ? (absChange / firstVal) * 100
+    const firstNumber = toFiniteNumber(firstVal);
+    const lastNumber = toFiniteNumber(lastVal);
+    const absChange = firstNumber !== null && lastNumber !== null ? lastNumber - firstNumber : null;
+    const pctChange = firstNumber && firstNumber !== 0 && absChange !== null
+      ? (absChange / firstNumber) * 100
       : null;
     return [
       acct.rank === 0 ? "Otros" : String(acct.rank),
       acct.account_name,
       ...months.map((m) => String(acct.by_month[m] ?? 0)),
-      String(lastVal ?? 0),
+      String(lastNumber ?? 0),
       absChange !== null ? String(absChange) : "",
       pctChange !== null ? pctChange.toFixed(1) : "",
     ];
@@ -77,8 +79,8 @@ export function ClientARRTable({ data, isLoading }: Props) {
     idx: number,
     isOthers = false,
   ) {
-    const firstVal = months.length > 0 ? (acct.by_month[months[0]] ?? null) : null;
-    const lastVal = months.length > 0 ? (acct.by_month[months[months.length - 1]] ?? null) : null;
+    const firstVal = months.length > 0 ? toFiniteNumber(acct.by_month[months[0]]) : null;
+    const lastVal = months.length > 0 ? toFiniteNumber(acct.by_month[months[months.length - 1]]) : null;
 
     const absChange =
       firstVal !== null && lastVal !== null ? lastVal - firstVal : null;
@@ -119,7 +121,7 @@ export function ClientARRTable({ data, isLoading }: Props) {
           {acct.account_name}
         </td>
         {months.map((m) => {
-          const val = acct.by_month[m] ?? 0;
+          const val = toFiniteNumber(acct.by_month[m]) ?? 0;
           return (
             <td key={m} className="px-3 py-3 text-right text-[#6f6a80]">
               {val > 0 ? formatEUR(val) : <span className="text-[#d1cde8]">—</span>}
@@ -179,7 +181,7 @@ export function ClientARRTable({ data, isLoading }: Props) {
               <td className="px-4 py-4" colSpan={2}>TOTAL</td>
               {months.map((m) => {
                 const total = [...accounts, others].reduce(
-                  (sum, a) => sum + (a.by_month[m] ?? 0),
+                  (sum, a) => sum + (toFiniteNumber(a.by_month[m]) ?? 0),
                   0,
                 );
                 return (

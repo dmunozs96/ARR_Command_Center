@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { getAPIErrorMessage } from "@/lib/api-errors";
 import { useSnapshotContext } from "@/lib/snapshot-context";
-import { currentMonthStart, formatEUR, formatMonth, formatPct } from "@/lib/utils";
+import { currentMonthStart, formatEUR, formatMonth, formatPct, toFiniteNumber } from "@/lib/utils";
 import type { ConsultantARR } from "@/lib/types";
 
 function escapeCSV(value: string | number | null | undefined): string {
@@ -42,12 +42,13 @@ function buildConsultantsCSVRows(
   return [
     ["Month", "Consultant", "Country", "ARR Total", "% del Total", ...productTypes],
     ...consultants.map((c) => {
-      const pct = totalARR > 0 ? ((c.arr_total / totalARR) * 100).toFixed(1) : "";
+      const arrTotal = toFiniteNumber(c.arr_total) ?? 0;
+      const pct = totalARR > 0 ? ((arrTotal / totalARR) * 100).toFixed(1) : "";
       return [
         month,
         c.name,
         c.country,
-        String(c.arr_total),
+        String(arrTotal),
         pct,
         ...productTypes.map((t) =>
           c.by_product_type[t] != null ? String(c.by_product_type[t]) : "",
@@ -95,7 +96,7 @@ function BLClientsLevel({
   const accounts = data?.accounts ?? [];
   const others = data?.others;
   const othersTotal =
-    others && Number.isFinite(others.total_arr) && others.total_arr > 0 ? others.total_arr : null;
+    others && (toFiniteNumber(others.total_arr) ?? 0) > 0 ? toFiniteNumber(others.total_arr) : null;
 
   if (accounts.length === 0) {
     return (
@@ -152,7 +153,7 @@ export default function ConsultantsPage() {
     () =>
       [...(data?.consultants ?? [])].sort((a, b) => {
         if (sortBy === "name") return a.name.localeCompare(b.name);
-        return b.arr_total - a.arr_total;
+        return (toFiniteNumber(b.arr_total) ?? 0) - (toFiniteNumber(a.arr_total) ?? 0);
       }),
     [data?.consultants, sortBy],
   );
@@ -162,7 +163,7 @@ export default function ConsultantsPage() {
     .sort();
 
   const totalARR = consultants.reduce(
-    (sum, c) => sum + (Number.isFinite(c.arr_total) ? c.arr_total : 0),
+    (sum, c) => sum + (toFiniteNumber(c.arr_total) ?? 0),
     0,
   );
   const totalConsultants = consultants.length;
@@ -311,7 +312,7 @@ export default function ConsultantsPage() {
                 consultants.map((consultant) => {
                   const isConsultantExpanded = expandedConsultant === consultant.name;
                   const blEntries = Object.entries(consultant.by_product_type).sort(
-                    ([, l], [, r]) => r - l,
+                    ([, l], [, r]) => (toFiniteNumber(r) ?? 0) - (toFiniteNumber(l) ?? 0),
                   );
 
                   return (
@@ -332,7 +333,7 @@ export default function ConsultantsPage() {
                         </td>
                         <td className="px-4 py-2.5 text-gray-500">
                           {totalARR > 0
-                            ? formatPct((consultant.arr_total / totalARR) * 100)
+                            ? formatPct(((toFiniteNumber(consultant.arr_total) ?? 0) / totalARR) * 100)
                             : "—"}
                         </td>
                         <td className="px-4 py-2.5 text-gray-500">{consultant.country}</td>

@@ -6,9 +6,12 @@
 ## Estado actual
 
 Fases A-H + I-A + I-B + V2 + V3-P1 a P8 completas.
-Tests: 61/61 OK. TypeScript: 0 errores.
+V3 bugfix final aplicado tras `docs/v3_bug_report.md`.
+Tests: 61/61 OK. Frontend lint/build OK. E2E: 3/3 OK.
 
-**V3 completamente cerrada. Informe de auditoria en `docs/logs/V3-P8-audit-report.md`.**
+**V3 completamente cerrada y revalidada. Informes relevantes:**
+- `docs/v3_bug_report.md` — bugs V3 reparados en sesion 22
+- `docs/logs/V3-P8-audit-report.md` — auditoria/refactors propuestos de sesion 21
 
 Refactors mayores pendientes de aprobacion (no implementados):
 - Separar logica de negocio de la capa HTTP en `arr.py` (propuesta A en informe)
