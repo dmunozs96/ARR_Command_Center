@@ -73,6 +73,7 @@ export function ClientARRTable({ data, isLoading }: Props) {
   }
 
   const { months, accounts, others } = data;
+  const lastMonth = months[months.length - 1];
 
   function renderRow(
     acct: (typeof accounts)[0],
@@ -188,7 +189,14 @@ export function ClientARRTable({ data, isLoading }: Props) {
                   <td key={m} className="px-3 py-4 text-right">{formatEUR(total)}</td>
                 );
               })}
-              <td className="px-4 py-4 text-right">{formatEUR(data.total_arr)}</td>
+              <td className="px-4 py-4 text-right">
+                {formatEUR(
+                  [...accounts, others].reduce(
+                    (sum, a) => sum + (toFiniteNumber(a.by_month[lastMonth]) ?? 0),
+                    0,
+                  ),
+                )}
+              </td>
               <td className="px-4 py-4" />
             </tr>
           </tfoot>

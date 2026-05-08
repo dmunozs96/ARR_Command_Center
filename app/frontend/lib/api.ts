@@ -43,6 +43,7 @@ export const api = {
     snapshot_id?: string;
     month_from?: string;
     month_to?: string;
+    months?: string;
     product_types?: string;
     product_type?: string;
     consultant?: string;

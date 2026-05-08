@@ -4,8 +4,13 @@ import type { ExpertResponseBlock } from "@/lib/types";
 
 type Props = Pick<ExpertResponseBlock, "table_title" | "columns" | "rows">;
 
+function isNumericColumn(column: string): boolean {
+  const col = column.toLowerCase();
+  return col.includes("arr") || col.includes("eur") || col.includes("mrr") || col.includes("total") || col.includes("delta");
+}
+
 function parseNumericCell(value: string): number | null {
-  const normalized = value
+  const normalized = value.replace(/[€]/g, "")
     .replace(/[€%\s]/g, "")
     .replace(/\((.*)\)/, "-$1")
     .trim();
@@ -37,7 +42,7 @@ function parseNumericCell(value: string): number | null {
 function formatCell(value: string, index: number, columns: string[]): string {
   // Try to format numeric cells as EUR if the column header hints at it
   const col = columns[index]?.toLowerCase() ?? "";
-  const isMonetary = col.includes("arr") || col.includes("eur") || col.includes("mrr") || col.includes("total") || col.includes("delta");
+  const isMonetary = isNumericColumn(col);
   const numericValue = parseNumericCell(value);
   if (isMonetary && numericValue !== null) {
     return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(numericValue);
@@ -49,34 +54,48 @@ export function ExpertTable({ table_title, columns, rows }: Props) {
   if (!columns || !rows) return null;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#e7e1f2]">
+    <div className="overflow-hidden rounded-2xl border border-[#e7e1f2] bg-white">
       {table_title && (
-        <div className="border-b border-[#e7e1f2] bg-[#fbfaff] px-4 py-3">
+        <div className="flex items-center justify-between gap-3 border-b border-[#e7e1f2] bg-[#fbfaff] px-4 py-3">
           <p className="text-sm font-black text-[#2f185f]">{table_title}</p>
+          <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-[#837a9f]">
+            {rows.length} filas
+          </span>
         </div>
       )}
-      <div className="overflow-x-auto">
+      <div className="max-h-[520px] overflow-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-[#f4f0fb]">
-              {columns.map((col, i) => (
-                <th
-                  key={i}
-                  className="px-4 py-2.5 text-left text-xs font-black uppercase tracking-[0.12em] text-[#6d35ff]"
-                >
-                  {col}
-                </th>
-              ))}
+              {columns.map((col, i) => {
+                const numeric = isNumericColumn(col);
+                return (
+                  <th
+                    key={i}
+                    className={`sticky top-0 bg-[#f4f0fb] px-4 py-2.5 text-xs font-black uppercase tracking-[0.12em] text-[#6d35ff] ${
+                      numeric ? "text-right" : "text-left"
+                    }`}
+                  >
+                    {col}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
             {rows.map((row, ri) => (
               <tr key={ri} className={ri % 2 === 0 ? "bg-white" : "bg-[#fbfaff]"}>
-                {row.map((cell, ci) => (
-                  <td key={ci} className="px-4 py-2.5 text-[#151229]">
-                    {formatCell(String(cell ?? ""), ci, columns)}
-                  </td>
-                ))}
+                {row.map((cell, ci) => {
+                  const numeric = isNumericColumn(columns[ci] ?? "");
+                  return (
+                    <td
+                      key={ci}
+                      className={`px-4 py-2.5 align-top text-[#151229] ${numeric ? "text-right font-semibold tabular-nums" : ""}`}
+                    >
+                      {formatCell(String(cell ?? ""), ci, columns)}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>

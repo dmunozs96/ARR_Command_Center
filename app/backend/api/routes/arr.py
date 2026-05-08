@@ -241,6 +241,7 @@ def arr_by_account(
     snapshot_id: Optional[UUID] = Query(None),
     month_from: Optional[date] = Query(None),
     month_to: Optional[date] = Query(None),
+    months: Optional[str] = Query(None, description="CSV of specific months to include"),
     product_types: Optional[str] = Query(None, description="CSV of product types"),
     product_type: Optional[str] = Query(None, description="Single product type filter (for consultant drill-down)"),
     consultant: Optional[str] = Query(None, description="Filter by consultant (opportunity_owner)"),
@@ -338,16 +339,30 @@ def arr_by_account(
             total_arr=Decimal("0"),
         )
 
-    # Determine month range
-    candidate_starts = [i[0] for i in active_items]
-    candidate_ends = [i[1] for i in active_items]
-    range_start = month_from.replace(day=1) if month_from else min(candidate_starts)
-    range_end = month_to.replace(day=1) if month_to else max(candidate_ends)
+    selected_months: Optional[List[date]] = None
+    if months and months.strip():
+        try:
+            selected_months = sorted({
+                date.fromisoformat(m.strip()).replace(day=1)
+                for m in months.split(",")
+                if m.strip()
+            })
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid months parameter") from exc
 
-    if range_start > range_end:
-        range_start = range_end
+    if selected_months is not None:
+        months_list = selected_months
+    else:
+        # Determine month range
+        candidate_starts = [i[0] for i in active_items]
+        candidate_ends = [i[1] for i in active_items]
+        range_start = month_from.replace(day=1) if month_from else min(candidate_starts)
+        range_end = month_to.replace(day=1) if month_to else max(candidate_ends)
 
-    months_list = _month_range(range_start, range_end)
+        if range_start > range_end:
+            range_start = range_end
+
+        months_list = _month_range(range_start, range_end)
 
     # Accumulate ARR by account per month
     account_by_month: dict[str, dict[date, Decimal]] = {}

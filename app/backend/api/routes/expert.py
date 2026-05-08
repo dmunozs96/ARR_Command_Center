@@ -7,6 +7,7 @@ import json
 import os
 from datetime import date
 from decimal import Decimal
+from difflib import SequenceMatcher
 from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
 
@@ -64,6 +65,15 @@ Tu respuesta debe ser un JSON válido con la siguiente estructura exacta:
 Incluye solo los bloques necesarios para la respuesta. El texto siempre primero.
 NO incluyas ningún texto fuera del JSON."""
 
+SYSTEM_PROMPT += """
+
+CAPACIDADES ADICIONALES:
+- Antes de decir que no puedes responder, intenta resolver la intencion con una tool disponible.
+- Si el usuario pregunta por renovaciones futuras, usa get_upcoming_renewals e interpreta "renovar" como contratos ARR cuyo effective_end_date cae en el periodo pedido.
+- Si un comercial o cliente viene con errata, usa coincidencia aproximada y menciona el nombre normalizado.
+- No uses emojis. Responde con tono ejecutivo, bullets cortos y tablas compactas.
+"""
+
 EXPERT_TOOLS = [
     {
         "name": "get_arr_summary",
@@ -84,13 +94,14 @@ EXPERT_TOOLS = [
     },
     {
         "name": "get_top_accounts",
-        "description": "Obtiene los N clientes con mayor ARR en un periodo.",
+        "description": "Obtiene los N clientes con mayor ARR en un periodo, opcionalmente por comercial/owner.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "month_from": {"type": "string", "description": "YYYY-MM-DD"},
                 "month_to": {"type": "string", "description": "YYYY-MM-DD"},
                 "product_types": {"type": "array", "items": {"type": "string"}},
+                "consultant": {"type": "string", "description": "Nombre del comercial/owner a filtrar, si aplica."},
                 "limit": {"type": "integer", "description": "Número de cuentas a devolver. Default 10."},
             },
         },
@@ -104,6 +115,21 @@ EXPERT_TOOLS = [
                 "month": {"type": "string", "description": "Mes a analizar YYYY-MM-DD"},
                 "product_types": {"type": "array", "items": {"type": "string"}},
             },
+        },
+    },
+    {
+        "name": "get_upcoming_renewals",
+        "description": "Lista clientes con ARR que vence en un rango. Usa effective_end_date como proxy de renovacion y permite filtrar por comercial/owner.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "month_from": {"type": "string", "description": "YYYY-MM-DD"},
+                "month_to": {"type": "string", "description": "YYYY-MM-DD"},
+                "consultant": {"type": "string", "description": "Nombre aproximado del comercial/owner."},
+                "product_types": {"type": "array", "items": {"type": "string"}},
+                "limit": {"type": "integer", "description": "Numero maximo de clientes. Default 50."},
+            },
+            "required": ["month_from", "month_to"],
         },
     },
     {
@@ -246,6 +272,7 @@ def _tool_get_top_accounts(
     month_from: Optional[str],
     month_to: Optional[str],
     product_types: Optional[List[str]],
+    consultant: Optional[str] = None,
     limit: int = 10,
 ) -> dict:
     d_from = date.fromisoformat(month_from).replace(day=1) if month_from else None
@@ -258,6 +285,10 @@ def _tool_get_top_accounts(
     )
     if product_types:
         q = q.filter(ARRLineItem.product_type.in_(product_types))
+    matched_owner = _resolve_owner_name(db, snapshot_id, consultant) if consultant else None
+    if matched_owner:
+        q = q.join(RawOpportunityLineItem, ARRLineItem.raw_line_item_id == RawOpportunityLineItem.id)
+        q = q.filter(RawOpportunityLineItem.opportunity_owner == matched_owner)
     items = q.all()
 
     account_totals: dict[str, float] = {}
@@ -271,10 +302,117 @@ def _tool_get_top_accounts(
 
     sorted_accounts = sorted(account_totals.items(), key=lambda x: x[1], reverse=True)
     return {
+        "consultant_requested": consultant,
+        "consultant_matched": matched_owner,
         "accounts": [
             {"rank": i + 1, "account_name": name, "total_arr": arr}
             for i, (name, arr) in enumerate(sorted_accounts[:limit])
         ]
+    }
+
+
+def _similarity(a: str, b: str) -> float:
+    return SequenceMatcher(None, a.lower().strip(), b.lower().strip()).ratio()
+
+
+def _resolve_owner_name(db: Session, snapshot_id: UUID, owner_query: Optional[str]) -> Optional[str]:
+    if not owner_query:
+        return None
+    owners = [
+        owner
+        for (owner,) in (
+            db.query(RawOpportunityLineItem.opportunity_owner)
+            .filter(
+                RawOpportunityLineItem.snapshot_id == snapshot_id,
+                RawOpportunityLineItem.opportunity_owner.isnot(None),
+            )
+            .distinct()
+            .all()
+        )
+        if owner
+    ]
+    if not owners:
+        return owner_query
+    normalized_query = owner_query.lower().strip()
+    exact = next((owner for owner in owners if owner.lower().strip() == normalized_query), None)
+    if exact:
+        return exact
+    contains = next(
+        (owner for owner in owners if normalized_query in owner.lower() or owner.lower() in normalized_query),
+        None,
+    )
+    if contains:
+        return contains
+    return max(owners, key=lambda owner: _similarity(owner_query, owner))
+
+
+def _tool_get_upcoming_renewals(
+    db: Session,
+    snapshot_id: UUID,
+    month_from: str,
+    month_to: str,
+    consultant: Optional[str],
+    product_types: Optional[List[str]],
+    limit: int = 50,
+) -> dict:
+    if not month_from or not month_to:
+        return {"error": "month_from and month_to are required as YYYY-MM-DD"}
+    d_from = date.fromisoformat(month_from).replace(day=1)
+    d_to = _last_day_of_month(date.fromisoformat(month_to).replace(day=1))
+    matched_owner = _resolve_owner_name(db, snapshot_id, consultant)
+
+    q = (
+        db.query(ARRLineItem, RawOpportunityLineItem)
+        .join(RawOpportunityLineItem, ARRLineItem.raw_line_item_id == RawOpportunityLineItem.id)
+        .filter(
+            ARRLineItem.snapshot_id == snapshot_id,
+            ARRLineItem.is_saas == True,
+            ARRLineItem.excluded_from_arr == False,
+            ARRLineItem.effective_end_date >= d_from,
+            ARRLineItem.effective_end_date <= d_to,
+        )
+    )
+    if matched_owner:
+        q = q.filter(RawOpportunityLineItem.opportunity_owner == matched_owner)
+    if product_types:
+        q = q.filter(ARRLineItem.product_type.in_(product_types))
+
+    grouped: dict[str, dict[str, Any]] = {}
+    for arr, raw in q.all():
+        account = raw.account_name or "Sin cuenta"
+        if account not in grouped:
+            grouped[account] = {
+                "account_name": account,
+                "opportunity_owner": raw.opportunity_owner,
+                "renewal_arr": 0.0,
+                "latest_end_date": arr.effective_end_date.isoformat(),
+                "product_types": set(),
+                "opportunities": set(),
+                "line_items": 0,
+            }
+        row = grouped[account]
+        row["renewal_arr"] += float(arr.annualized_value)
+        row["latest_end_date"] = max(row["latest_end_date"], arr.effective_end_date.isoformat())
+        row["product_types"].add(arr.product_type or "Unknown")
+        if raw.opportunity_name:
+            row["opportunities"].add(raw.opportunity_name)
+        row["line_items"] += 1
+
+    renewals = sorted(grouped.values(), key=lambda row: row["renewal_arr"], reverse=True)
+    renewals = renewals[: max(1, min(limit, 200))]
+    for row in renewals:
+        row["product_types"] = sorted(row["product_types"])
+        row["opportunities"] = sorted(row["opportunities"])[:5]
+
+    return {
+        "definition": "Contratos ARR con effective_end_date dentro del rango; proxy de renovaciones pendientes.",
+        "month_from": d_from.isoformat(),
+        "month_to": d_to.isoformat(),
+        "consultant_requested": consultant,
+        "consultant_matched": matched_owner,
+        "accounts_count": len(renewals),
+        "total_renewal_arr": sum(row["renewal_arr"] for row in renewals),
+        "renewals": renewals,
     }
 
 
@@ -395,7 +533,17 @@ def _dispatch_tool(tool_name: str, tool_input: dict, db: Session, snapshot_id: U
             tool_input.get("month_from"),
             tool_input.get("month_to"),
             tool_input.get("product_types"),
+            tool_input.get("consultant"),
             tool_input.get("limit", 10),
+        )
+    elif tool_name == "get_upcoming_renewals":
+        return _tool_get_upcoming_renewals(
+            db, snapshot_id,
+            tool_input.get("month_from"),
+            tool_input.get("month_to"),
+            tool_input.get("consultant"),
+            tool_input.get("product_types"),
+            tool_input.get("limit", 50),
         )
     elif tool_name == "get_arr_mom_changes":
         return _tool_get_arr_mom_changes(
@@ -439,6 +587,15 @@ def expert_chat(
     # Build conversation history (max last 20 messages)
     history = request.conversation_history[-20:]
     messages: list = [{"role": m.role, "content": m.content} for m in history]
+    messages.append({
+        "role": "user",
+        "content": (
+            f"Contexto de sesion: fecha actual {date.today().isoformat()}; "
+            f"snapshot activo {snapshot_id}; combine_lms_aio={request.combine_lms_aio}; "
+            f"combine_author={request.combine_author}. Usa este contexto para interpretar "
+            "fechas relativas y agrupaciones, sin responder todavia."
+        ),
+    })
     messages.append({"role": "user", "content": message})
 
     client = anthropic.Anthropic(api_key=api_key)
