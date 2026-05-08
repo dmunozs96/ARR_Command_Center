@@ -13,7 +13,7 @@ from uuid import UUID
 import anthropic
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.backend.api.routes.arr import _latest_snapshot_id, _last_day_of_month, _month_range
 from app.backend.db.connection import get_db
@@ -251,7 +251,7 @@ def _tool_get_top_accounts(
     d_from = date.fromisoformat(month_from).replace(day=1) if month_from else None
     d_to = date.fromisoformat(month_to).replace(day=1) if month_to else None
 
-    q = db.query(ARRLineItem).filter(
+    q = db.query(ARRLineItem).options(joinedload(ARRLineItem.raw_line_item)).filter(
         ARRLineItem.snapshot_id == snapshot_id,
         ARRLineItem.is_saas == True,
         ARRLineItem.excluded_from_arr == False,
@@ -266,7 +266,7 @@ def _tool_get_top_accounts(
             continue
         if d_to and item.start_month > d_to:
             continue
-        account = item.account_name or "Sin cuenta"
+        account = (item.raw_line_item.account_name if item.raw_line_item else None) or "Sin cuenta"
         account_totals[account] = account_totals.get(account, 0.0) + float(item.annualized_value)
 
     sorted_accounts = sorted(account_totals.items(), key=lambda x: x[1], reverse=True)
@@ -292,7 +292,7 @@ def _tool_get_arr_mom_changes(
 
     def arr_for_month(m: date) -> dict:
         m_end = _last_day_of_month(m)
-        q = db.query(ARRLineItem).filter(
+        q = db.query(ARRLineItem).options(joinedload(ARRLineItem.raw_line_item)).filter(
             ARRLineItem.snapshot_id == snapshot_id,
             ARRLineItem.is_saas == True,
             ARRLineItem.excluded_from_arr == False,
@@ -306,7 +306,7 @@ def _tool_get_arr_mom_changes(
         by_account: dict[str, float] = {}
         for i in items:
             pt = i.product_type or "Unknown"
-            acc = i.account_name or "Sin cuenta"
+            acc = (i.raw_line_item.account_name if i.raw_line_item else None) or "Sin cuenta"
             by_type[pt] = by_type.get(pt, 0.0) + float(i.annualized_value)
             by_account[acc] = by_account.get(acc, 0.0) + float(i.annualized_value)
         return {"total": sum(by_type.values()), "by_product_type": by_type, "by_account": by_account}
@@ -491,6 +491,10 @@ def expert_chat(
                     cleaned = cleaned.rsplit("```", 1)[0]
                 parsed = json.loads(cleaned)
                 blocks_data = parsed.get("blocks", [])
+                # Coerce table rows to strings (Claude sometimes returns numbers)
+                for block in blocks_data:
+                    if block.get("type") == "table" and "rows" in block:
+                        block["rows"] = [[str(cell) for cell in row] for row in block["rows"]]
             except (json.JSONDecodeError, KeyError):
                 blocks_data = [{"type": "text", "content": final_text}]
 
