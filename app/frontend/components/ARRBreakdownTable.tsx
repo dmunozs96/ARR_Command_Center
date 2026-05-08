@@ -3,10 +3,13 @@
 import {
   applyBLGrouping,
   applyBLGroupingToMonths,
-  calcYTDByProductType,
   formatEUR,
   formatPct,
+  monthARRByProductType,
+  previousDecember,
+  previousYearSameMonth,
   productTypeColor,
+  toFiniteNumber,
 } from "@/lib/utils";
 import { useBLGrouping } from "@/lib/bl-grouping-context";
 import type { ARRMonthPoint } from "@/lib/types";
@@ -48,25 +51,22 @@ export function ARRBreakdownTable({ current, months, loading }: Props) {
     groupOpts,
   );
 
-  const currentMonthKey = current.month.slice(0, 7); // "YYYY-MM"
-  const [currYear, currMonthNum] = currentMonthKey.split("-").map(Number);
-  const prevYearMonthKey = `${currYear - 1}-${String(currMonthNum).padStart(2, "0")}`;
+  const currentMonthRef = current.month;
+  const [currYear] = currentMonthRef.split("-").map(Number);
+  const prevYearRef = previousYearSameMonth(currentMonthRef);
+  const prevDecemberRef = previousDecember(currentMonthRef);
+  const prevDecemberLabel = prevDecemberRef.slice(0, 7);
 
   const types = Object.entries(groupedCurrent).sort(([, a], [, b]) => b - a);
-  const total = current.total_arr;
+  const total = toFiniteNumber(current.total_arr) ?? 0;
+  const totalPrevYear = types.reduce((sum, [type]) => sum + (monthValue(prevYearRef, type) ?? 0), 0);
+  const totalPrevDecember = types.reduce((sum, [type]) => sum + (monthValue(prevDecemberRef, type) ?? 0), 0);
+  const totalYoyPct = totalPrevYear > 0 ? ((total - totalPrevYear) / totalPrevYear) * 100 : null;
+  const totalDecemberPct = totalPrevDecember > 0 ? ((total - totalPrevDecember) / totalPrevDecember) * 100 : null;
 
-  function ytdCurrent(type: string): number {
-    return calcYTDByProductType(groupedMonths, currentMonthKey + "-01", type);
+  function monthValue(referenceMonth: string, type: string): number | null {
+    return monthARRByProductType(groupedMonths, referenceMonth, type);
   }
-
-  function ytdPrev(type: string): number {
-    return calcYTDByProductType(groupedMonths, prevYearMonthKey + "-01", type);
-  }
-
-  const totalYtdCurrent = types.reduce((s, [t]) => s + ytdCurrent(t), 0);
-  const totalYtdPrev = types.reduce((s, [t]) => s + ytdPrev(t), 0);
-  const totalDeltaPct =
-    totalYtdPrev > 0 ? ((totalYtdCurrent - totalYtdPrev) / totalYtdPrev) * 100 : null;
 
   return (
     <section className="overflow-hidden rounded-3xl border border-[#e7e1f2] bg-white shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
@@ -79,22 +79,24 @@ export function ARRBreakdownTable({ current, months, loading }: Props) {
         </h2>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[860px] text-sm">
+        <table className="w-full min-w-[1020px] text-sm">
           <thead>
             <tr className="bg-[#fbfaff] text-xs font-black uppercase tracking-[0.12em] text-[#837a9f]">
               <th className="px-5 py-3 text-left">Linea</th>
               <th className="px-4 py-3 text-right">ARR actual</th>
-              <th className="px-4 py-3 text-right">YTD {currYear}</th>
-              <th className="px-4 py-3 text-right">YTD {currYear - 1}</th>
-              <th className="px-4 py-3 text-right">Δ YTD %</th>
+              <th className="px-4 py-3 text-right">Mismo mes {currYear - 1}</th>
+              <th className="px-4 py-3 text-right">Δ YoY %</th>
+              <th className="px-4 py-3 text-right">Dic {currYear - 1}</th>
+              <th className="px-4 py-3 text-right">Δ vs Dic %</th>
               <th className="px-5 py-3 text-left">Peso</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#f0ebf8]">
             {types.map(([type, arr]) => {
-              const yCurr = ytdCurrent(type);
-              const yPrev = ytdPrev(type);
-              const deltaPct = yPrev > 0 ? ((yCurr - yPrev) / yPrev) * 100 : null;
+              const prevYearValue = monthValue(prevYearRef, type);
+              const prevDecemberValue = monthValue(prevDecemberRef, type);
+              const yoyPct = prevYearValue && prevYearValue > 0 ? ((arr - prevYearValue) / prevYearValue) * 100 : null;
+              const decemberPct = prevDecemberValue && prevDecemberValue > 0 ? ((arr - prevDecemberValue) / prevDecemberValue) * 100 : null;
               const pctTotal = total > 0 ? (arr / total) * 100 : 0;
               return (
                 <tr key={type} className="transition hover:bg-[#fbfaff]">
@@ -108,22 +110,17 @@ export function ARRBreakdownTable({ current, months, loading }: Props) {
                   <td className="px-4 py-4 text-right font-bold text-[#151229]">
                     {formatEUR(arr)}
                   </td>
-                  <td className="px-4 py-4 text-right font-bold text-[#151229]">
-                    {formatEUR(yCurr)}
+                  <td className="px-4 py-4 text-right text-[#837a9f]">
+                    {formatEUR(prevYearValue)}
+                  </td>
+                  <td className={`px-4 py-4 text-right font-bold ${deltaClass(yoyPct)}`}>
+                    {formatPct(yoyPct)}
                   </td>
                   <td className="px-4 py-4 text-right text-[#837a9f]">
-                    {formatEUR(yPrev)}
+                    {formatEUR(prevDecemberValue)}
                   </td>
-                  <td
-                    className={`px-4 py-4 text-right font-bold ${
-                      deltaPct == null
-                        ? "text-[#837a9f]"
-                        : deltaPct >= 0
-                          ? "text-[#0c8f76]"
-                          : "text-[#d03932]"
-                    }`}
-                  >
-                    {formatPct(deltaPct)}
+                  <td className={`px-4 py-4 text-right font-bold ${deltaClass(decemberPct)}`}>
+                    {formatPct(decemberPct)}
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
@@ -149,14 +146,23 @@ export function ARRBreakdownTable({ current, months, loading }: Props) {
             <tr className="bg-[#2f185f] font-black text-white">
               <td className="px-5 py-4">TOTAL</td>
               <td className="px-4 py-4 text-right">{formatEUR(total)}</td>
-              <td className="px-4 py-4 text-right">{formatEUR(totalYtdCurrent)}</td>
-              <td className="px-4 py-4 text-right">{formatEUR(totalYtdPrev)}</td>
-              <td className="px-4 py-4 text-right">{formatPct(totalDeltaPct)}</td>
+              <td className="px-4 py-4 text-right">{formatEUR(totalPrevYear)}</td>
+              <td className="px-4 py-4 text-right">{formatPct(totalYoyPct)}</td>
+              <td className="px-4 py-4 text-right">{formatEUR(totalPrevDecember)}</td>
+              <td className="px-4 py-4 text-right">{formatPct(totalDecemberPct)}</td>
               <td className="px-5 py-4 text-right">100%</td>
             </tr>
           </tfoot>
         </table>
       </div>
+      <p className="border-t border-[#eee8f8] px-5 py-3 text-xs font-semibold text-[#837a9f]">
+        Referencia de cierre: {prevDecemberLabel}. ARR es anualizado, por eso las comparativas son punto a punto y no acumuladas.
+      </p>
     </section>
   );
+}
+
+function deltaClass(value: number | null): string {
+  if (value == null) return "text-[#837a9f]";
+  return value >= 0 ? "text-[#0c8f76]" : "text-[#d03932]";
 }

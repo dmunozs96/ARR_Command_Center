@@ -32,6 +32,7 @@ export const api = {
     month_to?: string;
     product_type?: string;
     product_types?: string;
+    account_name?: string;
     mode?: "from_start" | "from_close";
   }) =>
     client
@@ -45,6 +46,7 @@ export const api = {
     product_types?: string;
     product_type?: string;
     consultant?: string;
+    account_name?: string;
     limit?: number;
     mode?: "from_start" | "from_close";
   }) =>

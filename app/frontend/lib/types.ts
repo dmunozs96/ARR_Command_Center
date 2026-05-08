@@ -18,6 +18,7 @@ export interface ARRMonthPoint {
   month: string; // "YYYY-MM-DD"
   total_arr: number;
   by_product_type: Record<string, number>;
+  mom_change: number | null;
   mom_pct: number | null;
 }
 
@@ -31,6 +32,8 @@ export interface ConsultantARR {
   country: string;
   arr_total: number;
   by_product_type: Record<string, number>;
+  mom_change: number | null;
+  mom_pct: number | null;
 }
 
 export interface ARRByConsultantResponse {
@@ -120,11 +123,13 @@ export interface StripeMRROut {
 }
 
 export interface SyncResponse {
-  snapshot_id: string;
+  snapshot_id: string | null;
   status: string;
   records_processed: number | null;
   alerts_count: number | null;
   duration_seconds: number | null;
+  skipped: boolean;
+  skip_reason: string | null;
 }
 
 export interface MastersImportResponse {

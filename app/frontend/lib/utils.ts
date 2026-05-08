@@ -38,34 +38,41 @@ export function formatMoM(value: number | string | null | undefined): string {
   return `${sign}${formatEUR(numberValue)}`;
 }
 
-export function calcYTD(
+export function findMonthPoint(
   months: ARRMonthPoint[],
   referenceMonth: string,
-): number {
-  const [refYear, refMonthNum] = referenceMonth.split("-").map(Number);
-  return months
-    .filter((p) => {
-      const [y, m] = p.month.split("-").map(Number);
-      return y === refYear && m <= refMonthNum;
-    })
-    .reduce((sum, p) => sum + (toFiniteNumber(p.total_arr) ?? 0), 0);
+): ARRMonthPoint | undefined {
+  const refKey = referenceMonth.slice(0, 7);
+  return months.find((point) => point.month.startsWith(refKey));
 }
 
-export function calcYTDByProductType(
+export function monthARRValue(
+  months: ARRMonthPoint[],
+  referenceMonth: string,
+): number | null {
+  const point = findMonthPoint(months, referenceMonth);
+  return point ? toFiniteNumber(point.total_arr) : null;
+}
+
+export function monthARRByProductType(
   months: ARRMonthPoint[],
   referenceMonth: string,
   productType: string,
-): number {
-  const [refYear, refMonthNum] = referenceMonth.split("-").map(Number);
-  return months
-    .filter((p) => {
-      const [y, m] = p.month.split("-").map(Number);
-      return y === refYear && m <= refMonthNum;
-    })
-    .reduce((sum, p) => {
-      const value = (p.by_product_type as Record<string, number | string>)[productType];
-      return sum + (toFiniteNumber(value) ?? 0);
-    }, 0);
+): number | null {
+  const point = findMonthPoint(months, referenceMonth);
+  if (!point) return null;
+  const value = (point.by_product_type as Record<string, number | string>)[productType];
+  return toFiniteNumber(value) ?? 0;
+}
+
+export function previousYearSameMonth(referenceMonth: string): string {
+  const [year, month] = referenceMonth.split("-").map(Number);
+  return `${year - 1}-${String(month).padStart(2, "0")}-01`;
+}
+
+export function previousDecember(referenceMonth: string): string {
+  const [year] = referenceMonth.split("-").map(Number);
+  return `${year - 1}-12-01`;
 }
 
 export function formatMonth(isoDate: string): string {

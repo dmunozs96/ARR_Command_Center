@@ -8,6 +8,7 @@ import { useSnapshotContext } from "@/lib/snapshot-context";
 import { useBLGrouping } from "@/lib/bl-grouping-context";
 import { ClientARRTable } from "@/components/ClientARRTable";
 import { ClientARRChart } from "@/components/ClientARRChart";
+import { TopAccountsLinesChart } from "@/components/TopAccountsLinesChart";
 
 function buildProductTypeOptions(combineLmsAio: boolean, combineAuthor: boolean) {
   const options: { label: string; value: string; queryValues: string[] }[] = [
@@ -142,6 +143,7 @@ export default function ClientsPage() {
 
         {/* Chart on top, table below (full width) */}
         <ClientARRChart data={data} isLoading={isLoading && !!activeSnapshot} />
+        <TopAccountsLinesChart data={data} isLoading={isLoading && !!activeSnapshot} />
         <ClientARRTable data={data} isLoading={isLoading && !!activeSnapshot} />
       </div>
     </div>

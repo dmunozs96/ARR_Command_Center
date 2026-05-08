@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarRange, Layers3 } from "lucide-react";
+import { Building2, CalendarRange, Layers3 } from "lucide-react";
 import { useBLGrouping } from "@/lib/bl-grouping-context";
 
 interface Props {
@@ -10,6 +10,9 @@ interface Props {
   onMonthFromChange: (v: string) => void;
   monthTo: string;
   onMonthToChange: (v: string) => void;
+  accountName?: string;
+  onAccountNameChange?: (v: string) => void;
+  accountOptions?: string[];
 }
 
 export function buildProductTypeOptions(combineLmsAio: boolean, combineAuthor: boolean) {
@@ -74,6 +77,9 @@ export function FilterBar({
   onMonthFromChange,
   monthTo,
   onMonthToChange,
+  accountName = "",
+  onAccountNameChange,
+  accountOptions = [],
 }: Props) {
   const { combineLmsAio, setCombineLmsAio, combineAuthor, setCombineAuthor } = useBLGrouping();
   const options = buildProductTypeOptions(combineLmsAio, combineAuthor);
@@ -86,7 +92,7 @@ export function FilterBar({
 
   return (
     <section className="rounded-3xl border border-[#e7e1f2] bg-white p-4 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
-      <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr]">
+      <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr_1.2fr]">
         <label className="group block">
           <span className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-[#837a9f]">
             <Layers3 size={15} />
@@ -129,6 +135,26 @@ export function FilterBar({
             onChange={(e) => onMonthToChange(`${e.target.value}-01`)}
             className="h-12 w-full rounded-2xl border border-[#e7e1f2] bg-[#fbfaff] px-4 text-sm font-semibold text-[#151229] outline-none transition focus:border-[#6d35ff] focus:ring-4 focus:ring-[#6d35ff]/10"
           />
+        </label>
+
+        <label className="group block">
+          <span className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-[#837a9f]">
+            <Building2 size={15} />
+            Cliente
+          </span>
+          <select
+            value={accountName}
+            onChange={(e) => onAccountNameChange?.(e.target.value)}
+            disabled={!onAccountNameChange}
+            className="h-12 w-full rounded-2xl border border-[#e7e1f2] bg-[#fbfaff] px-4 text-sm font-semibold text-[#151229] outline-none transition focus:border-[#6d35ff] focus:ring-4 focus:ring-[#6d35ff]/10 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <option value="">Todos los clientes</option>
+            {accountOptions.map((account) => (
+              <option key={account} value={account}>
+                {account}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
 

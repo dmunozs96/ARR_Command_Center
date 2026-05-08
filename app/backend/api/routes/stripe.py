@@ -19,6 +19,17 @@ from app.backend.db.models import SnapshotStripeMRR
 router = APIRouter()
 
 
+def _stripe_mrr_out(row: SnapshotStripeMRR) -> StripeMRROut:
+    mrr = Decimal(str(row.mrr))
+    return StripeMRROut(
+        month=row.month,
+        mrr=mrr,
+        arr_equivalent=mrr * 12,
+        entered_by=row.entered_by,
+        entered_at=row.entered_at,
+    )
+
+
 @router.get("", response_model=List[StripeMRROut])
 def get_stripe_mrr(
     snapshot_id: Optional[UUID] = Query(None),
@@ -33,18 +44,7 @@ def get_stripe_mrr(
         .order_by(SnapshotStripeMRR.month)
         .all()
     )
-    result = []
-    for r in rows:
-        result.append(
-            StripeMRROut(
-                month=r.month,
-                mrr=Decimal(str(r.mrr)),
-                arr_equivalent=Decimal(str(r.mrr)) * 12,
-                entered_by=r.entered_by,
-                entered_at=r.entered_at,
-            )
-        )
-    return result
+    return [_stripe_mrr_out(row) for row in rows]
 
 
 @router.post("/bulk", response_model=StripeMRRBulkResult, status_code=200)
@@ -52,15 +52,22 @@ def bulk_upsert_stripe_mrr(body: StripeMRRBulkUpsert, db: Session = Depends(get_
     inserted = 0
     updated = 0
     out_rows = []
-    for item in body.rows:
-        existing = (
+    months = {item.month for item in body.rows}
+    existing_by_month = {
+        row.month: row
+        for row in (
             db.query(SnapshotStripeMRR)
             .filter(
                 SnapshotStripeMRR.snapshot_id == body.snapshot_id,
-                SnapshotStripeMRR.month == item.month,
+                SnapshotStripeMRR.month.in_(months),
             )
-            .first()
+            .all()
+            if months
+            else []
         )
+    }
+    for item in body.rows:
+        existing = existing_by_month.get(item.month)
         if existing:
             existing.mrr = item.mrr
             existing.entered_by = body.entered_by
@@ -73,17 +80,10 @@ def bulk_upsert_stripe_mrr(body: StripeMRRBulkUpsert, db: Session = Depends(get_
                 entered_by=body.entered_by,
             )
             db.add(existing)
+            existing_by_month[item.month] = existing
             inserted += 1
         db.flush()
-        out_rows.append(
-            StripeMRROut(
-                month=existing.month,
-                mrr=Decimal(str(existing.mrr)),
-                arr_equivalent=Decimal(str(existing.mrr)) * 12,
-                entered_by=existing.entered_by,
-                entered_at=existing.entered_at,
-            )
-        )
+        out_rows.append(_stripe_mrr_out(existing))
     db.commit()
     return StripeMRRBulkResult(inserted=inserted, updated=updated, rows=out_rows)
 
@@ -111,10 +111,4 @@ def upsert_stripe_mrr(body: StripeMRRUpsert, db: Session = Depends(get_db)):
         db.add(existing)
     db.commit()
     db.refresh(existing)
-    return StripeMRROut(
-        month=existing.month,
-        mrr=Decimal(str(existing.mrr)),
-        arr_equivalent=Decimal(str(existing.mrr)) * 12,
-        entered_by=existing.entered_by,
-        entered_at=existing.entered_at,
-    )
+    return _stripe_mrr_out(existing)

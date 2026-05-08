@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Annotated, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, PlainSerializer
+from pydantic import BaseModel, Field, PlainSerializer
 
 
 JsonDecimal = Annotated[
@@ -140,7 +140,7 @@ class AlertOut(BaseModel):
     arr_impact: Optional[Decimal] = None
     # Grouping fields — count of raw alerts collapsed into this group
     occurrence_count: int = 1
-    alert_ids: List[str] = []
+    alert_ids: List[str] = Field(default_factory=list)
     reviewed_count: int = 0
 
     model_config = {"from_attributes": True}

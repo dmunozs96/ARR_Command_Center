@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, Gauge, LineChart, TrendingUp } from "lucide-react";
-import { calcYTD, formatEUR, formatPct, formatMoM } from "@/lib/utils";
+import { formatEUR, formatMoM, formatPct, monthARRValue, previousDecember, previousYearSameMonth } from "@/lib/utils";
 import type { ARRMonthPoint } from "@/lib/types";
 
 interface Props {
@@ -22,13 +22,6 @@ function TrendIcon({ value }: { value: number | null | undefined }) {
   return value >= 0 ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />;
 }
 
-function findYoyMonth(months: ARRMonthPoint[], currentMonth: string): ARRMonthPoint | undefined {
-  const [year, month] = currentMonth.split("-");
-  const yoyYear = Number(year) - 1;
-  const prefix = `${yoyYear}-${month}`;
-  return months.find((m) => m.month.startsWith(prefix));
-}
-
 export function KPICards({ current, months, loading, unreviewedCount = 0, monthsCount = 0 }: Props) {
   if (loading) {
     return (
@@ -45,21 +38,18 @@ export function KPICards({ current, months, loading, unreviewedCount = 0, months
   }
 
   const arr = current?.total_arr ?? 0;
-
-  const yoyMonth = current ? findYoyMonth(months, current.month) : undefined;
-  const yoy = yoyMonth != null ? Number(current!.total_arr) - Number(yoyMonth.total_arr) : null;
-
   const currentMonthRef = current?.month ?? "";
-  const [currYear] = currentMonthRef.split("-").map(Number);
-  const prevYearRef = currentMonthRef
-    ? `${currYear - 1}-${currentMonthRef.split("-")[1]}-01`
-    : "";
+  const [currYear, currMonth] = currentMonthRef.split("-").map(Number);
+  const prevYearRef = currentMonthRef ? previousYearSameMonth(currentMonthRef) : "";
+  const prevDecemberRef = currentMonthRef ? previousDecember(currentMonthRef) : "";
 
-  const ytdCurrent = currentMonthRef ? calcYTD(months, currentMonthRef) : null;
-  const ytdPrev = prevYearRef ? calcYTD(months, prevYearRef) : null;
-  const ytdDeltaPct =
-    ytdCurrent != null && ytdPrev != null && ytdPrev > 0
-      ? ((ytdCurrent - ytdPrev) / ytdPrev) * 100
+  const currentValue = currentMonthRef ? monthARRValue(months, currentMonthRef) : null;
+  const prevYearValue = prevYearRef ? monthARRValue(months, prevYearRef) : null;
+  const prevDecemberValue = prevDecemberRef ? monthARRValue(months, prevDecemberRef) : null;
+  const yoy = currentValue != null && prevYearValue != null ? currentValue - prevYearValue : null;
+  const decemberDeltaPct =
+    currentValue != null && prevDecemberValue != null && prevDecemberValue > 0
+      ? ((currentValue - prevDecemberValue) / prevDecemberValue) * 100
       : null;
 
   const cards = [
@@ -72,17 +62,17 @@ export function KPICards({ current, months, loading, unreviewedCount = 0, months
       trendValue: null as number | null,
     },
     {
-      label: `YTD ${currYear || ""}`,
-      value: ytdCurrent != null ? formatEUR(ytdCurrent) : "—",
-      detail: "Suma acumulada de ARR desde enero del año en curso",
+      label: `Dic ${(currYear || 1) - 1}`,
+      value: prevDecemberValue != null ? formatEUR(prevDecemberValue) : "—",
+      detail: "Ultimo cierre anual disponible para comparar",
       icon: LineChart,
       accent: "bg-[#20c7a8]",
       trendValue: null as number | null,
     },
     {
-      label: `YTD ${(currYear || 1) - 1}`,
-      value: ytdPrev != null ? formatEUR(ytdPrev) : "—",
-      detail: "Suma acumulada de ARR en el mismo periodo del año anterior",
+      label: `Mismo mes ${(currYear || 1) - 1}`,
+      value: prevYearValue != null ? formatEUR(prevYearValue) : "—",
+      detail: `ARR anualizado de ${String(currMonth || "").padStart(2, "0")}/${(currYear || 1) - 1}`,
       icon: Gauge,
       accent: "bg-[#20c7a8]",
       trendValue: null as number | null,
@@ -104,12 +94,12 @@ export function KPICards({ current, months, loading, unreviewedCount = 0, months
       trendValue: yoy,
     },
     {
-      label: "Δ YTD %",
-      value: formatPct(ytdDeltaPct),
-      detail: "Variacion del acumulado YTD frente al año anterior",
+      label: `Δ vs Dic ${(currYear || 1) - 1}`,
+      value: formatPct(decemberDeltaPct),
+      detail: "Variacion frente al ultimo diciembre disponible",
       icon: Gauge,
-      accent: ytdDeltaPct == null || ytdDeltaPct >= 0 ? "bg-[#6d35ff]" : "bg-[#ff5f57]",
-      trendValue: ytdDeltaPct,
+      accent: decemberDeltaPct == null || decemberDeltaPct >= 0 ? "bg-[#6d35ff]" : "bg-[#ff5f57]",
+      trendValue: decemberDeltaPct,
     },
   ];
 

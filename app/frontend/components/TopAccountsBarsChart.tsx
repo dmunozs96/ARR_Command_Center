@@ -36,7 +36,7 @@ export function TopAccountsBarsChart({ data, isLoading }: Props) {
     );
   }
 
-  const TOP_EXCLUDE = /^otros/i;
+  const TOP_EXCLUDE = /^(otros|resto\b|resto de clientes)/i;
   const visibleAccounts = data.accounts.filter(
     (a) => !TOP_EXCLUDE.test(a.account_name.trim()),
   );

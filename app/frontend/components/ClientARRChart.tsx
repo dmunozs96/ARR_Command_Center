@@ -42,14 +42,13 @@ export function ClientARRChart({ data, isLoading }: Props) {
     );
   }
 
-  const { months, accounts, others } = data;
+  const { months, accounts } = data;
 
   const chartData = months.map((m) => {
     const point: Record<string, unknown> = { month: m.slice(0, 7) };
     for (const acct of accounts) {
       point[acct.account_name] = acct.by_month[m] ?? 0;
     }
-    point["Otros"] = others.by_month[m] ?? 0;
     return point;
   });
 
@@ -58,6 +57,7 @@ export function ClientARRChart({ data, isLoading }: Props) {
       <div className="mb-5">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-[#6d35ff]">Evolucion</p>
         <h2 className="mt-1 text-xl font-black tracking-tight text-[#151229]">ARR por cliente y mes</h2>
+        <p className="mt-1 text-xs text-[#837a9f]">Top 20 cuentas por ARR. El resto se omite para mayor claridad.</p>
       </div>
 
       <ResponsiveContainer width="100%" height={400}>
@@ -100,7 +100,6 @@ export function ClientARRChart({ data, isLoading }: Props) {
               fill={CHART_COLORS[idx % CHART_COLORS.length]}
             />
           ))}
-          <Bar dataKey="Otros" stackId="a" fill="#e5e7eb" />
         </BarChart>
       </ResponsiveContainer>
     </section>

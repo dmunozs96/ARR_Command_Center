@@ -40,6 +40,7 @@ const DEFAULT_MONTH_TO = `${new Date().toISOString().slice(0, 7)}-01`;
 export default function DashboardPage() {
   const [productType, setProductType] = useState("");
   const [accountProductType, setAccountProductType] = useState("");
+  const [accountName, setAccountName] = useState("");
   const [monthFrom, setMonthFrom] = useState(DEFAULT_MONTH_FROM);
   const [monthTo, setMonthTo] = useState(DEFAULT_MONTH_TO);
   const [arrMode, setArrMode] = useState<"from_start" | "from_close">("from_start");
@@ -52,13 +53,14 @@ export default function DashboardPage() {
   const accountProductTypeOptions = buildProductTypeOptions(combineLmsAio, combineAuthor);
 
   const arrQuery = useQuery({
-    queryKey: ["arr-summary", activeSnapshot?.id, monthFrom, monthTo, productType, arrMode],
+    queryKey: ["arr-summary", activeSnapshot?.id, monthFrom, monthTo, productType, accountName, arrMode],
     queryFn: () =>
       api.getARRSummary({
         snapshot_id: activeSnapshot?.id,
         month_from: monthFrom,
         month_to: monthTo,
         ...productTypeParams,
+        account_name: accountName || undefined,
         mode: arrMode,
       }),
     enabled: !!activeSnapshot,
@@ -80,18 +82,38 @@ export default function DashboardPage() {
   });
 
   const accountQuery = useQuery({
-    queryKey: ["arr-by-account", activeSnapshot?.id, monthFrom, monthTo, accountProductType, arrMode],
+    queryKey: ["arr-by-account", activeSnapshot?.id, monthFrom, monthTo, accountProductType, accountName, arrMode],
     queryFn: () =>
       api.getARRByAccount({
         snapshot_id: activeSnapshot?.id,
         month_from: monthFrom,
         month_to: monthTo,
         ...accountProductTypeParams,
+        account_name: accountName || undefined,
         mode: arrMode,
         limit: 20,
       }),
     enabled: !!activeSnapshot,
   });
+
+  const accountOptionsQuery = useQuery({
+    queryKey: ["arr-account-options", activeSnapshot?.id, monthFrom, monthTo, productType, arrMode],
+    queryFn: () =>
+      api.getARRByAccount({
+        snapshot_id: activeSnapshot?.id,
+        month_from: monthFrom,
+        month_to: monthTo,
+        ...productTypeParams,
+        mode: arrMode,
+        limit: 100,
+      }),
+    enabled: !!activeSnapshot,
+  });
+
+  const accountOptions = useMemo(
+    () => (accountOptionsQuery.data?.accounts ?? []).map((account) => account.account_name),
+    [accountOptionsQuery.data],
+  );
 
   const consultantsQuery = useQuery({
     queryKey: ["arr-consultants", activeSnapshot?.id, lastMonth?.month],
@@ -281,6 +303,9 @@ export default function DashboardPage() {
               onMonthFromChange={setMonthFrom}
               monthTo={monthTo}
               onMonthToChange={setMonthTo}
+              accountName={accountName}
+              onAccountNameChange={setAccountName}
+              accountOptions={accountOptions}
             />
             <ARRTotalChart months={months} loading={arrQuery.isLoading} />
             <ARRYearBarsChart months={months} monthTo={monthTo} loading={arrQuery.isLoading} />

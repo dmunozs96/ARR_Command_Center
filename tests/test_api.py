@@ -30,6 +30,7 @@ from app.backend.db.models import (
     RawOpportunityLineItem,
     Snapshot,
     SnapshotAlert,
+    SnapshotStripeMRR,
 )
 from app.backend.core.arr_calculator import RawLineItem
 from app.backend.main import app
@@ -742,6 +743,31 @@ def test_arr_summary_filter_by_product_type(client):
     assert Decimal(data["months"][0]["total_arr"]) == Decimal("12000")
 
 
+def test_arr_summary_filter_by_account_name(client):
+    db = TestingSessionLocal()
+    snap = _make_snapshot(db)
+    raw_acme = _make_raw(db, snap.id, sf_opp_id="OPP_ACME", sf_line_id="LI_ACME")
+    raw_beta = _make_raw(db, snap.id, sf_opp_id="OPP_BETA", sf_line_id="LI_BETA")
+    raw_beta.account_name = "Beta Corp"
+    db.flush()
+    _make_arr(
+        db, snap.id, raw_acme.id, arr=Decimal("12000"),
+        start_month=date(2025, 1, 1), end_month_normalized=date(2025, 1, 30),
+    )
+    _make_arr(
+        db, snap.id, raw_beta.id, arr=Decimal("8000"),
+        start_month=date(2025, 1, 1), end_month_normalized=date(2025, 1, 30),
+    )
+    db.commit()
+    db.close()
+
+    r = client.get("/api/arr/summary?account_name=Beta+Corp")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data["months"]) == 1
+    assert Decimal(data["months"][0]["total_arr"]) == Decimal("8000")
+
+
 # ---------------------------------------------------------------------------
 # ARR Line Items
 # ---------------------------------------------------------------------------
@@ -941,6 +967,46 @@ def test_stripe_mrr_upsert(client):
     r3 = client.get(f"/api/stripe-mrr?snapshot_id={snap_id}")
     assert len(r3.json()) == 1
     assert r3.json()[0]["mrr"] == "9500.00"
+
+    db = TestingSessionLocal()
+    stored = (
+        db.query(SnapshotStripeMRR)
+        .filter(SnapshotStripeMRR.snapshot_id == snap_id, SnapshotStripeMRR.month == date(2026, 1, 1))
+        .first()
+    )
+    assert stored.arr_equivalent == Decimal("114000.00")
+    db.close()
+
+
+def test_stripe_mrr_bulk_upsert(client):
+    db = TestingSessionLocal()
+    snap = _make_snapshot(db)
+    db.add(
+        SnapshotStripeMRR(
+            snapshot_id=snap.id,
+            month=date(2026, 1, 1),
+            mrr=Decimal("9200.00"),
+            entered_by="seed",
+        )
+    )
+    db.commit()
+    snap_id = snap.id
+    db.close()
+
+    payload = {
+        "snapshot_id": str(snap_id),
+        "entered_by": "bulk",
+        "rows": [
+            {"month": "2026-01-01", "mrr": "9500.00"},
+            {"month": "2026-02-01", "mrr": "10000.00"},
+        ],
+    }
+    r = client.post("/api/stripe-mrr/bulk", json=payload)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["inserted"] == 1
+    assert data["updated"] == 1
+    assert [row["arr_equivalent"] for row in data["rows"]] == ["114000.00", "120000.00"]
 
 
 def test_cron_daily_sync_rejects_wrong_secret(client, monkeypatch):

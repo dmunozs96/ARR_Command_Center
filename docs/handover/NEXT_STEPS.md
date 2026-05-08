@@ -7,11 +7,17 @@
 
 Fases A-H + I-A + I-B + V2 + V3-P1 a P8 completas.
 V3 bugfix final aplicado tras `docs/v3_bug_report.md`.
-Tests: 61/61 OK. Frontend lint/build OK. E2E: 3/3 OK.
+Sesion 23 corrige la semantica de ARR: no hay YTD acumulado; las comparativas son punto a punto contra mismo mes del ano anterior y diciembre anterior movil.
+Tests: 63/63 OK. Frontend lint/build OK. E2E: 3/3 OK.
 
 **V3 completamente cerrada y revalidada. Informes relevantes:**
 - `docs/v3_bug_report.md` — bugs V3 reparados en sesion 22
 - `docs/logs/V3-P8-audit-report.md` — auditoria/refactors propuestos de sesion 21
+
+Nota funcional importante:
+- ARR es anualizado. No sumar meses para calcular YTD.
+- En dashboard y desglose por linea, comparar el mes seleccionado contra mismo mes del ano anterior y diciembre anterior movil (`n-1`).
+- Dashboard ya incluye filtro de cliente para validar tendencias intermensuales de cuentas concretas.
 
 Refactors mayores pendientes de aprobacion (no implementados):
 - Separar logica de negocio de la capa HTTP en `arr.py` (propuesta A en informe)

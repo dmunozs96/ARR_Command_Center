@@ -1,6 +1,6 @@
 # Current State
 **Ultima actualizacion:** 2026-05-08
-**Agente:** Codex (sesion 22)
+**Agente:** Codex (sesion 23)
 
 ---
 
@@ -37,17 +37,36 @@ La app calcula, visualiza y audita el ARR de isEazy.
 | V2-P4 | ARR Expert (IA embebida) | completa | TypeScript OK |
 | **V3-P1** | **Correccion matematica BL grouping** | **completa** | TypeScript OK |
 | **V3-P2** | **Limpieza de NaN global** | **completa** | TypeScript OK |
-| **V3-P3** | **MoM → YTD comparativo** | **completa** | TypeScript OK |
+| **V3-P3** | **MoM → comparativas ARR puntuales** | **completa** | TypeScript OK |
 | **V3-P4** | **Top 20 sin "Otros"** | **completa** | TypeScript OK |
 | **V3-P5** | **Tabla de clientes corregida** | **completa** | TypeScript OK |
 | **V3-P6** | **Consultores — nivel 2 (clientes por BL)** | **completa** | TypeScript OK |
 | **V3-P7** | **Exportar Excel snapshot** | **completa** | TypeScript OK |
-| **V3-P8** | **Revision y optimizacion de codigo** | **completa** | 61/61 |
+| **V3-P8** | **Revision y optimizacion de codigo** | **completa** | 63/63 |
 
-**Tests backend:** `python -m pytest tests/ -q` -> **61/61 OK**
+**Tests backend:** `pytest -q` -> **63/63 OK**
 **Frontend lint:** `npm.cmd run lint` -> **OK**
 **Frontend build/TypeScript:** `npm.cmd run build` -> **OK**
 **E2E:** `npm.cmd run test:e2e` -> **3/3 OK**
+
+---
+
+## Lo implementado en la sesion 23 (semantica ARR puntual)
+
+Se corrigio la interpretacion de "YTD" en ARR. ARR es un dato anualizado y comparable por mes, asi que no se debe sumar enero-mes.
+
+**Cambios principales:**
+- Se eliminaron referencias YTD de la app frontend.
+- KPIs y desglose por linea comparan:
+  - mes seleccionado vs mismo mes del ano anterior;
+  - mes seleccionado vs diciembre anterior movil (`n-1` segun el ano del mes seleccionado).
+- Dashboard anade filtro de cliente. El backend soporta `account_name` en `/api/arr/summary` y `/api/arr/by-account`.
+- Vista `/clients` anade grafico de lineas de evolucion de top clientes.
+- Graficos de clientes omiten `Otros`, `Resto` y `Resto de clientes` para mayor claridad visual.
+- Stripe MRR queda endurecido: `arr_equivalent = mrr * 12`, helper de salida comun y bulk upsert sin N+1.
+- `AlertOut.alert_ids` usa `Field(default_factory=list)` y tipos frontend quedan alineados con schemas reales.
+
+**Resultado:** dashboard y vistas de cliente reflejan comparativas correctas para ARR anualizado, sin acumulados incorrectos.
 
 ---
 

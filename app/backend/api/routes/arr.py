@@ -80,6 +80,7 @@ def arr_summary(
     month_to: Optional[date] = Query(None),
     product_type: Optional[str] = Query(None),
     product_types: Optional[str] = Query(None, description="CSV of product types"),
+    account_name: Optional[str] = Query(None, description="Filter by account/client name"),
     mode: str = Query("from_start", description="from_start | from_close"),
     db: Session = Depends(get_db),
 ):
@@ -96,7 +97,7 @@ def arr_summary(
         product_type_list = [p.strip() for p in product_types.split(",") if p.strip()]
 
     if mode == "from_close":
-        rows = (
+        q_close = (
             db.query(ARRLineItem, RawOpportunityLineItem)
             .join(RawOpportunityLineItem, ARRLineItem.raw_line_item_id == RawOpportunityLineItem.id)
             .filter(
@@ -104,8 +105,10 @@ def arr_summary(
                 ARRLineItem.is_saas == True,
                 ARRLineItem.excluded_from_arr == False,
             )
-            .all()
         )
+        if account_name:
+            q_close = q_close.filter(RawOpportunityLineItem.account_name == account_name)
+        rows = q_close.all()
         # "Fecha de Cierre" logic (mirrors Excel col30 / f.inicial si es NN):
         # For Nuevo Negocio deals where close_date precedes subscription_start_date,
         # ARR is recognized from the close month so booked deals appear when signed.
@@ -129,29 +132,33 @@ def arr_summary(
                     Decimal(str(arr.annualized_value)),
                 ))
     else:
-        arr_items = (
-            db.query(ARRLineItem)
+        q = (
+            db.query(ARRLineItem, RawOpportunityLineItem)
+            .join(RawOpportunityLineItem, ARRLineItem.raw_line_item_id == RawOpportunityLineItem.id)
             .filter(
                 ARRLineItem.snapshot_id == sid,
                 ARRLineItem.is_saas == True,
                 ARRLineItem.excluded_from_arr == False,
             )
-            .all()
         )
+        if account_name:
+            q = q.filter(RawOpportunityLineItem.account_name == account_name)
+        rows = q.all()
         active_items = [
             (
-                i.start_month,
-                i.end_month_normalized,
-                i.product_type,
-                Decimal(str(i.annualized_value)),
+                arr.start_month,
+                arr.end_month_normalized,
+                arr.product_type,
+                Decimal(str(arr.annualized_value)),
             )
-            for i in arr_items
+            for arr, _raw in rows
         ]
 
     include_stripe = (
-        (not product_type and not product_type_list)
+        not account_name
+        and ((not product_type and not product_type_list)
         or product_type == "Author Online"
-        or (product_type_list is not None and "Author Online" in product_type_list)
+        or (product_type_list is not None and "Author Online" in product_type_list))
     )
     stripe_by_month: dict[date, Decimal] = {}
     if include_stripe:
@@ -233,6 +240,7 @@ def arr_by_account(
     product_types: Optional[str] = Query(None, description="CSV of product types"),
     product_type: Optional[str] = Query(None, description="Single product type filter (for consultant drill-down)"),
     consultant: Optional[str] = Query(None, description="Filter by consultant (opportunity_owner)"),
+    account_name: Optional[str] = Query(None, description="Filter by account/client name"),
     limit: int = Query(default=20, ge=1, le=100),
     mode: str = Query(default="from_start", description="from_start | from_close"),
     db: Session = Depends(get_db),
@@ -260,6 +268,8 @@ def arr_by_account(
         )
         if consultant:
             q_close = q_close.filter(RawOpportunityLineItem.opportunity_owner == consultant)
+        if account_name:
+            q_close = q_close.filter(RawOpportunityLineItem.account_name == account_name)
         rows = q_close.all()
         active_items = []
         for arr, raw in rows:
@@ -300,6 +310,8 @@ def arr_by_account(
             q = q.filter(ARRLineItem.product_type == product_type)
         if consultant:
             q = q.filter(RawOpportunityLineItem.opportunity_owner == consultant)
+        if account_name:
+            q = q.filter(RawOpportunityLineItem.account_name == account_name)
         rows = q.all()
         active_items = [
             (

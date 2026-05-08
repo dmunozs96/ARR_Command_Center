@@ -1,5 +1,46 @@
 # Session Log
 
+## 2026-05-08 - Sesion 23 (Semantica ARR puntual, filtro cliente y hardening Stripe)
+**Agente:** Codex
+
+### Trabajo realizado
+
+Se corrigio la interpretacion de las metricas "YTD": ARR ya es anualizado y no debe sumarse por meses. La app deja de hablar de YTD acumulado y pasa a comparar valores puntuales de ARR.
+
+**Cambios de negocio/UI:**
+- `KPICards.tsx`: las tarjetas ahora comparan el mes seleccionado contra:
+  - el mismo mes del ano anterior;
+  - el ultimo diciembre disponible (`n-1`, movil segun el ano del mes seleccionado).
+- `ARRBreakdownTable.tsx`: reemplazadas las columnas YTD acumuladas por comparativas punto a punto: ARR actual, mismo mes ano anterior, Delta YoY %, diciembre anterior y Delta vs diciembre.
+- `utils.ts`: eliminados helpers `calcYTD*`; anadidos helpers para localizar valor de mes, mismo mes del ano anterior y diciembre anterior.
+- Dashboard `/`: anadido filtro de cliente para validar tendencias intermensuales de cuentas concretas. El filtro recalcula resumen, KPIs y graficos principales.
+- Backend `/api/arr/summary` y `/api/arr/by-account`: aceptan `account_name` opcional.
+- `/clients`: anadido grafico de lineas de evolucion de clientes, igual que en dashboard.
+- Graficos de clientes: excluyen `Otros`, `Resto` y `Resto de clientes` para evitar que aplasten la escala visual.
+
+**Hardening / optimizacion:**
+- `SnapshotStripeMRR.arr_equivalent`: corregido a `mrr * 12`.
+- `stripe.py`: salida de Stripe MRR centralizada y bulk upsert optimizado para evitar query por fila.
+- `schemas.py`: `AlertOut.alert_ids` usa `Field(default_factory=list)`.
+- `types.ts`: tipos frontend alineados con campos reales (`mom_change`, `mom_pct`, `SyncResponse.skipped`, etc.).
+- Tests backend anadidos para filtro por cliente y Stripe bulk/upsert.
+
+### Verificacion
+- `pytest -q` -> **63/63 OK**
+- `npx.cmd tsc --noEmit` -> **OK**
+- `npm.cmd run lint` -> **OK**
+- `npm.cmd run build` -> **OK**
+- `npm.cmd run test:e2e` -> **3/3 OK**
+
+### Commits y push
+- Commit: `Fix ARR point-in-time comparisons and client filters`
+- Push a origin/main
+
+**Instruccion para la proxima conversacion:**
+Di al agente: "Lee CURRENT_STATE.md y NEXT_STEPS.md. La app ya no usa YTD acumulado para ARR anualizado; las comparativas son punto a punto contra mismo mes del ano anterior y diciembre anterior movil."
+
+---
+
 ## 2026-05-08 - Sesion 22 (V3 bugfix final: Decimal, filtros combinados y e2e)
 **Agente:** Codex
 
