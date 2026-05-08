@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo } from "react";
 import { Building2, CalendarRange, Layers3 } from "lucide-react";
 import { useBLGrouping } from "@/lib/bl-grouping-context";
 
@@ -13,6 +14,7 @@ interface Props {
   accountName?: string;
   onAccountNameChange?: (v: string) => void;
   accountOptions?: string[];
+  compact?: boolean;
 }
 
 export function buildProductTypeOptions(combineLmsAio: boolean, combineAuthor: boolean) {
@@ -80,19 +82,24 @@ export function FilterBar({
   accountName = "",
   onAccountNameChange,
   accountOptions = [],
+  compact = false,
 }: Props) {
   const { combineLmsAio, setCombineLmsAio, combineAuthor, setCombineAuthor } = useBLGrouping();
-  const options = buildProductTypeOptions(combineLmsAio, combineAuthor);
+  const options = useMemo(
+    () => buildProductTypeOptions(combineLmsAio, combineAuthor),
+    [combineAuthor, combineLmsAio],
+  );
 
-  // Reset product type filter if selected value no longer exists after toggle
-  const currentValueExists = options.some((o) => o.value === productType);
-  if (productType && !currentValueExists) {
-    onProductTypeChange("");
-  }
+  useEffect(() => {
+    const currentValueExists = options.some((o) => o.value === productType);
+    if (productType && !currentValueExists) {
+      onProductTypeChange("");
+    }
+  }, [onProductTypeChange, options, productType]);
 
   return (
-    <section className="rounded-3xl border border-[#e7e1f2] bg-white p-4 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
-      <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr_1.2fr]">
+    <section className={`${compact ? "rounded-2xl p-3" : "rounded-3xl p-4"} border border-[#e7e1f2] bg-white shadow-[0_18px_50px_rgba(49,24,95,0.06)]`}>
+      <div className={`grid gap-3 ${compact ? "grid-cols-1" : "lg:grid-cols-[1.2fr_1fr_1fr_1.2fr]"}`}>
         <label className="group block">
           <span className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-[#837a9f]">
             <Layers3 size={15} />
@@ -101,7 +108,7 @@ export function FilterBar({
           <select
             value={productType}
             onChange={(e) => onProductTypeChange(e.target.value)}
-            className="h-12 w-full rounded-2xl border border-[#e7e1f2] bg-[#fbfaff] px-4 text-sm font-semibold text-[#151229] outline-none transition focus:border-[#6d35ff] focus:ring-4 focus:ring-[#6d35ff]/10"
+            className={`${compact ? "h-10 rounded-xl px-3" : "h-12 rounded-2xl px-4"} w-full border border-[#e7e1f2] bg-[#fbfaff] text-sm font-semibold text-[#151229] outline-none transition focus:border-[#6d35ff] focus:ring-4 focus:ring-[#6d35ff]/10`}
           >
             {options.map((o) => (
               <option key={o.value} value={o.value}>
@@ -120,7 +127,7 @@ export function FilterBar({
             type="month"
             value={monthFrom.slice(0, 7)}
             onChange={(e) => onMonthFromChange(`${e.target.value}-01`)}
-            className="h-12 w-full rounded-2xl border border-[#e7e1f2] bg-[#fbfaff] px-4 text-sm font-semibold text-[#151229] outline-none transition focus:border-[#6d35ff] focus:ring-4 focus:ring-[#6d35ff]/10"
+            className={`${compact ? "h-10 rounded-xl px-3" : "h-12 rounded-2xl px-4"} w-full border border-[#e7e1f2] bg-[#fbfaff] text-sm font-semibold text-[#151229] outline-none transition focus:border-[#6d35ff] focus:ring-4 focus:ring-[#6d35ff]/10`}
           />
         </label>
 
@@ -133,7 +140,7 @@ export function FilterBar({
             type="month"
             value={monthTo.slice(0, 7)}
             onChange={(e) => onMonthToChange(`${e.target.value}-01`)}
-            className="h-12 w-full rounded-2xl border border-[#e7e1f2] bg-[#fbfaff] px-4 text-sm font-semibold text-[#151229] outline-none transition focus:border-[#6d35ff] focus:ring-4 focus:ring-[#6d35ff]/10"
+            className={`${compact ? "h-10 rounded-xl px-3" : "h-12 rounded-2xl px-4"} w-full border border-[#e7e1f2] bg-[#fbfaff] text-sm font-semibold text-[#151229] outline-none transition focus:border-[#6d35ff] focus:ring-4 focus:ring-[#6d35ff]/10`}
           />
         </label>
 
@@ -146,7 +153,7 @@ export function FilterBar({
             value={accountName}
             onChange={(e) => onAccountNameChange?.(e.target.value)}
             disabled={!onAccountNameChange}
-            className="h-12 w-full rounded-2xl border border-[#e7e1f2] bg-[#fbfaff] px-4 text-sm font-semibold text-[#151229] outline-none transition focus:border-[#6d35ff] focus:ring-4 focus:ring-[#6d35ff]/10 disabled:cursor-not-allowed disabled:opacity-60"
+            className={`${compact ? "h-10 rounded-xl px-3" : "h-12 rounded-2xl px-4"} w-full border border-[#e7e1f2] bg-[#fbfaff] text-sm font-semibold text-[#151229] outline-none transition focus:border-[#6d35ff] focus:ring-4 focus:ring-[#6d35ff]/10 disabled:cursor-not-allowed disabled:opacity-60`}
           >
             <option value="">Todos los clientes</option>
             {accountOptions.map((account) => (
@@ -158,7 +165,7 @@ export function FilterBar({
         </label>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-[#f0ebf8] pt-3">
+      <div className={`${compact ? "gap-2" : "gap-x-6 gap-y-2"} mt-4 flex flex-wrap items-center border-t border-[#f0ebf8] pt-3`}>
         <span className="text-xs font-black uppercase tracking-[0.16em] text-[#837a9f]">Agrupaciones</span>
         <Toggle checked={combineLmsAio} onChange={setCombineLmsAio} label="Combinar LMS + AIO" />
         <Toggle checked={combineAuthor} onChange={setCombineAuthor} label="Combinar Author" />

@@ -58,6 +58,9 @@ export const api = {
     snapshot_id?: string;
     month: string;
     country?: string;
+    product_type?: string;
+    product_types?: string;
+    account_name?: string;
     mode?: "from_start" | "from_close";
   }) =>
     client

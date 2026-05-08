@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Bell,
   BrainCircuit,
@@ -9,6 +11,7 @@ import {
   ChartNoAxesCombined,
   ChevronRight,
   Database,
+  Filter,
   LayoutDashboard,
   Settings,
   UsersRound,
@@ -16,6 +19,12 @@ import {
 } from "lucide-react";
 import { SnapshotSelector } from "@/components/SnapshotSelector";
 import { ARRModeToggle } from "@/components/ARRModeToggle";
+import { FilterBar } from "@/components/FilterBar";
+import { api } from "@/lib/api";
+import { useAnalysisFilters } from "@/lib/analysis-filters-context";
+import { useARRMode } from "@/lib/arr-mode-context";
+import { useSnapshotContext } from "@/lib/snapshot-context";
+import { productTypeFilterParams } from "@/lib/utils";
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -33,9 +42,33 @@ const NAV_EXPERT = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { activeSnapshot } = useSnapshotContext();
+  const { arrMode } = useARRMode();
+  const { productType, setProductType, accountName, setAccountName, monthFrom, setMonthFrom, monthTo, setMonthTo } =
+    useAnalysisFilters();
+  const productTypeParams = productTypeFilterParams(productType);
+
+  const accountOptionsQuery = useQuery({
+    queryKey: ["sidebar-arr-account-options", activeSnapshot?.id, monthFrom, monthTo, productType, arrMode],
+    queryFn: () =>
+      api.getARRByAccount({
+        snapshot_id: activeSnapshot?.id,
+        month_from: monthFrom,
+        month_to: monthTo,
+        ...productTypeParams,
+        mode: arrMode,
+        limit: 100,
+      }),
+    enabled: !!activeSnapshot,
+  });
+
+  const accountOptions = useMemo(
+    () => (accountOptionsQuery.data?.accounts ?? []).map((account) => account.account_name),
+    [accountOptionsQuery.data],
+  );
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col border-r border-[#e7e1f2] bg-white/90 px-4 py-5 shadow-[8px_0_30px_rgba(49,24,95,0.06)] backdrop-blur xl:flex">
+    <aside className="sticky top-0 hidden h-screen w-80 shrink-0 flex-col overflow-y-auto border-r border-[#e7e1f2] bg-white/90 px-4 py-5 shadow-[8px_0_30px_rgba(49,24,95,0.06)] backdrop-blur xl:flex">
       <div className="rounded-2xl bg-[#2f185f] p-4 text-white shadow-lg shadow-[#6d35ff]/15">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#6d35ff]">
@@ -55,6 +88,25 @@ export function Sidebar() {
 
       <SnapshotSelector className="mt-5" />
       <ARRModeToggle className="mt-4" />
+
+      <div className="mt-4 space-y-2">
+        <div className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.16em] text-[#6d35ff]">
+          <Filter size={17} />
+          Analisis
+        </div>
+        <FilterBar
+          productType={productType}
+          onProductTypeChange={setProductType}
+          monthFrom={monthFrom}
+          onMonthFromChange={setMonthFrom}
+          monthTo={monthTo}
+          onMonthToChange={setMonthTo}
+          accountName={accountName}
+          onAccountNameChange={setAccountName}
+          accountOptions={accountOptions}
+          compact
+        />
+      </div>
 
       <nav className="mt-5 flex-1 space-y-1">
         {NAV.map((item) => {

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { SnapshotProvider } from "@/lib/snapshot-context";
 import { BLGroupingProvider } from "@/lib/bl-grouping-context";
 import { ARRModeProvider } from "@/lib/arr-mode-context";
+import { AnalysisFiltersProvider } from "@/lib/analysis-filters-context";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -19,7 +20,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <SnapshotProvider>
         <ARRModeProvider>
-          <BLGroupingProvider>{children}</BLGroupingProvider>
+          <BLGroupingProvider>
+            <AnalysisFiltersProvider>{children}</AnalysisFiltersProvider>
+          </BLGroupingProvider>
         </ARRModeProvider>
       </SnapshotProvider>
     </QueryClientProvider>

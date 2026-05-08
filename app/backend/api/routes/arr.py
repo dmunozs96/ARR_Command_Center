@@ -421,6 +421,8 @@ def arr_by_consultant(
     month: Optional[date] = Query(None),
     country: Optional[str] = Query(None),
     product_type: Optional[str] = Query(None),
+    product_types: Optional[str] = Query(None, description="Comma-separated product types"),
+    account_name: Optional[str] = Query(None, description="Filter by account/client name"),
     mode: str = Query(default="from_start", description="from_start | from_close"),
     db: Session = Depends(get_db),
 ):
@@ -448,6 +450,12 @@ def arr_by_consultant(
     )
     if product_type:
         q = q.filter(ARRLineItem.product_type == product_type)
+    if product_types:
+        values = [p.strip() for p in product_types.split(",") if p.strip()]
+        if values:
+            q = q.filter(ARRLineItem.product_type.in_(values))
+    if account_name:
+        q = q.filter(RawOpportunityLineItem.account_name == account_name)
     if country:
         q = q.filter(ARRLineItem.consultant_country == country)
 

@@ -11,9 +11,7 @@ import {
   CircleDollarSign,
   Database,
   Download,
-  Filter,
   Globe2,
-  Layers3,
   Menu,
   UsersRound,
 } from "lucide-react";
@@ -28,30 +26,19 @@ import { TopAccountsBarsChart } from "@/components/TopAccountsBarsChart";
 import { TopAccountsLinesChart } from "@/components/TopAccountsLinesChart";
 import { AlertsPanel } from "@/components/AlertsPanel";
 import { ExcelUploadButton } from "@/components/ExcelUploadButton";
-import { buildProductTypeOptions, FilterBar } from "@/components/FilterBar";
 import { SyncButton } from "@/components/SyncButton";
 import { useSnapshotContext } from "@/lib/snapshot-context";
 import { currentMonthStart, formatCompactEUR, formatDateTime, formatEUR, formatMonth, productTypeFilterParams, toFiniteNumber } from "@/lib/utils";
-import { useBLGrouping } from "@/lib/bl-grouping-context";
 import { useARRMode } from "@/lib/arr-mode-context";
-
-const DEFAULT_MONTH_FROM = "2021-01-01";
-const DEFAULT_MONTH_TO = `${new Date().toISOString().slice(0, 7)}-01`;
+import { useAnalysisFilters } from "@/lib/analysis-filters-context";
 
 export default function DashboardPage() {
-  const [productType, setProductType] = useState("");
-  const [accountProductType, setAccountProductType] = useState("");
-  const [accountName, setAccountName] = useState("");
-  const [monthFrom, setMonthFrom] = useState(DEFAULT_MONTH_FROM);
-  const [monthTo, setMonthTo] = useState(DEFAULT_MONTH_TO);
   const [downloadingExcel, setDownloadingExcel] = useState(false);
   const { activeSnapshot, isLoading: snapshotsLoading } = useSnapshotContext();
-  const { combineLmsAio, combineAuthor } = useBLGrouping();
   const { arrMode } = useARRMode();
+  const { productType, accountName, monthFrom, monthTo } = useAnalysisFilters();
   const currentMonth = currentMonthStart();
   const productTypeParams = productTypeFilterParams(productType);
-  const accountProductTypeParams = productTypeFilterParams(accountProductType);
-  const accountProductTypeOptions = buildProductTypeOptions(combineLmsAio, combineAuthor);
 
   const arrQuery = useQuery({
     queryKey: ["arr-summary", activeSnapshot?.id, monthFrom, monthTo, productType, accountName, arrMode],
@@ -83,13 +70,13 @@ export default function DashboardPage() {
   });
 
   const accountQuery = useQuery({
-    queryKey: ["arr-by-account", activeSnapshot?.id, monthFrom, monthTo, accountProductType, accountName, arrMode],
+    queryKey: ["arr-by-account", activeSnapshot?.id, monthFrom, monthTo, productType, accountName, arrMode],
     queryFn: () =>
       api.getARRByAccount({
         snapshot_id: activeSnapshot?.id,
         month_from: monthFrom,
         month_to: monthTo,
-        ...accountProductTypeParams,
+        ...productTypeParams,
         account_name: accountName || undefined,
         mode: arrMode,
         limit: 20,
@@ -97,31 +84,15 @@ export default function DashboardPage() {
     enabled: !!activeSnapshot,
   });
 
-  const accountOptionsQuery = useQuery({
-    queryKey: ["arr-account-options", activeSnapshot?.id, monthFrom, monthTo, productType, arrMode],
-    queryFn: () =>
-      api.getARRByAccount({
-        snapshot_id: activeSnapshot?.id,
-        month_from: monthFrom,
-        month_to: monthTo,
-        ...productTypeParams,
-        mode: arrMode,
-        limit: 100,
-      }),
-    enabled: !!activeSnapshot,
-  });
-
-  const accountOptions = useMemo(
-    () => (accountOptionsQuery.data?.accounts ?? []).map((account) => account.account_name),
-    [accountOptionsQuery.data],
-  );
-
   const consultantsQuery = useQuery({
-    queryKey: ["arr-consultants", activeSnapshot?.id, lastMonth?.month],
+    queryKey: ["arr-consultants", activeSnapshot?.id, lastMonth?.month, productType, accountName, arrMode],
     queryFn: () =>
       api.getARRByConsultant({
         snapshot_id: activeSnapshot?.id,
         month: lastMonth?.month ?? currentMonth,
+        ...productTypeParams,
+        account_name: accountName || undefined,
+        mode: arrMode,
       }),
     enabled: !!activeSnapshot && !!lastMonth,
   });
@@ -279,21 +250,6 @@ export default function DashboardPage() {
 
         <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
           <div className="space-y-6">
-            <div className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.16em] text-[#6d35ff]">
-              <Filter size={17} />
-              Analisis
-            </div>
-            <FilterBar
-              productType={productType}
-              onProductTypeChange={setProductType}
-              monthFrom={monthFrom}
-              onMonthFromChange={setMonthFrom}
-              monthTo={monthTo}
-              onMonthToChange={setMonthTo}
-              accountName={accountName}
-              onAccountNameChange={setAccountName}
-              accountOptions={accountOptions}
-            />
             <ARRTotalChart months={months} loading={arrQuery.isLoading} />
             <ARRYearBarsChart months={months} monthTo={monthTo} loading={arrQuery.isLoading} />
             <ARRChart months={months} loading={arrQuery.isLoading} />
@@ -304,26 +260,9 @@ export default function DashboardPage() {
                 <div>
                   <h2 className="text-xl font-semibold text-gray-800">Distribución por cliente</h2>
                   <p className="text-sm text-gray-500 mt-1">
-                    Top 20 cuentas por ARR. El resto se agrupa en &quot;Otros&quot;.
+                    Top 20 cuentas por ARR segun el filtro global. El resto se agrupa en &quot;Otros&quot;.
                   </p>
                 </div>
-                <label className="block min-w-[220px]">
-                  <span className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-[#837a9f]">
-                    <Layers3 size={15} />
-                    Linea de negocio
-                  </span>
-                  <select
-                    value={accountProductType}
-                    onChange={(event) => setAccountProductType(event.target.value)}
-                    className="h-11 w-full rounded-2xl border border-[#e7e1f2] bg-[#fbfaff] px-4 text-sm font-semibold text-[#151229] outline-none transition focus:border-[#6d35ff] focus:ring-4 focus:ring-[#6d35ff]/10"
-                  >
-                    {accountProductTypeOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
               </div>
             </div>
             <TopAccountsBarsChart data={accountQuery.data} isLoading={accountQuery.isLoading} />
