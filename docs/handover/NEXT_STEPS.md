@@ -8,6 +8,7 @@
 Fases A-H + I-A + I-B + V2 + V3-P1 a P8 completas.
 V3 bugfix final aplicado tras `docs/v3_bug_report.md`.
 Sesion 23 corrige la semantica de ARR: no hay YTD acumulado; las comparativas son punto a punto contra mismo mes del ano anterior y diciembre anterior movil.
+Sesion 24 mueve `Desde inicio` / `Desde cierre` al sidebar y lo convierte en modo global para Dashboard, Clientes y Consultores.
 Tests: 63/63 OK. Frontend lint/build OK. E2E: 3/3 OK.
 
 **V3 completamente cerrada y revalidada. Informes relevantes:**
@@ -18,6 +19,7 @@ Nota funcional importante:
 - ARR es anualizado. No sumar meses para calcular YTD.
 - En dashboard y desglose por linea, comparar el mes seleccionado contra mismo mes del ano anterior y diciembre anterior movil (`n-1`).
 - Dashboard ya incluye filtro de cliente para validar tendencias intermensuales de cuentas concretas.
+- El modo ARR desde inicio/cierre se controla globalmente desde el sidebar y debe respetarse en nuevas vistas analiticas.
 
 Refactors mayores pendientes de aprobacion (no implementados):
 - Separar logica de negocio de la capa HTTP en `arr.py` (propuesta A en informe)

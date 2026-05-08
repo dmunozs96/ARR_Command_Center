@@ -1,6 +1,6 @@
 # Current State
 **Ultima actualizacion:** 2026-05-08
-**Agente:** Codex (sesion 23)
+**Agente:** Codex (sesion 24)
 
 ---
 
@@ -48,6 +48,21 @@ La app calcula, visualiza y audita el ARR de isEazy.
 **Frontend lint:** `npm.cmd run lint` -> **OK**
 **Frontend build/TypeScript:** `npm.cmd run build` -> **OK**
 **E2E:** `npm.cmd run test:e2e` -> **3/3 OK**
+
+---
+
+## Lo implementado en la sesion 24 (modo ARR global)
+
+El selector `Desde inicio` / `Desde cierre` ahora esta en la barra lateral izquierda y aplica globalmente.
+
+**Cambios principales:**
+- Nuevo contexto `ARRModeProvider` con persistencia en `localStorage`.
+- Nuevo componente `ARRModeToggle` en el sidebar, bajo el selector de snapshot.
+- Dashboard, Clientes y Consultores consumen el mismo modo global.
+- `/api/arr/by-consultant` acepta `mode=from_start|from_close`, alineado con `/api/arr/summary` y `/api/arr/by-account`.
+- El drill-down de clientes dentro de Consultores tambien respeta el modo ARR global.
+
+**Resultado:** el usuario cambia una vez el criterio de ARR y todas las vistas analiticas disponibles quedan sincronizadas.
 
 ---
 

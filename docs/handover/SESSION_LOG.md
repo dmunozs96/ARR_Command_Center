@@ -1,5 +1,37 @@
 # Session Log
 
+## 2026-05-08 - Sesion 24 (Modo ARR global en sidebar)
+**Agente:** Codex
+
+### Trabajo realizado
+
+El selector `Desde inicio` / `Desde cierre` deja de ser un control local del dashboard y pasa a ser un control global de aplicacion.
+
+**Cambios implementados:**
+- Nuevo `ARRModeProvider` en `app/frontend/lib/arr-mode-context.tsx`, con persistencia en `localStorage`.
+- Nuevo componente `ARRModeToggle` renderizado en la barra lateral izquierda, debajo del selector de snapshot.
+- `app/page.tsx`: elimina estado local `arrMode` y consume el modo global.
+- `/clients`: consume el modo global y lo envia a `/api/arr/by-account`.
+- `/consultants`: consume el modo global para el ranking de consultores y para el drill-down de clientes por consultor/BL.
+- `app/backend/api/routes/arr.py`: `GET /api/arr/by-consultant` acepta `mode=from_start|from_close` y aplica la misma logica de fecha efectiva que summary/by-account.
+- `app/frontend/lib/api.ts`: `getARRByConsultant` acepta `mode`.
+
+### Verificacion
+- `pytest -q` -> **63/63 OK**
+- `npx.cmd tsc --noEmit` -> **OK**
+- `npm.cmd run lint` -> **OK**
+- `npm.cmd run build` -> **OK**
+- `npm.cmd run test:e2e` -> **3/3 OK**
+
+### Commits y push
+- Commit: `Make ARR mode global across analytics tabs`
+- Push a origin/main
+
+**Instruccion para la proxima conversacion:**
+Di al agente: "Lee CURRENT_STATE.md y NEXT_STEPS.md. El modo ARR desde inicio/cierre es global desde el sidebar y afecta dashboard, clientes y consultores."
+
+---
+
 ## 2026-05-08 - Sesion 23 (Semantica ARR puntual, filtro cliente y hardening Stripe)
 **Agente:** Codex
 

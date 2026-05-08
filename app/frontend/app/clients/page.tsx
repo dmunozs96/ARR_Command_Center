@@ -6,6 +6,7 @@ import { Building2, CalendarRange, Layers3 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useSnapshotContext } from "@/lib/snapshot-context";
 import { useBLGrouping } from "@/lib/bl-grouping-context";
+import { useARRMode } from "@/lib/arr-mode-context";
 import { ClientARRTable } from "@/components/ClientARRTable";
 import { ClientARRChart } from "@/components/ClientARRChart";
 import { TopAccountsLinesChart } from "@/components/TopAccountsLinesChart";
@@ -41,6 +42,7 @@ const DEFAULT_MONTH_TO = `${new Date().toISOString().slice(0, 7)}-01`;
 export default function ClientsPage() {
   const { activeSnapshot } = useSnapshotContext();
   const { combineLmsAio, combineAuthor } = useBLGrouping();
+  const { arrMode } = useARRMode();
 
   const [selectedBL, setSelectedBL] = useState("");
   const [monthFrom, setMonthFrom] = useState(DEFAULT_MONTH_FROM);
@@ -51,13 +53,14 @@ export default function ClientsPage() {
   const productTypesParam = selectedOption.queryValues.join(",") || undefined;
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["arr-by-account", activeSnapshot?.id, productTypesParam, monthFrom, monthTo],
+    queryKey: ["arr-by-account", activeSnapshot?.id, productTypesParam, monthFrom, monthTo, arrMode],
     queryFn: () =>
       api.getARRByAccount({
         snapshot_id: activeSnapshot?.id,
         product_types: productTypesParam,
         month_from: monthFrom,
         month_to: monthTo,
+        mode: arrMode,
         limit: 20,
       }),
     enabled: !!activeSnapshot,

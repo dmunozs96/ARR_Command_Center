@@ -15,6 +15,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { SnapshotSelector } from "@/components/SnapshotSelector";
+import { ARRModeToggle } from "@/components/ARRModeToggle";
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -53,8 +54,9 @@ export function Sidebar() {
       </div>
 
       <SnapshotSelector className="mt-5" />
+      <ARRModeToggle className="mt-4" />
 
-      <nav className="mt-6 flex-1 space-y-1">
+      <nav className="mt-5 flex-1 space-y-1">
         {NAV.map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;

@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { getAPIErrorMessage } from "@/lib/api-errors";
 import { useSnapshotContext } from "@/lib/snapshot-context";
+import { useARRMode, type ARRMode } from "@/lib/arr-mode-context";
 import { currentMonthStart, formatEUR, formatMonth, formatPct, toFiniteNumber } from "@/lib/utils";
 import type { ConsultantARR } from "@/lib/types";
 
@@ -64,14 +65,16 @@ function BLClientsLevel({
   consultantName,
   productType,
   month,
+  mode,
 }: {
   snapshotId: string | undefined;
   consultantName: string;
   productType: string;
   month: string;
+  mode: ARRMode;
 }) {
   const { data, isLoading } = useQuery({
-    queryKey: ["consultant-bl-clients", snapshotId, consultantName, productType, month],
+    queryKey: ["consultant-bl-clients", snapshotId, consultantName, productType, month, mode],
     queryFn: () =>
       api.getARRByAccount({
         snapshot_id: snapshotId,
@@ -79,6 +82,7 @@ function BLClientsLevel({
         product_type: productType,
         month_from: month,
         month_to: month,
+        mode,
         limit: 10,
       }),
   });
@@ -137,14 +141,16 @@ export default function ConsultantsPage() {
   // expanded BL within a consultant: "consultantName|||productType"
   const [expandedBL, setExpandedBL] = useState<string | null>(null);
   const { activeSnapshot, isLoading: snapshotsLoading } = useSnapshotContext();
+  const { arrMode } = useARRMode();
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["consultants", activeSnapshot?.id, month, country],
+    queryKey: ["consultants", activeSnapshot?.id, month, country, arrMode],
     queryFn: () =>
       api.getARRByConsultant({
         snapshot_id: activeSnapshot?.id,
         month,
         country: country || undefined,
+        mode: arrMode,
       }),
     enabled: !!activeSnapshot,
   });
@@ -369,6 +375,7 @@ export default function ConsultantsPage() {
                                   consultantName={consultant.name}
                                   productType={type}
                                   month={month}
+                                  mode={arrMode}
                                 />
                               )}
                             </Fragment>

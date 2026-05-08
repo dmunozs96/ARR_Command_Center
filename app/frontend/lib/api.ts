@@ -58,6 +58,7 @@ export const api = {
     snapshot_id?: string;
     month: string;
     country?: string;
+    mode?: "from_start" | "from_close";
   }) =>
     client
       .get<ARRByConsultantResponse>("/arr/by-consultant", { params })

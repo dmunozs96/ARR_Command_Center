@@ -73,6 +73,18 @@ def _month_range(start: date, end: date) -> List[date]:
     return months
 
 
+def _active_start_month(arr: ARRLineItem, raw: RawOpportunityLineItem, mode: str) -> date:
+    if mode == "from_close":
+        opp_type = (raw.opportunity_type or "").lower().strip()
+        if (
+            opp_type == "nuevo negocio"
+            and raw.subscription_start_date
+            and raw.close_date < raw.subscription_start_date
+        ):
+            return raw.close_date.replace(day=1)
+    return arr.start_month
+
+
 @router.get("/summary", response_model=ARRSummaryResponse)
 def arr_summary(
     snapshot_id: Optional[UUID] = Query(None),
@@ -115,15 +127,7 @@ def arr_summary(
         # All other deals use start_month (identical to from_start mode).
         active_items = []
         for arr, raw in rows:
-            opp_type = (raw.opportunity_type or "").lower().strip()
-            if (
-                opp_type == "nuevo negocio"
-                and raw.subscription_start_date
-                and raw.close_date < raw.subscription_start_date
-            ):
-                active_start = raw.close_date.replace(day=1)
-            else:
-                active_start = arr.start_month
+            active_start = _active_start_month(arr, raw, mode)
             if active_start <= arr.end_month_normalized:
                 active_items.append((
                     active_start,
@@ -277,15 +281,7 @@ def arr_by_account(
                 continue
             if product_type and arr.product_type != product_type:
                 continue
-            opp_type = (raw.opportunity_type or "").lower().strip()
-            if (
-                opp_type == "nuevo negocio"
-                and raw.subscription_start_date
-                and raw.close_date < raw.subscription_start_date
-            ):
-                active_start = raw.close_date.replace(day=1)
-            else:
-                active_start = arr.start_month
+            active_start = _active_start_month(arr, raw, mode)
             if active_start <= arr.end_month_normalized:
                 active_items.append((
                     active_start,
@@ -425,6 +421,7 @@ def arr_by_consultant(
     month: Optional[date] = Query(None),
     country: Optional[str] = Query(None),
     product_type: Optional[str] = Query(None),
+    mode: str = Query(default="from_start", description="from_start | from_close"),
     db: Session = Depends(get_db),
 ):
     sid = snapshot_id or _latest_snapshot_id(db)
@@ -448,15 +445,18 @@ def arr_by_consultant(
         .filter(ARRLineItem.snapshot_id == sid)
         .filter(ARRLineItem.is_saas == True)
         .filter(ARRLineItem.excluded_from_arr == False)
-        .filter(ARRLineItem.start_month <= month_start)
-        .filter(ARRLineItem.end_month_normalized >= month_start)
     )
     if product_type:
         q = q.filter(ARRLineItem.product_type == product_type)
     if country:
         q = q.filter(ARRLineItem.consultant_country == country)
 
-    rows = q.all()
+    rows = [
+        (arr_item, raw_item)
+        for arr_item, raw_item in q.all()
+        if _active_start_month(arr_item, raw_item, mode) <= month_start
+        and arr_item.end_month_normalized >= month_start
+    ]
 
     consultant_data: dict[str, dict] = {}
     for arr_item, raw_item in rows:
@@ -479,18 +479,17 @@ def arr_by_consultant(
     else:
         prev_month = month_start.replace(month=month_start.month - 1)
 
-    prev_q = (
-        db.query(func.sum(ARRLineItem.annualized_value), RawOpportunityLineItem.opportunity_owner)
-        .join(RawOpportunityLineItem, ARRLineItem.raw_line_item_id == RawOpportunityLineItem.id)
-        .filter(ARRLineItem.snapshot_id == sid)
-        .filter(ARRLineItem.is_saas == True)
-        .filter(ARRLineItem.excluded_from_arr == False)
-        .filter(ARRLineItem.start_month <= prev_month)
-        .filter(ARRLineItem.end_month_normalized >= prev_month)
-        .group_by(RawOpportunityLineItem.opportunity_owner)
-        .all()
-    )
-    prev_totals = {name: Decimal(str(v)) for v, name in prev_q if name}
+    prev_rows = [
+        (arr_item, raw_item)
+        for arr_item, raw_item in q.all()
+        if _active_start_month(arr_item, raw_item, mode) <= prev_month
+        and arr_item.end_month_normalized >= prev_month
+    ]
+    prev_totals: dict[str, Decimal] = {}
+    for arr_item, raw_item in prev_rows:
+        name = raw_item.opportunity_owner
+        if name:
+            prev_totals[name] = prev_totals.get(name, Decimal("0")) + Decimal(str(arr_item.annualized_value))
 
     consultants = []
     for name, data in sorted(consultant_data.items(), key=lambda x: x[1]["total"], reverse=True):

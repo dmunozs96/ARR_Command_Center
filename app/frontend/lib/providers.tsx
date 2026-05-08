@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { SnapshotProvider } from "@/lib/snapshot-context";
 import { BLGroupingProvider } from "@/lib/bl-grouping-context";
+import { ARRModeProvider } from "@/lib/arr-mode-context";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -17,7 +18,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <SnapshotProvider>
-        <BLGroupingProvider>{children}</BLGroupingProvider>
+        <ARRModeProvider>
+          <BLGroupingProvider>{children}</BLGroupingProvider>
+        </ARRModeProvider>
       </SnapshotProvider>
     </QueryClientProvider>
   );

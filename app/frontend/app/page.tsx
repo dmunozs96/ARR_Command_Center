@@ -33,6 +33,7 @@ import { SyncButton } from "@/components/SyncButton";
 import { useSnapshotContext } from "@/lib/snapshot-context";
 import { currentMonthStart, formatCompactEUR, formatDateTime, formatEUR, formatMonth, productTypeFilterParams, toFiniteNumber } from "@/lib/utils";
 import { useBLGrouping } from "@/lib/bl-grouping-context";
+import { useARRMode } from "@/lib/arr-mode-context";
 
 const DEFAULT_MONTH_FROM = "2021-01-01";
 const DEFAULT_MONTH_TO = `${new Date().toISOString().slice(0, 7)}-01`;
@@ -43,10 +44,10 @@ export default function DashboardPage() {
   const [accountName, setAccountName] = useState("");
   const [monthFrom, setMonthFrom] = useState(DEFAULT_MONTH_FROM);
   const [monthTo, setMonthTo] = useState(DEFAULT_MONTH_TO);
-  const [arrMode, setArrMode] = useState<"from_start" | "from_close">("from_start");
   const [downloadingExcel, setDownloadingExcel] = useState(false);
   const { activeSnapshot, isLoading: snapshotsLoading } = useSnapshotContext();
   const { combineLmsAio, combineAuthor } = useBLGrouping();
+  const { arrMode } = useARRMode();
   const currentMonth = currentMonthStart();
   const productTypeParams = productTypeFilterParams(productType);
   const accountProductTypeParams = productTypeFilterParams(accountProductType);
@@ -198,20 +199,6 @@ export default function DashboardPage() {
                 Vista ejecutiva para analizar revenue anualizado por periodo, linea de negocio, pais y consultor, con control de calidad de datos y conciliacion MRR.
               </p>
               <div className="mt-6 flex flex-wrap items-center gap-3">
-                <div className="inline-flex rounded-2xl bg-white p-1 text-sm font-black text-[#2f185f]">
-                  <button
-                    onClick={() => setArrMode("from_start")}
-                    className={`rounded-xl px-4 py-2 transition ${arrMode === "from_start" ? "bg-[#6d35ff] text-white shadow-lg shadow-[#6d35ff]/20" : "hover:bg-[#f4f0fb]"}`}
-                  >
-                    Desde inicio
-                  </button>
-                  <button
-                    onClick={() => setArrMode("from_close")}
-                    className={`rounded-xl px-4 py-2 transition ${arrMode === "from_close" ? "bg-[#6d35ff] text-white shadow-lg shadow-[#6d35ff]/20" : "hover:bg-[#f4f0fb]"}`}
-                  >
-                    Desde cierre
-                  </button>
-                </div>
                 <ExcelUploadButton />
                 <SyncButton />
                 <button
