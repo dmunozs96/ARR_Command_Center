@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { useSnapshotContext } from "@/lib/snapshot-context";
 import { useBLGrouping } from "@/lib/bl-grouping-context";
 import { useARRMode } from "@/lib/arr-mode-context";
+import { useAnalysisFilters } from "@/lib/analysis-filters-context";
 import { formatMonth } from "@/lib/utils";
 import { ClientARRTable } from "@/components/ClientARRTable";
 import { ClientARRChart } from "@/components/ClientARRChart";
@@ -43,6 +44,7 @@ export default function ClientsPage() {
   const { activeSnapshot } = useSnapshotContext();
   const { combineLmsAio, combineAuthor } = useBLGrouping();
   const { arrMode } = useARRMode();
+  const { monthFrom, monthTo } = useAnalysisFilters();
 
   const [selectedBL, setSelectedBL] = useState("");
   const [periodSelection, setPeriodSelection] = useState<{ sourceKey: string; months: string[] }>({
@@ -78,8 +80,10 @@ export default function ClientsPage() {
       const valid = periodSelection.months.filter((month) => availableMonths.includes(month));
       if (valid.length > 0) return valid;
     }
-    return availableMonths.slice(-6);
-  }, [availableMonths, availableMonthsKey, periodSelection]);
+    // Default: months within DESDE–HASTA from global analysis filters
+    const filtered = availableMonths.filter((m) => m >= monthFrom && m <= monthTo);
+    return filtered.length > 0 ? filtered : availableMonths.slice(-6);
+  }, [availableMonths, availableMonthsKey, periodSelection, monthFrom, monthTo]);
 
   const selectedMonthsParam = selectedMonths.join(",");
 
@@ -103,6 +107,19 @@ export default function ClientsPage() {
         : selectedMonths.filter((m) => m !== month)
       : [...selectedMonths, month].sort();
     setPeriodSelection({ sourceKey: availableMonthsKey, months });
+  }
+
+  function selectLTM() {
+    // Last 12 months ending at monthTo (from global analysis filter)
+    const toDate = new Date(monthTo);
+    const fromDate = new Date(monthTo);
+    fromDate.setMonth(fromDate.getMonth() - 11);
+    const fromStr = fromDate.toISOString().slice(0, 10);
+    const ltmMonths = availableMonths.filter((m) => m >= fromStr && m <= monthTo);
+    setPeriodSelection({
+      sourceKey: availableMonthsKey,
+      months: ltmMonths.length > 0 ? ltmMonths : availableMonths.slice(-12),
+    });
   }
 
   function selectMarches() {
@@ -170,6 +187,14 @@ export default function ClientsPage() {
                       className="rounded-xl bg-[#efe9ff] px-3 py-2 text-xs font-black text-[#2f185f] transition hover:bg-[#6d35ff] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Ultimos 6
+                    </button>
+                    <button
+                      type="button"
+                      onClick={selectLTM}
+                      disabled={availableMonths.length === 0}
+                      className="rounded-xl bg-[#efe9ff] px-3 py-2 text-xs font-black text-[#2f185f] transition hover:bg-[#6d35ff] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      LTM
                     </button>
                     <button
                       type="button"

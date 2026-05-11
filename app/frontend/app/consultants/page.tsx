@@ -6,7 +6,8 @@ import { api } from "@/lib/api";
 import { getAPIErrorMessage } from "@/lib/api-errors";
 import { useSnapshotContext } from "@/lib/snapshot-context";
 import { useARRMode, type ARRMode } from "@/lib/arr-mode-context";
-import { currentMonthStart, formatEUR, formatMonth, formatPct, toFiniteNumber } from "@/lib/utils";
+import { useAnalysisFilters } from "@/lib/analysis-filters-context";
+import { formatEUR, formatMonth, formatPct, toFiniteNumber } from "@/lib/utils";
 import type { ConsultantARR } from "@/lib/types";
 
 function escapeCSV(value: string | number | null | undefined): string {
@@ -133,7 +134,6 @@ function BLClientsLevel({
 }
 
 export default function ConsultantsPage() {
-  const [month] = useState(currentMonthStart);
   const [country, setCountry] = useState("");
   const [sortBy, setSortBy] = useState<"arr_total" | "name">("arr_total");
   // expanded consultant row
@@ -142,15 +142,18 @@ export default function ConsultantsPage() {
   const [expandedBL, setExpandedBL] = useState<string | null>(null);
   const { activeSnapshot, isLoading: snapshotsLoading } = useSnapshotContext();
   const { arrMode } = useARRMode();
+  const { productType, accountName, monthTo } = useAnalysisFilters();
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["consultants", activeSnapshot?.id, month, country, arrMode],
+    queryKey: ["consultants", activeSnapshot?.id, monthTo, country, arrMode, productType, accountName],
     queryFn: () =>
       api.getARRByConsultant({
         snapshot_id: activeSnapshot?.id,
-        month,
+        month: monthTo,
         country: country || undefined,
         mode: arrMode,
+        product_type: productType || undefined,
+        account_name: accountName || undefined,
       }),
     enabled: !!activeSnapshot,
   });
@@ -178,8 +181,8 @@ export default function ConsultantsPage() {
     if (consultants.length === 0) return;
     const countryLabel = country || "todos";
     downloadCSV(
-      `consultores_${month}_${countryLabel}.csv`,
-      buildConsultantsCSVRows(consultants, month, totalARR),
+      `consultores_${monthTo}_${countryLabel}.csv`,
+      buildConsultantsCSVRows(consultants, monthTo, totalARR),
     );
   }
 
@@ -199,7 +202,7 @@ export default function ConsultantsPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">ARR por Consultor</h1>
           <p className="mt-0.5 text-xs text-gray-500">
-            Snapshot activo aplicado a {formatMonth(month)}
+            Snapshot activo aplicado a {formatMonth(monthTo)}
           </p>
         </div>
 

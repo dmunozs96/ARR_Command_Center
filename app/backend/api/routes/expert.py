@@ -590,13 +590,11 @@ def expert_chat(
     messages.append({
         "role": "user",
         "content": (
-            f"Contexto de sesion: fecha actual {date.today().isoformat()}; "
+            f"[Contexto de sesion: fecha actual {date.today().isoformat()}; "
             f"snapshot activo {snapshot_id}; combine_lms_aio={request.combine_lms_aio}; "
-            f"combine_author={request.combine_author}. Usa este contexto para interpretar "
-            "fechas relativas y agrupaciones, sin responder todavia."
+            f"combine_author={request.combine_author}]\n\n{message}"
         ),
     })
-    messages.append({"role": "user", "content": message})
 
     client = anthropic.Anthropic(api_key=api_key)
     model = "claude-sonnet-4-6"
