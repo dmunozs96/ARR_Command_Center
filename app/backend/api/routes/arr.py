@@ -544,7 +544,7 @@ def arr_by_consultant(
             .first()
         )
         if stripe_row and float(stripe_row.mrr) > 0:
-            stripe_arr = Decimal(str(stripe_row.mrr)) * 12
+            stripe_arr = Decimal(str(stripe_row.mrr))
             consultants.append(
                 ConsultantARR(
                     name="[Author Online Stripe]",
