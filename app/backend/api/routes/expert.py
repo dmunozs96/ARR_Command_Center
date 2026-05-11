@@ -600,58 +600,76 @@ def expert_chat(
     model = "claude-sonnet-4-6"
     total_tokens = 0
 
-    # Agentic loop: Claude can call tools multiple times before final answer
-    while True:
-        response = client.messages.create(
+    try:
+        # Agentic loop: Claude can call tools multiple times before final answer
+        iterations = 0
+        while iterations < 10:
+            iterations += 1
+            response = client.messages.create(
+                model=model,
+                max_tokens=4096,
+                system=SYSTEM_PROMPT,
+                tools=EXPERT_TOOLS,
+                messages=messages,
+            )
+            total_tokens += response.usage.input_tokens + response.usage.output_tokens
+
+            if response.stop_reason == "tool_use":
+                # Process all tool calls in this response
+                tool_results = []
+                assistant_content = response.content
+
+                for block in response.content:
+                    if block.type == "tool_use":
+                        try:
+                            result = _dispatch_tool(block.name, block.input, db, snapshot_id)
+                        except Exception as tool_exc:
+                            result = {"error": f"Tool '{block.name}' failed: {str(tool_exc)}"}
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": json.dumps(result, default=str),
+                        })
+
+                # Add assistant message with tool calls, then tool results
+                messages.append({"role": "assistant", "content": assistant_content})
+                messages.append({"role": "user", "content": tool_results})
+
+            else:
+                # Final response — extract text and parse JSON
+                final_text = ""
+                for block in response.content:
+                    if hasattr(block, "text"):
+                        final_text = block.text
+                        break
+
+                # Parse the JSON response from Claude
+                try:
+                    # Strip markdown code fences if present
+                    cleaned = final_text.strip()
+                    if cleaned.startswith("```"):
+                        cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+                        cleaned = cleaned.rsplit("```", 1)[0]
+                    parsed = json.loads(cleaned)
+                    blocks_data = parsed.get("blocks", [])
+                    # Coerce table rows to strings (Claude sometimes returns numbers)
+                    for block in blocks_data:
+                        if block.get("type") == "table" and "rows" in block:
+                            block["rows"] = [[str(cell) for cell in row] for row in block["rows"]]
+                except (json.JSONDecodeError, KeyError):
+                    blocks_data = [{"type": "text", "content": final_text}]
+
+                blocks = [ExpertResponseBlock(**b) for b in blocks_data]
+                return ExpertChatResponse(blocks=blocks, tokens_used=total_tokens, model=model)
+
+        # Exceeded max iterations
+        return ExpertChatResponse(
+            blocks=[{"type": "text", "content": "La consulta requirió demasiados pasos. Intenta reformularla de forma más concreta."}],
+            tokens_used=total_tokens,
             model=model,
-            max_tokens=4096,
-            system=SYSTEM_PROMPT,
-            tools=EXPERT_TOOLS,
-            messages=messages,
         )
-        total_tokens += response.usage.input_tokens + response.usage.output_tokens
 
-        if response.stop_reason == "tool_use":
-            # Process all tool calls in this response
-            tool_results = []
-            assistant_content = response.content
-
-            for block in response.content:
-                if block.type == "tool_use":
-                    result = _dispatch_tool(block.name, block.input, db, snapshot_id)
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": json.dumps(result, default=str),
-                    })
-
-            # Add assistant message with tool calls, then tool results
-            messages.append({"role": "assistant", "content": assistant_content})
-            messages.append({"role": "user", "content": tool_results})
-
-        else:
-            # Final response — extract text and parse JSON
-            final_text = ""
-            for block in response.content:
-                if hasattr(block, "text"):
-                    final_text = block.text
-                    break
-
-            # Parse the JSON response from Claude
-            try:
-                # Strip markdown code fences if present
-                cleaned = final_text.strip()
-                if cleaned.startswith("```"):
-                    cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
-                    cleaned = cleaned.rsplit("```", 1)[0]
-                parsed = json.loads(cleaned)
-                blocks_data = parsed.get("blocks", [])
-                # Coerce table rows to strings (Claude sometimes returns numbers)
-                for block in blocks_data:
-                    if block.get("type") == "table" and "rows" in block:
-                        block["rows"] = [[str(cell) for cell in row] for row in block["rows"]]
-            except (json.JSONDecodeError, KeyError):
-                blocks_data = [{"type": "text", "content": final_text}]
-
-            blocks = [ExpertResponseBlock(**b) for b in blocks_data]
-            return ExpertChatResponse(blocks=blocks, tokens_used=total_tokens, model=model)
+    except anthropic.APIStatusError as api_err:
+        raise HTTPException(status_code=502, detail=f"Error del API de IA: {api_err.message}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Error interno del experto: {str(exc)}")

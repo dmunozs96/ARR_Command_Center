@@ -534,6 +534,28 @@ def arr_by_consultant(
             )
         )
 
+    # Include Stripe/Author Online ARR as a synthetic entry (no consultant assigned)
+    # so the total matches the main dashboard, which also includes Stripe.
+    include_stripe = not product_type and not product_types
+    if include_stripe:
+        stripe_row = (
+            db.query(SnapshotStripeMRR)
+            .filter(SnapshotStripeMRR.snapshot_id == sid, SnapshotStripeMRR.month == month_start)
+            .first()
+        )
+        if stripe_row and float(stripe_row.mrr) > 0:
+            stripe_arr = Decimal(str(stripe_row.mrr)) * 12
+            consultants.append(
+                ConsultantARR(
+                    name="[Author Online Stripe]",
+                    country="—",
+                    arr_total=stripe_arr,
+                    by_product_type={"Author Online": stripe_arr},
+                    mom_change=None,
+                    mom_pct=None,
+                )
+            )
+
     return ARRByConsultantResponse(snapshot_id=sid, month=month_start, consultants=consultants)
 
 
