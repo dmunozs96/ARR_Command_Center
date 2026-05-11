@@ -377,7 +377,7 @@ export default function ConsultantsPage() {
                                   snapshotId={activeSnapshot?.id}
                                   consultantName={consultant.name}
                                   productType={type}
-                                  month={month}
+                                  month={monthTo}
                                   mode={arrMode}
                                 />
                               )}
