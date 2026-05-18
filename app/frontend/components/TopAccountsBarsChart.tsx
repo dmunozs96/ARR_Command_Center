@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Bar,
   BarChart,
@@ -20,6 +21,8 @@ interface Props {
 }
 
 export function TopAccountsBarsChart({ data, isLoading }: Props) {
+  const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
+
   if (isLoading) {
     return (
       <div className="flex h-[380px] items-center justify-center rounded-3xl border border-[#e7e1f2] bg-white p-5 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
@@ -48,6 +51,10 @@ export function TopAccountsBarsChart({ data, isLoading }: Props) {
     });
     return point;
   });
+
+  function toggleAccount(accountName: string) {
+    setSelectedAccount((current) => (current === accountName ? null : accountName));
+  }
 
   return (
     <section className="rounded-3xl border border-[#e7e1f2] bg-white p-5 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
@@ -85,13 +92,28 @@ export function TopAccountsBarsChart({ data, isLoading }: Props) {
               overflowY: "auto",
             }}
           />
-          <Legend iconType="circle" wrapperStyle={{ fontSize: 11, fontWeight: 600, paddingTop: 12 }} />
+          <Legend
+            iconType="circle"
+            onClick={(entry) => {
+              const key = entry.dataKey;
+              if (typeof key === "string" || typeof key === "number") {
+                toggleAccount(String(key));
+              }
+            }}
+            wrapperStyle={{ cursor: "pointer", fontSize: 11, fontWeight: 600, paddingTop: 12 }}
+          />
           {visibleAccounts.map((acc, i) => (
             <Bar
               key={acc.account_name}
               dataKey={acc.account_name}
               stackId="a"
-              fill={ACCOUNT_COLORS[i] ?? "#9ca3af"}
+              fill={
+                selectedAccount && selectedAccount !== acc.account_name
+                  ? "#d1d5db"
+                  : ACCOUNT_COLORS[i] ?? "#9ca3af"
+              }
+              fillOpacity={selectedAccount && selectedAccount !== acc.account_name ? 0.35 : 1}
+              onClick={() => toggleAccount(acc.account_name)}
             />
           ))}
         </BarChart>

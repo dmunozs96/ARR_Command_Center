@@ -27,13 +27,14 @@ function MRRModal({
   onClose: () => void;
 }) {
   const [mrr, setMrr] = useState(row.mrr != null ? String(row.mrr) : "");
+  const [month, setMonth] = useState(row.month.slice(0, 7));
   const qc = useQueryClient();
 
   const mutation = useMutation({
     mutationFn: () =>
       api.upsertStripeMRR({
         snapshot_id: snapshotId,
-        month: row.month,
+        month: `${month}-01`,
         mrr: Number(mrr),
         entered_by: "UI",
       }),
@@ -46,7 +47,16 @@ function MRRModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
       <div className="w-80 space-y-4 rounded-xl bg-white p-6 shadow-xl">
-        <h3 className="font-semibold text-gray-900">ARR Stripe - {formatMonthLabel(row.month)}</h3>
+        <h3 className="font-semibold text-gray-900">ARR Stripe - {formatMonthLabel(`${month}-01`)}</h3>
+        <div>
+          <label className="mb-1 block text-xs text-gray-500">Mes</label>
+          <input
+            type="month"
+            value={month}
+            onChange={(event) => setMonth(event.target.value)}
+            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+        </div>
         <div>
           <label className="mb-1 block text-xs text-gray-500">ARR (EUR)</label>
           <input
@@ -72,7 +82,7 @@ function MRRModal({
           </button>
           <button
             onClick={() => mutation.mutate()}
-            disabled={!mrr || mutation.isPending}
+            disabled={!month || !mrr || mutation.isPending}
             className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
           >
             {mutation.isPending ? "Guardando..." : "Guardar"}
@@ -83,12 +93,16 @@ function MRRModal({
   );
 }
 
-function downloadTemplate() {
+function downloadTemplate(rows: StripeMRROut[]) {
   const wb = XLSX.utils.book_new();
   const data = [
     ["Mes (YYYY-MM-DD)", "ARR (EUR)"],
-    ["2024-01-01", 114000],
-    ["2024-02-01", 122400],
+    ...(rows.length > 0
+      ? rows.map((row) => [row.month, row.mrr])
+      : [
+          ["2024-01-01", 114000],
+          ["2024-02-01", 122400],
+        ]),
   ];
   const ws = XLSX.utils.aoa_to_sheet(data);
   ws["!cols"] = [{ wch: 20 }, { wch: 14 }];
@@ -254,7 +268,7 @@ export default function StripePage() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={downloadTemplate}
+            onClick={() => downloadTemplate(rows)}
             className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
           >
             Descargar plantilla

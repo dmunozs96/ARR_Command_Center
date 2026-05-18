@@ -1,45 +1,92 @@
-"""
-Builds an xlsx export for a snapshot with 5 sheets:
-  1. Resumen mensual
-  2. Por cliente
-  3. Por consultor
-  4. Por pais
-  5. Lineas brutas
-"""
+"""Build a pivot-friendly xlsx export for a calculated ARR snapshot."""
 
 import io
-from datetime import date
+from datetime import date, timedelta
+from decimal import Decimal
 from uuid import UUID
 
 import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from sqlalchemy.orm import Session
 
-from app.backend.db.models import ARRLineItem, ARRMonthlySummary, ConsultantCountry, RawOpportunityLineItem, Snapshot
+from app.backend.db.models import ARRLineItem, RawOpportunityLineItem, Snapshot, SnapshotStripeMRR
 
 
 _HEADER_FILL = PatternFill(start_color="2F185F", end_color="2F185F", fill_type="solid")
 _HEADER_FONT = Font(color="FFFFFF", bold=True, size=10)
 _HEADER_ALIGN = Alignment(horizontal="center", vertical="center", wrap_text=True)
+_DATE_FORMAT = "yyyy-mm-dd"
+_MONTH_FORMAT = "yyyy-mm"
+_MONEY_FORMAT = '#,##0.00 "EUR"'
 
 
 def _write_headers(ws, headers: list[str]) -> None:
     ws.append(headers)
     for col, _ in enumerate(headers, start=1):
-        cell = ws.cell(row=ws.max_row, column=col)
+        cell = ws.cell(row=1, column=col)
         cell.fill = _HEADER_FILL
         cell.font = _HEADER_FONT
         cell.alignment = _HEADER_ALIGN
-    ws.row_dimensions[ws.max_row].height = 22
+    ws.row_dimensions[1].height = 24
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = ws.dimensions
 
 
 def _autofit(ws) -> None:
     for col in ws.columns:
-        max_len = max(
-            (len(str(cell.value)) if cell.value is not None else 0) for cell in col
-        )
-        ws.column_dimensions[get_column_letter(col[0].column)].width = min(max_len + 4, 40)
+        max_len = max((len(str(cell.value)) if cell.value is not None else 0) for cell in col)
+        ws.column_dimensions[get_column_letter(col[0].column)].width = min(max_len + 3, 42)
+
+
+def _last_day_of_month(first_day: date) -> date:
+    if first_day.month == 12:
+        return first_day.replace(day=31)
+    return first_day.replace(month=first_day.month + 1) - timedelta(days=1)
+
+
+def _next_month(first_day: date) -> date:
+    if first_day.month == 12:
+        return first_day.replace(year=first_day.year + 1, month=1)
+    return first_day.replace(month=first_day.month + 1)
+
+
+def _month_range(start: date, end: date) -> list[date]:
+    months: list[date] = []
+    current = start.replace(day=1)
+    end_first = end.replace(day=1)
+    while current <= end_first:
+        months.append(current)
+        current = _next_month(current)
+    return months
+
+
+def _active_start_month(arr: ARRLineItem, raw: RawOpportunityLineItem, mode: str) -> date:
+    if mode == "from_close":
+        opp_type = (raw.opportunity_type or "").lower().strip()
+        if (
+            opp_type == "nuevo negocio"
+            and raw.subscription_start_date
+            and raw.close_date < raw.subscription_start_date
+        ):
+            return raw.close_date.replace(day=1)
+    return arr.start_month
+
+
+def _apply_formats(ws) -> None:
+    date_headers = {"mes_calculo", "fecha_desde_arr", "fecha_hasta_arr", "fecha_inicio_bd", "fecha_fin_bd", "fecha_cierre"}
+    money_headers = {"arr_eur", "precio_real"}
+    headers = {ws.cell(row=1, column=col).value: col for col in range(1, ws.max_column + 1)}
+    for header in date_headers:
+        col = headers.get(header)
+        if col:
+            for row in range(2, ws.max_row + 1):
+                ws.cell(row=row, column=col).number_format = _DATE_FORMAT if header != "mes_calculo" else _MONTH_FORMAT
+    for header in money_headers:
+        col = headers.get(header)
+        if col:
+            for row in range(2, ws.max_row + 1):
+                ws.cell(row=row, column=col).number_format = _MONEY_FORMAT
 
 
 def build_snapshot_excel(snapshot_id: UUID, db: Session) -> bytes:
@@ -48,13 +95,10 @@ def build_snapshot_excel(snapshot_id: UUID, db: Session) -> bytes:
         raise ValueError(f"Snapshot {snapshot_id} not found")
 
     wb = openpyxl.Workbook()
-    wb.remove(wb.active)  # remove default sheet
+    wb.remove(wb.active)
 
-    _sheet_resumen(wb, snapshot_id, db)
-    _sheet_por_cliente(wb, snapshot_id, db)
-    _sheet_por_consultor(wb, snapshot_id, db)
-    _sheet_por_pais(wb, snapshot_id, db)
-    _sheet_lineas_brutas(wb, snapshot_id, db)
+    _sheet_calculated_arr(wb, snapshot_id, db, mode="from_start", sheet_name="Desde inicio")
+    _sheet_calculated_arr(wb, snapshot_id, db, mode="from_close", sheet_name="Desde cierre")
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -62,181 +106,108 @@ def build_snapshot_excel(snapshot_id: UUID, db: Session) -> bytes:
     return buf.read()
 
 
-# ── Sheet 1: Resumen mensual ──────────────────────────────────────────────────
-
-def _sheet_resumen(wb, snapshot_id: UUID, db: Session) -> None:
-    ws = wb.create_sheet("Resumen mensual")
-    _write_headers(ws, ["Mes", "Tipo de producto", "ARR (EUR)"])
-
-    rows = (
-        db.query(ARRMonthlySummary)
-        .filter(ARRMonthlySummary.snapshot_id == snapshot_id)
-        .order_by(ARRMonthlySummary.month, ARRMonthlySummary.product_type)
-        .all()
-    )
-    for r in rows:
-        ws.append([
-            r.month.strftime("%Y-%m") if r.month else None,
-            r.product_type,
-            float(r.arr_value) if r.arr_value is not None else 0,
-        ])
-
-    _autofit(ws)
-
-
-# ── Sheet 2: Por cliente ──────────────────────────────────────────────────────
-
-def _sheet_por_cliente(wb, snapshot_id: UUID, db: Session) -> None:
-    ws = wb.create_sheet("Por cliente")
-    _write_headers(ws, ["Mes", "Cliente", "Linea de negocio", "ARR (EUR)"])
-
-    rows = (
-        db.query(
-            ARRLineItem.start_month,
-            RawOpportunityLineItem.account_name,
-            ARRLineItem.product_type,
-            ARRLineItem.annualized_value,
-        )
-        .join(RawOpportunityLineItem, ARRLineItem.raw_line_item_id == RawOpportunityLineItem.id)
-        .filter(
-            ARRLineItem.snapshot_id == snapshot_id,
-            ARRLineItem.is_saas == True,
-            ARRLineItem.excluded_from_arr == False,
-        )
-        .order_by(ARRLineItem.start_month, RawOpportunityLineItem.account_name)
-        .all()
-    )
-
-    agg: dict[tuple, float] = {}
-    for month, account, ptype, arr_val in rows:
-        key = (month, account or "Sin cuenta", ptype or "Unknown")
-        agg[key] = agg.get(key, 0.0) + float(arr_val or 0)
-
-    for (month, account, ptype), arr_val in sorted(agg.items()):
-        ws.append([
-            month.strftime("%Y-%m") if isinstance(month, date) else str(month),
-            account,
-            ptype,
-            arr_val,
-        ])
-
-    _autofit(ws)
-
-
-# ── Sheet 3: Por consultor ────────────────────────────────────────────────────
-
-def _sheet_por_consultor(wb, snapshot_id: UUID, db: Session) -> None:
-    ws = wb.create_sheet("Por consultor")
-    _write_headers(ws, ["Mes", "Consultor", "Linea de negocio", "ARR (EUR)"])
-
-    rows = (
-        db.query(
-            ARRLineItem.start_month,
-            RawOpportunityLineItem.opportunity_owner,
-            ARRLineItem.product_type,
-            ARRLineItem.annualized_value,
-        )
-        .join(RawOpportunityLineItem, ARRLineItem.raw_line_item_id == RawOpportunityLineItem.id)
-        .filter(
-            ARRLineItem.snapshot_id == snapshot_id,
-            ARRLineItem.is_saas == True,
-            ARRLineItem.excluded_from_arr == False,
-        )
-        .order_by(ARRLineItem.start_month, RawOpportunityLineItem.opportunity_owner)
-        .all()
-    )
-
-    agg: dict[tuple, float] = {}
-    for month, consultant, ptype, arr_val in rows:
-        key = (month, consultant or "Sin consultor", ptype or "Unknown")
-        agg[key] = agg.get(key, 0.0) + float(arr_val or 0)
-
-    for (month, consultant, ptype), arr_val in sorted(agg.items()):
-        ws.append([
-            month.strftime("%Y-%m") if isinstance(month, date) else str(month),
-            consultant,
-            ptype,
-            arr_val,
-        ])
-
-    _autofit(ws)
-
-
-# ── Sheet 4: Por país ─────────────────────────────────────────────────────────
-
-def _sheet_por_pais(wb, snapshot_id: UUID, db: Session) -> None:
-    ws = wb.create_sheet("Por pais")
-    _write_headers(ws, ["Mes", "Pais", "ARR (EUR)"])
-
-    rows = (
-        db.query(
-            ARRLineItem.start_month,
-            ARRLineItem.consultant_country,
-            ARRLineItem.annualized_value,
-        )
-        .filter(
-            ARRLineItem.snapshot_id == snapshot_id,
-            ARRLineItem.is_saas == True,
-            ARRLineItem.excluded_from_arr == False,
-        )
-        .order_by(ARRLineItem.start_month, ARRLineItem.consultant_country)
-        .all()
-    )
-
-    agg: dict[tuple, float] = {}
-    for month, country, arr_val in rows:
-        key = (month, country or "Sin pais")
-        agg[key] = agg.get(key, 0.0) + float(arr_val or 0)
-
-    for (month, country), arr_val in sorted(agg.items()):
-        ws.append([
-            month.strftime("%Y-%m") if isinstance(month, date) else str(month),
-            country,
-            arr_val,
-        ])
-
-    _autofit(ws)
-
-
-# ── Sheet 5: Líneas brutas ────────────────────────────────────────────────────
-
-def _sheet_lineas_brutas(wb, snapshot_id: UUID, db: Session) -> None:
-    ws = wb.create_sheet("Lineas brutas")
-    _write_headers(ws, [
-        "opportunity_id",
-        "account_name",
-        "product_name",
-        "product_type",
-        "consultant_name",
-        "start_date",
-        "end_date",
-        "real_price",
+def _sheet_calculated_arr(wb, snapshot_id: UUID, db: Session, mode: str, sheet_name: str) -> None:
+    ws = wb.create_sheet(sheet_name)
+    headers = [
+        "metodologia",
+        "mes_calculo",
+        "source",
+        "cliente",
+        "consultor",
+        "pais_consultor",
+        "linea_negocio",
+        "producto",
+        "oportunidad",
+        "tipo_oportunidad",
+        "fecha_desde_arr",
+        "fecha_hasta_arr",
+        "fecha_inicio_bd",
+        "fecha_fin_bd",
+        "fecha_cierre",
+        "arr_eur",
+        "precio_real",
         "service_days",
-        "annualized_value",
-        "excluded_from_arr",
-    ])
+        "sf_opportunity_id",
+        "sf_line_item_id",
+        "arr_line_item_id",
+    ]
+    _write_headers(ws, headers)
 
     rows = (
         db.query(ARRLineItem, RawOpportunityLineItem)
         .join(RawOpportunityLineItem, ARRLineItem.raw_line_item_id == RawOpportunityLineItem.id)
-        .filter(ARRLineItem.snapshot_id == snapshot_id)
+        .filter(
+            ARRLineItem.snapshot_id == snapshot_id,
+            ARRLineItem.is_saas == True,
+            ARRLineItem.excluded_from_arr == False,
+        )
         .order_by(RawOpportunityLineItem.account_name, ARRLineItem.start_month)
         .all()
     )
 
+    method_label = "Desde fecha inicio" if mode == "from_start" else "Desde fecha cierre"
     for arr, raw in rows:
+        active_start = _active_start_month(arr, raw, mode)
+        active_end = arr.end_month_normalized
+        if active_start > active_end:
+            continue
+        for month in _month_range(active_start, active_end):
+            ws.append([
+                method_label,
+                month,
+                "Salesforce",
+                raw.account_name or "Sin cuenta",
+                raw.opportunity_owner or "Sin consultor",
+                arr.consultant_country or "Sin pais",
+                arr.product_type or "Unknown",
+                raw.product_name,
+                raw.opportunity_name,
+                raw.opportunity_type,
+                active_start,
+                active_end,
+                arr.effective_start_date,
+                arr.effective_end_date,
+                raw.close_date,
+                float(Decimal(str(arr.annualized_value or 0))),
+                float(Decimal(str(arr.real_price or 0))),
+                arr.service_days,
+                raw.sf_opportunity_id,
+                raw.sf_line_item_id,
+                str(arr.id),
+            ])
+
+    stripe_rows = (
+        db.query(SnapshotStripeMRR)
+        .filter(SnapshotStripeMRR.snapshot_id == snapshot_id)
+        .order_by(SnapshotStripeMRR.month)
+        .all()
+    )
+    for stripe in stripe_rows:
+        month = stripe.month.replace(day=1)
         ws.append([
-            raw.sf_opportunity_id,
-            raw.account_name,
-            raw.product_name,
-            arr.product_type,
-            raw.opportunity_owner,
-            arr.effective_start_date.isoformat() if arr.effective_start_date else None,
-            arr.effective_end_date.isoformat() if arr.effective_end_date else None,
-            float(arr.real_price) if arr.real_price is not None else 0,
-            arr.service_days,
-            float(arr.annualized_value) if arr.annualized_value is not None else 0,
-            arr.excluded_from_arr,
+            method_label,
+            month,
+            "Stripe",
+            "Author Online Stripe",
+            "[Author Online Stripe]",
+            "-",
+            "Author Online",
+            "Author Online Stripe",
+            "Author Online Stripe",
+            None,
+            month,
+            month,
+            month,
+            _last_day_of_month(month),
+            None,
+            float(Decimal(str(stripe.mrr or 0))),
+            float(Decimal(str(stripe.mrr or 0))),
+            None,
+            None,
+            None,
+            f"stripe-{month.isoformat()}",
         ])
 
+    ws.auto_filter.ref = ws.dimensions
+    _apply_formats(ws)
     _autofit(ws)
