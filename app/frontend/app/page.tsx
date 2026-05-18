@@ -34,6 +34,7 @@ import { useAnalysisFilters } from "@/lib/analysis-filters-context";
 
 export default function DashboardPage() {
   const [downloadingExcel, setDownloadingExcel] = useState(false);
+  const [downloadExcelError, setDownloadExcelError] = useState<string | null>(null);
   const { activeSnapshot, isLoading: snapshotsLoading } = useSnapshotContext();
   const { arrMode } = useARRMode();
   const { productType, accountName, monthFrom, monthTo } = useAnalysisFilters();
@@ -177,8 +178,11 @@ export default function DashboardPage() {
                   onClick={async () => {
                     if (!activeSnapshot) return;
                     setDownloadingExcel(true);
+                    setDownloadExcelError(null);
                     try {
                       await api.downloadSnapshotExcel(activeSnapshot.id);
+                    } catch (error) {
+                      setDownloadExcelError(getAPIErrorMessage(error, "No se pudo descargar el snapshot."));
                     } finally {
                       setDownloadingExcel(false);
                     }
@@ -193,6 +197,11 @@ export default function DashboardPage() {
                   Descargar Snapshot
                 </button>
               </div>
+              {downloadExcelError && (
+                <p className="mt-3 max-w-2xl rounded-2xl border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-800">
+                  {downloadExcelError}
+                </p>
+              )}
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">

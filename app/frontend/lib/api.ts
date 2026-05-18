@@ -180,11 +180,22 @@ export const api = {
       params: { snapshot_id: snapshotId },
       responseType: "blob",
     });
-    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const contentDisposition = response.headers["content-disposition"];
+    const filenameMatch =
+      typeof contentDisposition === "string"
+        ? contentDisposition.match(/filename="?([^";]+)"?/i)
+        : null;
+    const filename = filenameMatch?.[1] ?? `arr-snapshot-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    const contentType =
+      response.headers["content-type"] ??
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    const url = window.URL.createObjectURL(new Blob([response.data], { type: contentType }));
     const link = document.createElement("a");
     link.href = url;
-    link.download = `arr-snapshot-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    link.download = filename;
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
   },
 
