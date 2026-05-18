@@ -34,6 +34,7 @@ import { useAnalysisFilters } from "@/lib/analysis-filters-context";
 
 export default function DashboardPage() {
   const [downloadingExcel, setDownloadingExcel] = useState(false);
+  const [downloadExcelProgress, setDownloadExcelProgress] = useState<number | null>(null);
   const [downloadExcelError, setDownloadExcelError] = useState<string | null>(null);
   const { activeSnapshot, isLoading: snapshotsLoading } = useSnapshotContext();
   const { arrMode } = useARRMode();
@@ -177,14 +178,32 @@ export default function DashboardPage() {
                   disabled={!activeSnapshot || downloadingExcel}
                   onClick={async () => {
                     if (!activeSnapshot) return;
+                    let progressTimer: ReturnType<typeof setInterval> | null = null;
                     setDownloadingExcel(true);
+                    setDownloadExcelProgress(6);
                     setDownloadExcelError(null);
+                    progressTimer = setInterval(() => {
+                      setDownloadExcelProgress((current) => {
+                        if (current == null) return 6;
+                        if (current >= 92) return current;
+                        const increment = current < 35 ? 4 : current < 70 ? 2 : 1;
+                        return Math.min(92, current + increment);
+                      });
+                    }, 900);
                     try {
-                      await api.downloadSnapshotExcel(activeSnapshot.id);
+                      await api.downloadSnapshotExcel(activeSnapshot.id, (progress) => {
+                        setDownloadExcelProgress((current) => Math.max(current ?? 0, progress));
+                      });
+                      setDownloadExcelProgress(100);
                     } catch (error) {
                       setDownloadExcelError(getAPIErrorMessage(error, "No se pudo descargar el snapshot."));
+                      setDownloadExcelProgress(null);
                     } finally {
+                      if (progressTimer) clearInterval(progressTimer);
                       setDownloadingExcel(false);
+                      setTimeout(() => {
+                        setDownloadExcelProgress((current) => (current === 100 ? null : current));
+                      }, 1600);
                     }
                   }}
                   className="inline-flex items-center gap-2 rounded-2xl bg-white/15 px-4 py-2.5 text-sm font-black text-white transition hover:bg-white/25 disabled:cursor-not-allowed disabled:opacity-50"
@@ -201,6 +220,25 @@ export default function DashboardPage() {
                 <p className="mt-3 max-w-2xl rounded-2xl border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-800">
                   {downloadExcelError}
                 </p>
+              )}
+              {downloadExcelProgress !== null && (
+                <div className="mt-3 max-w-2xl rounded-2xl border border-white/15 bg-white/10 px-4 py-3">
+                  <div className="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-[0.14em] text-[#d8caff]">
+                    <span>{downloadExcelProgress >= 100 ? "Descarga preparada" : "Generando Excel"}</span>
+                    <span>{downloadExcelProgress}%</span>
+                  </div>
+                  <div className="h-2.5 overflow-hidden rounded-full bg-white/15">
+                    <div
+                      className="h-full rounded-full bg-white transition-all duration-500 ease-out"
+                      style={{ width: `${downloadExcelProgress}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs font-medium text-[#efe9ff]">
+                    {downloadExcelProgress >= 100
+                      ? "El archivo se ha enviado al navegador."
+                      : "Puede tardar alrededor de un minuto en snapshots grandes."}
+                  </p>
+                </div>
               )}
             </div>
 

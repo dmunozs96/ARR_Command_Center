@@ -179,12 +179,20 @@ export const api = {
       .then((r) => r.data),
 
   // Exports
-  downloadSnapshotExcel: async (snapshotId: string): Promise<void> => {
+  downloadSnapshotExcel: async (
+    snapshotId: string,
+    onProgress?: (progress: number) => void,
+  ): Promise<void> => {
     let response;
     try {
       response = await client.get("/exports/excel", {
         params: { snapshot_id: snapshotId },
         responseType: "blob",
+        onDownloadProgress: (event) => {
+          if (event.total && event.total > 0) {
+            onProgress?.(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+          }
+        },
       });
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.data instanceof Blob) {

@@ -3,8 +3,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import StreamingResponse
-import io
+from fastapi.responses import Response
 
 from sqlalchemy.orm import Session
 
@@ -32,8 +31,11 @@ def export_snapshot_excel(
     filename = f"arr-snapshot-{snap.created_at.strftime('%Y-%m-%d')}.xlsx"
     content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
-    return StreamingResponse(
-        io.BytesIO(xlsx_bytes),
+    return Response(
+        content=xlsx_bytes,
         media_type=content_type,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(xlsx_bytes)),
+        },
     )
