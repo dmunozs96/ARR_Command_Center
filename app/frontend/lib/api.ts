@@ -15,7 +15,11 @@ import type {
   ExpertChatResponse,
 } from "./types";
 
-const client = axios.create({ baseURL: "/api" });
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api`
+  : "/api";
+
+const client = axios.create({ baseURL: apiBaseUrl });
 
 export const api = {
   // Snapshots
@@ -176,10 +180,31 @@ export const api = {
 
   // Exports
   downloadSnapshotExcel: async (snapshotId: string): Promise<void> => {
-    const response = await client.get("/exports/excel", {
-      params: { snapshot_id: snapshotId },
-      responseType: "blob",
-    });
+    let response;
+    try {
+      response = await client.get("/exports/excel", {
+        params: { snapshot_id: snapshotId },
+        responseType: "blob",
+      });
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.data instanceof Blob) {
+        const text = await error.response.data.text();
+        let detail: unknown = null;
+        try {
+          const payload = JSON.parse(text) as { detail?: unknown };
+          detail = payload.detail;
+        } catch {
+          detail = null;
+        }
+        if (typeof detail === "string" && detail.trim()) {
+          throw new Error(detail);
+        }
+        if (text.trim()) {
+          throw new Error(text);
+        }
+      }
+      throw error;
+    }
     const contentDisposition = response.headers["content-disposition"];
     const filenameMatch =
       typeof contentDisposition === "string"

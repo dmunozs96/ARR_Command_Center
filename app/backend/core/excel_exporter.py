@@ -1,6 +1,7 @@
 """Build a pivot-friendly xlsx export for a calculated ARR snapshot."""
 
 import io
+import re
 from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID
@@ -19,6 +20,7 @@ _HEADER_ALIGN = Alignment(horizontal="center", vertical="center", wrap_text=True
 _DATE_FORMAT = "yyyy-mm-dd"
 _MONTH_FORMAT = "yyyy-mm"
 _MONEY_FORMAT = '#,##0.00 "EUR"'
+_ILLEGAL_EXCEL_CHARS = re.compile(r"[\x00-\x08\x0B-\x0C\x0E-\x1F]")
 
 
 def _write_headers(ws, headers: list[str]) -> None:
@@ -37,6 +39,44 @@ def _autofit(ws) -> None:
     for col in ws.columns:
         max_len = max((len(str(cell.value)) if cell.value is not None else 0) for cell in col)
         ws.column_dimensions[get_column_letter(col[0].column)].width = min(max_len + 3, 42)
+
+
+def _set_export_column_widths(ws) -> None:
+    widths = {
+        "A": 20,
+        "B": 13,
+        "C": 12,
+        "D": 28,
+        "E": 24,
+        "F": 16,
+        "G": 20,
+        "H": 32,
+        "I": 36,
+        "J": 18,
+        "K": 15,
+        "L": 15,
+        "M": 15,
+        "N": 15,
+        "O": 15,
+        "P": 14,
+        "Q": 14,
+        "R": 12,
+        "S": 20,
+        "T": 20,
+        "U": 38,
+    }
+    for column, width in widths.items():
+        ws.column_dimensions[column].width = width
+
+
+def _cell_value(value):
+    if isinstance(value, str):
+        return _ILLEGAL_EXCEL_CHARS.sub("", value)
+    return value
+
+
+def _append_row(ws, values: list) -> None:
+    ws.append([_cell_value(value) for value in values])
 
 
 def _last_day_of_month(first_day: date) -> date:
@@ -152,7 +192,7 @@ def _sheet_calculated_arr(wb, snapshot_id: UUID, db: Session, mode: str, sheet_n
         if active_start > active_end:
             continue
         for month in _month_range(active_start, active_end):
-            ws.append([
+            _append_row(ws, [
                 method_label,
                 month,
                 "Salesforce",
@@ -184,7 +224,7 @@ def _sheet_calculated_arr(wb, snapshot_id: UUID, db: Session, mode: str, sheet_n
     )
     for stripe in stripe_rows:
         month = stripe.month.replace(day=1)
-        ws.append([
+        _append_row(ws, [
             method_label,
             month,
             "Stripe",
@@ -209,5 +249,4 @@ def _sheet_calculated_arr(wb, snapshot_id: UUID, db: Session, mode: str, sheet_n
         ])
 
     ws.auto_filter.ref = ws.dimensions
-    _apply_formats(ws)
-    _autofit(ws)
+    _set_export_column_widths(ws)
