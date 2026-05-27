@@ -13,6 +13,8 @@ import type {
   SyncResponse,
   MastersImportResponse,
   ExpertChatResponse,
+  PeriodDetailResponse,
+  SnapshotComparisonTotals,
 } from "./types";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL
@@ -28,6 +30,31 @@ export const api = {
 
   getSnapshot: (id: string) =>
     client.get<SnapshotSummary>(`/snapshots/${id}`).then((r) => r.data),
+
+  // Snapshot review
+  getSnapshotReviewTotals: (params: {
+    snapshot_a_id: string;
+    snapshot_b_id: string;
+    product_type?: string;
+    product_types?: string;
+    account_name?: string;
+  }) =>
+    client
+      .get<SnapshotComparisonTotals>("/snapshot-review/monthly-totals", { params })
+      .then((r) => r.data),
+
+  getSnapshotReviewPeriodDetail: (params: {
+    snapshot_a_id: string;
+    snapshot_b_id: string;
+    month: string;
+    product_type?: string;
+    product_types?: string;
+    account_name?: string;
+    only_changes?: boolean;
+  }) =>
+    client
+      .get<PeriodDetailResponse>("/snapshot-review/period-detail", { params })
+      .then((r) => r.data),
 
   // ARR
   getARRSummary: (params: {

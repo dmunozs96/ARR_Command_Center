@@ -5,7 +5,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.backend.api.routes import alerts, arr, config, expert, exports, imports, snapshots, stripe, sync
+from app.backend.api.routes import alerts, arr, config, expert, exports, imports, snapshot_review, snapshots, stripe, sync
 
 app = FastAPI(
     title="ARR Command Center API",
@@ -36,6 +36,7 @@ app.include_router(stripe.router, prefix="/api/stripe-mrr", tags=["stripe"])
 app.include_router(alerts.router, prefix="/api/alerts", tags=["alerts"])
 app.include_router(expert.router, prefix="/api/expert", tags=["expert"])
 app.include_router(exports.router, prefix="/api/exports", tags=["exports"])
+app.include_router(snapshot_review.router, prefix="/api/snapshot-review", tags=["snapshot-review"])
 
 
 @app.get("/api/health")

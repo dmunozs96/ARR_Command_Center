@@ -2,7 +2,7 @@
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Annotated, Dict, List, Optional
+from typing import Annotated, Dict, List, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, PlainSerializer
@@ -36,6 +36,64 @@ class SnapshotSummary(BaseModel):
 
 class SnapshotDetail(SnapshotSummary):
     pass
+
+
+# ---------------------------------------------------------------------------
+# Snapshot Review
+# ---------------------------------------------------------------------------
+
+class SnapshotReviewMeta(BaseModel):
+    id: UUID
+    created_at: datetime
+    sync_type: str
+    notes: Optional[str]
+
+    model_config = {"from_attributes": True}
+
+
+class MonthlyTotalPoint(BaseModel):
+    month: date
+    arr_a: Optional[JsonDecimal]
+    arr_b: Optional[JsonDecimal]
+
+
+class SnapshotComparisonTotals(BaseModel):
+    snapshot_a: SnapshotReviewMeta
+    snapshot_b: SnapshotReviewMeta
+    data: List[MonthlyTotalPoint]
+    months_common: int
+    months_only_in_a: int
+    months_only_in_b: int
+    data_identical: bool
+
+
+class PeriodDetailRow(BaseModel):
+    sf_line_item_id: str
+    sf_opportunity_id: str
+    opportunity_name: str
+    account_name: str
+    business_line: str
+    product_type: str
+    consultant: str
+    arr_a: JsonDecimal
+    arr_b: JsonDecimal
+    delta: JsonDecimal
+    delta_pct: Optional[float]
+    change_type: Literal["new", "removed", "modified", "unchanged"]
+
+
+class PeriodDetailSummary(BaseModel):
+    new: int
+    removed: int
+    modified: int
+    unchanged: int
+    total_delta: JsonDecimal
+
+
+class PeriodDetailResponse(BaseModel):
+    month: date
+    rows: List[PeriodDetailRow]
+    summary: PeriodDetailSummary
 
 
 # ---------------------------------------------------------------------------

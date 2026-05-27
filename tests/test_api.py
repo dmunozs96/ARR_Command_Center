@@ -439,6 +439,92 @@ def test_get_snapshot_found(client):
 
 
 # ---------------------------------------------------------------------------
+# Snapshot Review
+# ---------------------------------------------------------------------------
+
+def test_snapshot_review_monthly_totals_honors_filters_and_hash(client):
+    db = TestingSessionLocal()
+    snap_a = _make_snapshot(db)
+    snap_a.data_hash = "same-data"
+    raw_a = _make_raw(db, snap_a.id, sf_line_id="LI001")
+    _make_arr(db, snap_a.id, raw_a.id, arr=Decimal("100"))
+
+    snap_b = _make_snapshot(db)
+    snap_b.data_hash = "same-data"
+    raw_b = _make_raw(db, snap_b.id, sf_line_id="LI001")
+    _make_arr(db, snap_b.id, raw_b.id, arr=Decimal("100"))
+    raw_other = _make_raw(db, snap_b.id, sf_line_id="LI002")
+    raw_other.account_name = "Other Corp"
+    _make_arr(db, snap_b.id, raw_other.id, arr=Decimal("50"))
+    db.commit()
+    snap_a_id = snap_a.id
+    snap_b_id = snap_b.id
+    db.close()
+
+    r = client.get(
+        "/api/snapshot-review/monthly-totals",
+        params={
+            "snapshot_a_id": str(snap_a_id),
+            "snapshot_b_id": str(snap_b_id),
+            "account_name": "Acme Corp",
+        },
+    )
+
+    assert r.status_code == 200
+    data = r.json()
+    assert data["data_identical"] is True
+    assert data["months_common"] == 12
+    assert data["data"][0]["arr_a"] == 100.0
+    assert data["data"][0]["arr_b"] == 100.0
+
+
+def test_snapshot_review_period_detail_classifies_changes(client):
+    db = TestingSessionLocal()
+    snap_a = _make_snapshot(db)
+    raw_modified_a = _make_raw(db, snap_a.id, sf_line_id="LI001")
+    _make_arr(db, snap_a.id, raw_modified_a.id, arr=Decimal("100"))
+    raw_removed = _make_raw(db, snap_a.id, sf_line_id="LI003")
+    _make_arr(db, snap_a.id, raw_removed.id, arr=Decimal("10"))
+
+    snap_b = _make_snapshot(db)
+    raw_modified_b = _make_raw(db, snap_b.id, sf_line_id="LI001")
+    _make_arr(db, snap_b.id, raw_modified_b.id, arr=Decimal("125"))
+    raw_new = _make_raw(db, snap_b.id, sf_line_id="LI002")
+    _make_arr(db, snap_b.id, raw_new.id, arr=Decimal("50"))
+    db.commit()
+    snap_a_id = snap_a.id
+    snap_b_id = snap_b.id
+    db.close()
+
+    r = client.get(
+        "/api/snapshot-review/period-detail",
+        params={
+            "snapshot_a_id": str(snap_a_id),
+            "snapshot_b_id": str(snap_b_id),
+            "month": "2025-01-01",
+            "only_changes": "true",
+        },
+    )
+
+    assert r.status_code == 200
+    data = r.json()
+    assert {row["sf_line_item_id"]: row["change_type"] for row in data["rows"]} == {
+        "LI001": "modified",
+        "LI002": "new",
+        "LI003": "removed",
+    }
+    assert data["summary"] == {
+        "new": 1,
+        "removed": 1,
+        "modified": 1,
+        "unchanged": 0,
+        "total_delta": 65.0,
+    }
+    modified = next(row for row in data["rows"] if row["sf_line_item_id"] == "LI001")
+    assert modified["delta_pct"] == 25.0
+
+
+# ---------------------------------------------------------------------------
 # Sync
 # ---------------------------------------------------------------------------
 

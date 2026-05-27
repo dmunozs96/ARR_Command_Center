@@ -14,6 +14,58 @@ export interface SnapshotSummary {
   notes: string | null;
 }
 
+export interface SnapshotMeta {
+  id: string;
+  created_at: string;
+  sync_type: string;
+  notes: string | null;
+}
+
+export interface MonthlyTotalPoint {
+  month: string;
+  arr_a: number | null;
+  arr_b: number | null;
+}
+
+export interface SnapshotComparisonTotals {
+  snapshot_a: SnapshotMeta;
+  snapshot_b: SnapshotMeta;
+  data: MonthlyTotalPoint[];
+  months_common: number;
+  months_only_in_a: number;
+  months_only_in_b: number;
+  data_identical: boolean;
+}
+
+export type ChangeType = "new" | "removed" | "modified" | "unchanged";
+
+export interface PeriodDetailRow {
+  sf_line_item_id: string;
+  sf_opportunity_id: string;
+  opportunity_name: string;
+  account_name: string;
+  business_line: string;
+  product_type: string;
+  consultant: string;
+  arr_a: number;
+  arr_b: number;
+  delta: number;
+  delta_pct: number | null;
+  change_type: ChangeType;
+}
+
+export interface PeriodDetailResponse {
+  month: string;
+  rows: PeriodDetailRow[];
+  summary: {
+    new: number;
+    removed: number;
+    modified: number;
+    unchanged: number;
+    total_delta: number;
+  };
+}
+
 export interface ARRMonthPoint {
   month: string; // "YYYY-MM-DD"
   total_arr: number;

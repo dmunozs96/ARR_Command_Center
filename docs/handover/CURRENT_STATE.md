@@ -1,6 +1,6 @@
 # Current State
-**Ultima actualizacion:** 2026-05-08
-**Agente:** Codex (sesion 24)
+**Ultima actualizacion:** 2026-05-27
+**Agente:** Codex (sesion 25)
 
 ---
 
@@ -43,11 +43,32 @@ La app calcula, visualiza y audita el ARR de isEazy.
 | **V3-P6** | **Consultores — nivel 2 (clientes por BL)** | **completa** | TypeScript OK |
 | **V3-P7** | **Exportar Excel snapshot** | **completa** | TypeScript OK |
 | **V3-P8** | **Revision y optimizacion de codigo** | **completa** | 63/63 |
+| **V4-P1** | **Revisor de Snapshot** | **completa** | 65/65, TypeScript OK, 4/4 e2e |
+| **V4-P2** | **Gagero - Analisis de Variaciones** | **pendiente** | especificacion aprobada |
+| **V4-P3** | **Churn - Retencion de Ingresos** | **pendiente** | especificacion aprobada |
+| **V4-P4** | **Monitor de Renovaciones** | **pendiente** | especificacion aprobada |
 
-**Tests backend:** `pytest -q` -> **63/63 OK**
+**Tests backend:** `pytest -q` -> **65/65 OK**
 **Frontend lint:** `npm.cmd run lint` -> **OK**
 **Frontend build/TypeScript:** `npm.cmd run build` -> **OK**
-**E2E:** `npm.cmd run test:e2e` -> **3/3 OK**
+**E2E:** `npm.cmd run test:e2e` -> **4/4 OK**
+
+---
+
+## Lo implementado en la sesion 25 (V4-P1 Revisor de Snapshot)
+
+Se inicia V4 con un modulo de auditoria retroactiva accesible desde `/snapshot-review`.
+
+**Cambios principales:**
+- Nuevos endpoints `GET /api/snapshot-review/monthly-totals` y `GET /api/snapshot-review/period-detail`.
+- La comparativa reutiliza la semantica ARR vigente: `annualized_value` activo por mes, respetando exclusiones y filtros globales.
+- Se soportan filtros de cliente y lineas combinadas del sidebar (`LMS & AIO`, `Author (Total)`).
+- Nueva pagina con seleccion A/B por defecto, grafico superpuesto, detalle por mes, filtro "solo cambios" y exportacion CSV.
+- Se muestra aviso cuando dos snapshots tienen el mismo `data_hash`.
+- Cobertura backend y smoke e2e del flujo de comparacion.
+- Limpieza de warning ESLint preexistente en la seleccion LTM de Clientes.
+
+**Decision tecnica:** la especificacion de detalle mencionaba un prorrateo diario incompatible con el motor actual; se usa ARR anualizado para que totales y detalle reconcilien con el dashboard.
 
 ---
 

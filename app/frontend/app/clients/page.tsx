@@ -111,7 +111,6 @@ export default function ClientsPage() {
 
   function selectLTM() {
     // Last 12 months ending at monthTo (from global analysis filter)
-    const toDate = new Date(monthTo);
     const fromDate = new Date(monthTo);
     fromDate.setMonth(fromDate.getMonth() - 11);
     const fromStr = fromDate.toISOString().slice(0, 10);

@@ -1,5 +1,35 @@
 # Session Log
 
+## 2026-05-27 - Sesion 25 (V4-P1 Revisor de Snapshot)
+**Agente:** Codex
+
+### Trabajo realizado
+
+- Implementados `GET /api/snapshot-review/monthly-totals` y `GET /api/snapshot-review/period-detail`.
+- Anadidos schemas Pydantic, tipos TypeScript y cliente API para comparaciones de snapshots.
+- Nueva pagina `/snapshot-review`, entrada de sidebar, grafico comparativo, selector de mes, tabla de cambios y exportacion CSV.
+- Aplicados filtros globales de cliente y linea de negocio, incluyendo agrupaciones existentes.
+- Anadida deteccion visual de snapshots con el mismo `data_hash`.
+- Anadidas pruebas API y smoke e2e para el flujo del Revisor.
+- Eliminado un warning ESLint preexistente por variable no usada en `/clients`.
+
+### Decision funcional
+
+El detalle del Revisor usa `annualized_value` activo por mes, igual que las vistas ARR existentes. La alternativa de prorrateo diario descrita en la especificacion produciria deltas que no concilian con el dashboard.
+
+### Verificacion
+
+- `pytest tests -q` -> **65/65 OK**
+- `npx.cmd tsc --noEmit` -> **OK**
+- `npm.cmd run lint` -> **OK**
+- `npm.cmd run build` -> **OK**
+- `npm.cmd run test:e2e` -> **4/4 OK**
+
+**Instruccion para la proxima conversacion:**
+Di al agente: "Lee CURRENT_STATE.md y NEXT_STEPS.md. V4-P1 esta implementada; continuar con V4-P2 Gagero salvo que se desbloquee la validacion real de Salesforce."
+
+---
+
 ## 2026-05-08 - Sesion 24 (Modo ARR global en sidebar)
 **Agente:** Codex
 

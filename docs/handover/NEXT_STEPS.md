@@ -1,15 +1,16 @@
 # Next Steps
-**Ultima actualizacion:** 2026-05-08
+**Ultima actualizacion:** 2026-05-27
 
 ---
 
 ## Estado actual
 
 Fases A-H + I-A + I-B + V2 + V3-P1 a P8 completas.
+V4-P1 Revisor de Snapshot implementada sobre la especificacion aprobada del 2026-05-27.
 V3 bugfix final aplicado tras `docs/v3_bug_report.md`.
 Sesion 23 corrige la semantica de ARR: no hay YTD acumulado; las comparativas son punto a punto contra mismo mes del ano anterior y diciembre anterior movil.
 Sesion 24 mueve `Desde inicio` / `Desde cierre` al sidebar y lo convierte en modo global para Dashboard, Clientes y Consultores.
-Tests: 63/63 OK. Frontend lint/build OK. E2E: 3/3 OK.
+Tests: 65/65 OK. Frontend lint/build OK. E2E: 4/4 OK.
 
 **V3 completamente cerrada y revalidada. Informes relevantes:**
 - `docs/v3_bug_report.md` — bugs V3 reparados en sesion 22
@@ -20,6 +21,18 @@ Nota funcional importante:
 - En dashboard y desglose por linea, comparar el mes seleccionado contra mismo mes del ano anterior y diciembre anterior movil (`n-1`).
 - Dashboard ya incluye filtro de cliente para validar tendencias intermensuales de cuentas concretas.
 - El modo ARR desde inicio/cierre se controla globalmente desde el sidebar y debe respetarse en nuevas vistas analiticas.
+- El Revisor compara `annualized_value` activo por mes para mantener conciliacion con dashboard y exportaciones; no prorratea ARR por dias.
+
+---
+
+## V4 - Siguiente desarrollo aprobado
+
+- [x] V4-P1: Revisor de Snapshot (`/snapshot-review`), endpoints de comparacion y CSV de detalle.
+- [ ] V4-P2: Gagero - Analisis de Variaciones (`docs/specs/SPEC-V4-phase2-gagero.md`).
+- [ ] V4-P3: Churn - Retencion de Ingresos (`docs/specs/SPEC-V4-phase3-churn.md`).
+- [ ] V4-P4: Monitor de Renovaciones (`docs/specs/SPEC-V4-phase4-renewal-monitor.md`).
+
+Prioridad recomendada: implementar V4-P2, reutilizando la agregacion mensual por cliente y producto que ya necesita la familia V4.
 
 Refactors mayores pendientes de aprobacion (no implementados):
 - Separar logica de negocio de la capa HTTP en `arr.py` (propuesta A en informe)

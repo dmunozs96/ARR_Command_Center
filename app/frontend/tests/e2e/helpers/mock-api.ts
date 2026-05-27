@@ -14,6 +14,19 @@ const snapshots = [
     duration_seconds: 3.4,
     notes: "Snapshot de prueba",
   },
+  {
+    id: "22222222-2222-2222-2222-222222222222",
+    created_at: "2026-03-19T20:00:00Z",
+    sync_type: "excel_import",
+    triggered_by: "seed",
+    status: "completed",
+    sf_records_fetched: 40,
+    sf_records_processed: 40,
+    alerts_count: 1,
+    unclassified_products_count: 0,
+    duration_seconds: 3.1,
+    notes: "Snapshot anterior",
+  },
 ];
 
 const arrSummary = {
@@ -153,6 +166,40 @@ const arrByAccount = {
   total_arr: 248000,
 };
 
+const snapshotReviewTotals = {
+  snapshot_a: snapshots[1],
+  snapshot_b: snapshots[0],
+  data: [
+    { month: "2026-03-01", arr_a: 120000, arr_b: 120000 },
+    { month: "2026-04-01", arr_a: 122000, arr_b: 128000 },
+  ],
+  months_common: 2,
+  months_only_in_a: 0,
+  months_only_in_b: 0,
+  data_identical: false,
+};
+
+const snapshotReviewDetail = {
+  month: "2026-04-01",
+  rows: [
+    {
+      sf_line_item_id: "LI-NEW",
+      sf_opportunity_id: "OPP-NEW",
+      opportunity_name: "Expansion ACME",
+      account_name: "ACME Corp",
+      business_line: "LMS",
+      product_type: "SaaS LMS",
+      consultant: "Maria Lopez",
+      arr_a: 0,
+      arr_b: 6000,
+      delta: 6000,
+      delta_pct: null,
+      change_type: "new",
+    },
+  ],
+  summary: { new: 1, removed: 0, modified: 0, unchanged: 0, total_delta: 6000 },
+};
+
 function json(route: Route, body: unknown) {
   return route.fulfill({
     status: 200,
@@ -191,6 +238,10 @@ export async function installDefaultMocks(page: Page) {
   await page.route(/.*\/api\/arr\/by-account.*/, (route) => json(route, arrByAccount));
 
   await page.route(/.*\/api\/config\/products.*/, (route) => json(route, []));
+
+  await page.route(/.*\/api\/snapshot-review\/monthly-totals.*/, (route) => json(route, snapshotReviewTotals));
+
+  await page.route(/.*\/api\/snapshot-review\/period-detail.*/, (route) => json(route, snapshotReviewDetail));
 
   await page.route(/.*\/api\/alerts\/.*/, async (route) => {
     if (route.request().method() === "PATCH") {
