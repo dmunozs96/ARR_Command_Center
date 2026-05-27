@@ -27,6 +27,7 @@ def _get_arr_by_account_bl(
     month: date,
     product_type: Optional[str],
     account_name: Optional[str],
+    product_types: Optional[str] = None,
 ) -> dict:
     days = _days_in_month(month)
     query = (
@@ -47,6 +48,10 @@ def _get_arr_by_account_bl(
     )
     if product_type:
         query = query.filter(ARRLineItem.product_type == product_type)
+    if product_types:
+        values = [value.strip() for value in product_types.split(",") if value.strip()]
+        if values:
+            query = query.filter(ARRLineItem.product_type.in_(values))
     if account_name:
         query = query.filter(RawOpportunityLineItem.account_name == account_name)
     return {(row.account_name, row.product_type): Decimal(str(row.arr_total)) for row in query.all()}
@@ -107,13 +112,14 @@ def get_bridge(
     month_b: date = Query(..., description="Primer día del mes B (YYYY-MM-DD)"),
     snapshot_id: Optional[UUID] = Query(None, description="UUID del snapshot (por defecto: el más reciente)"),
     product_type: Optional[str] = Query(None),
+    product_types: Optional[str] = Query(None, description="Lista CSV de lineas de negocio"),
     account_name: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
     if snapshot_id:
-        snap = db.query(Snapshot).filter(Snapshot.id == snapshot_id, Snapshot.status == "ready").first()
+        snap = db.query(Snapshot).filter(Snapshot.id == snapshot_id, Snapshot.status == "completed").first()
     else:
-        snap = db.query(Snapshot).filter(Snapshot.status == "ready").order_by(Snapshot.created_at.desc()).first()
+        snap = db.query(Snapshot).filter(Snapshot.status == "completed").order_by(Snapshot.created_at.desc()).first()
 
     if not snap:
         raise HTTPException(status_code=404, detail="No hay snapshots disponibles")
@@ -121,8 +127,8 @@ def get_bridge(
     month_a = month_a.replace(day=1)
     month_b = month_b.replace(day=1)
 
-    arr_a = _get_arr_by_account_bl(db, snap.id, month_a, product_type, account_name)
-    arr_b = _get_arr_by_account_bl(db, snap.id, month_b, product_type, account_name)
+    arr_a = _get_arr_by_account_bl(db, snap.id, month_a, product_type, account_name, product_types)
+    arr_b = _get_arr_by_account_bl(db, snap.id, month_b, product_type, account_name, product_types)
 
     classified = _classify_bridge(arr_a, arr_b)
 

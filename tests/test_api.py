@@ -1298,3 +1298,97 @@ def test_cron_daily_sync_skips_when_data_unchanged(client, monkeypatch):
     assert r2.status_code == 200
     assert r2.json()["status"] == "skipped"
     assert r2.json()["skipped"] is True
+
+
+# ---------------------------------------------------------------------------
+# V4 Gagero and Churn
+# ---------------------------------------------------------------------------
+
+def _seed_retention_cohort(db):
+    snap = _make_snapshot(db)
+
+    def add_item(account, suffix, daily_price, start, end, product_type="SaaS LMS"):
+        raw = _make_raw(db, snap.id, sf_opp_id=f"OPP_{suffix}", sf_line_id=f"LI_{suffix}")
+        raw.account_name = account
+        arr = _make_arr(
+            db,
+            snap.id,
+            raw.id,
+            product_type=product_type,
+            start_month=start,
+            end_month_normalized=end,
+        )
+        arr.daily_price = Decimal(str(daily_price))
+
+    # Month A (Jan 2025) contains four cohort logos.
+    add_item("Churn Corp", "CHURN", "100", date(2025, 1, 1), date(2025, 12, 31), "SaaS Skills")
+    add_item("Expand Corp", "EXP_BASE", "100", date(2025, 1, 1), date(2026, 1, 31))
+    add_item("Expand Corp", "EXP_ADD", "50", date(2026, 1, 1), date(2026, 1, 31))
+    add_item("Reduce Corp", "RED_BASE", "200", date(2025, 1, 1), date(2025, 12, 31))
+    add_item("Reduce Corp", "RED_RENEW", "100", date(2026, 1, 1), date(2026, 1, 31))
+    add_item("Stable Corp", "STABLE", "100", date(2025, 1, 1), date(2026, 1, 31))
+    db.commit()
+    return snap
+
+
+def test_gagero_accepts_completed_snapshots(client):
+    db = TestingSessionLocal()
+    snap = _seed_retention_cohort(db)
+    snap_id = snap.id
+    db.close()
+
+    response = client.get(
+        f"/api/gagero/bridge?snapshot_id={snap_id}&month_a=2025-01-01&month_b=2026-01-01"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["churn"]["count"] == 1
+
+
+def test_churn_ratios_compute_cohort_retention(client):
+    db = TestingSessionLocal()
+    snap = _seed_retention_cohort(db)
+    snap_id = snap.id
+    db.close()
+
+    response = client.get(
+        f"/api/churn/ratios?snapshot_id={snap_id}&month_b=2026-01-01&window=ltm"
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["month_a"] == "2025-01-01"
+    assert data["total_logos"] == 4
+    assert data["churned_logos"] == 1
+    assert data["churn_eur"] == 3100.0
+    assert data["down_selling_eur"] == 3100.0
+    assert data["up_selling_eur"] == 1550.0
+    assert data["grr"] == 60.0
+    assert data["nrr"] == 70.0
+    assert data["logo_churn_rate"] == 25.0
+
+
+def test_churn_detail_and_by_product_type_report_losses(client):
+    db = TestingSessionLocal()
+    snap = _seed_retention_cohort(db)
+    snap_id = snap.id
+    db.close()
+
+    accounts = client.get(
+        f"/api/churn/churned-accounts?snapshot_id={snap_id}&month_b=2026-01-01&window=ltm"
+    )
+    monthly = client.get(
+        f"/api/churn/by-product-type?snapshot_id={snap_id}&month_from=2026-01-01&month_to=2026-01-01"
+    )
+
+    assert accounts.status_code == 200
+    assert accounts.json()["items"] == [
+        {
+            "account_name": "Churn Corp",
+            "product_type": "SaaS Skills",
+            "churn_month": "2026-01-01",
+            "arr_lost": 3100.0,
+        }
+    ]
+    assert monthly.status_code == 200
+    assert monthly.json()["data"][0]["by_product_type"] == {"SaaS Skills": 3100.0}

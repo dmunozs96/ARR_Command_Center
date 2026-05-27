@@ -1,5 +1,32 @@
 # Session Log
 
+## 2026-05-27 - Sesion 27 (V4-P3 Churn)
+**Agente:** Codex
+
+### Trabajo realizado
+
+- Detectada V4-P2 Gagero ya implementada en `HEAD` y continuada la hoja de ruta con V4-P3.
+- Implementados `GET /api/churn/ratios`, `/rolling`, `/churned-accounts` y `/by-product-type`.
+- Anadidos schemas Pydantic, tipos TypeScript y cliente API para retencion SaaS.
+- Nueva pagina `/churn` con toggle LTM/YTD, KPIs, grafico rolling, barras por linea y tabla de bajas.
+- Anadida entrada "Churn" al sidebar y nota visible de exclusion de Author Online (Stripe).
+- Extendidos Gagero y Churn para filtros agrupados del sidebar.
+- Corregido Gagero: los endpoints ahora aceptan snapshots `completed` y su selector de periodos cumple lint actual.
+- Anadidas pruebas backend de cohort/churn y smoke e2e de la nueva pagina.
+
+### Verificacion
+
+- `pytest -q` -> **68/68 OK**
+- `npx.cmd tsc --noEmit` -> **OK**
+- `npm.cmd run lint` -> **OK**
+- `npm.cmd run build` -> **OK**
+- `npm.cmd run test:e2e` -> **5/5 OK**
+
+**Instruccion para la proxima conversacion:**
+Di al agente: "Lee CURRENT_STATE.md y NEXT_STEPS.md. V4-P1 a V4-P3 estan implementadas y verificadas; continuar con V4-P4 Monitor de Renovaciones salvo que se desbloquee la validacion real de Salesforce."
+
+---
+
 ## 2026-05-27 - Sesion 25 (V4-P1 Revisor de Snapshot)
 **Agente:** Codex
 

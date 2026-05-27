@@ -16,6 +16,10 @@ import type {
   PeriodDetailResponse,
   SnapshotComparisonTotals,
   BridgeResponse,
+  ChurnByProductTypeResponse,
+  ChurnRatiosResponse,
+  ChurnRollingResponse,
+  ChurnedAccountsResponse,
 } from "./types";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL
@@ -266,6 +270,7 @@ export const api = {
     month_b: string;
     snapshot_id?: string;
     product_type?: string;
+    product_types?: string;
     account_name?: string;
   }) =>
     client
@@ -296,6 +301,47 @@ export const api = {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
   },
+
+  // Churn
+  getChurnRatios: (params: {
+    month_b: string;
+    window: "ltm" | "ytd";
+    snapshot_id?: string;
+    product_type?: string;
+    product_types?: string;
+    account_name?: string;
+  }) =>
+    client.get<ChurnRatiosResponse>("/churn/ratios", { params }).then((r) => r.data),
+
+  getChurnRolling: (params: {
+    month_to: string;
+    window: "ltm" | "ytd";
+    snapshot_id?: string;
+    product_type?: string;
+    product_types?: string;
+    account_name?: string;
+  }) =>
+    client.get<ChurnRollingResponse>("/churn/rolling", { params }).then((r) => r.data),
+
+  getChurnedAccounts: (params: {
+    month_b: string;
+    window: "ltm" | "ytd";
+    snapshot_id?: string;
+    product_type?: string;
+    product_types?: string;
+    account_name?: string;
+  }) =>
+    client.get<ChurnedAccountsResponse>("/churn/churned-accounts", { params }).then((r) => r.data),
+
+  getChurnByProductType: (params: {
+    month_from: string;
+    month_to: string;
+    snapshot_id?: string;
+    product_type?: string;
+    product_types?: string;
+    account_name?: string;
+  }) =>
+    client.get<ChurnByProductTypeResponse>("/churn/by-product-type", { params }).then((r) => r.data),
 
   // Health
   health: () => client.get("/health").then((r) => r.data),

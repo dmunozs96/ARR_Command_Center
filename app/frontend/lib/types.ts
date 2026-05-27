@@ -236,6 +236,58 @@ export interface BridgeResponse {
   unchanged_count: number;
 }
 
+export interface ChurnRatiosResponse {
+  window: "ltm" | "ytd";
+  month_a: string;
+  month_b: string;
+  nrr: number;
+  grr: number;
+  logo_churn_rate: number;
+  churned_arr: number;
+  arr_cohort_start: number;
+  churned_logos: number;
+  total_logos: number;
+  churn_eur: number;
+  down_selling_eur: number;
+  up_selling_eur: number;
+}
+
+export interface ChurnRollingPoint {
+  month: string;
+  nrr: number;
+  grr: number;
+  churned_arr: number;
+  churned_logos: number;
+}
+
+export interface ChurnRollingResponse {
+  data: ChurnRollingPoint[];
+  window: "ltm" | "ytd";
+}
+
+export interface ChurnedAccount {
+  account_name: string;
+  product_type: string;
+  churn_month: string;
+  arr_lost: number;
+}
+
+export interface ChurnedAccountsResponse {
+  items: ChurnedAccount[];
+  total_arr_lost: number;
+  count: number;
+}
+
+export interface ChurnByProductTypePoint {
+  month: string;
+  by_product_type: Record<string, number>;
+  total_churned_arr: number;
+}
+
+export interface ChurnByProductTypeResponse {
+  data: ChurnByProductTypePoint[];
+}
+
 export interface ExpertResponseBlock {
   type: "text" | "table" | "chart";
   content?: string;

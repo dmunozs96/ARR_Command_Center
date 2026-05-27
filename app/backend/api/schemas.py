@@ -372,6 +372,62 @@ class BridgeResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Churn - Retention Analysis
+# ---------------------------------------------------------------------------
+
+class ChurnRatiosResponse(BaseModel):
+    window: Literal["ltm", "ytd"]
+    month_a: date
+    month_b: date
+    nrr: float
+    grr: float
+    logo_churn_rate: float
+    churned_arr: JsonDecimal
+    arr_cohort_start: JsonDecimal
+    churned_logos: int
+    total_logos: int
+    churn_eur: JsonDecimal
+    down_selling_eur: JsonDecimal
+    up_selling_eur: JsonDecimal
+
+
+class ChurnRollingPoint(BaseModel):
+    month: date
+    nrr: float
+    grr: float
+    churned_arr: JsonDecimal
+    churned_logos: int
+
+
+class ChurnRollingResponse(BaseModel):
+    data: List[ChurnRollingPoint]
+    window: Literal["ltm", "ytd"]
+
+
+class ChurnedAccount(BaseModel):
+    account_name: str
+    product_type: str
+    churn_month: date
+    arr_lost: JsonDecimal
+
+
+class ChurnedAccountsResponse(BaseModel):
+    items: List[ChurnedAccount]
+    total_arr_lost: JsonDecimal
+    count: int
+
+
+class ChurnByProductTypePoint(BaseModel):
+    month: date
+    by_product_type: Dict[str, JsonDecimal]
+    total_churned_arr: JsonDecimal
+
+
+class ChurnByProductTypeResponse(BaseModel):
+    data: List[ChurnByProductTypePoint]
+
+
+# ---------------------------------------------------------------------------
 # Sync
 # ---------------------------------------------------------------------------
 

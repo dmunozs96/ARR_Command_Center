@@ -1,6 +1,6 @@
 # Current State
 **Ultima actualizacion:** 2026-05-27
-**Agente:** Codex (sesion 25)
+**Agente:** Codex (sesion 27)
 
 ---
 
@@ -44,14 +44,31 @@ La app calcula, visualiza y audita el ARR de isEazy.
 | **V3-P7** | **Exportar Excel snapshot** | **completa** | TypeScript OK |
 | **V3-P8** | **Revision y optimizacion de codigo** | **completa** | 63/63 |
 | **V4-P1** | **Revisor de Snapshot** | **completa** | 65/65, TypeScript OK, 4/4 e2e |
-| **V4-P2** | **Gagero - Analisis de Variaciones** | **pendiente** | especificacion aprobada |
-| **V4-P3** | **Churn - Retencion de Ingresos** | **pendiente** | especificacion aprobada |
+| **V4-P2** | **Gagero - Analisis de Variaciones** | **completa** | incluida en HEAD; regresion cubierta |
+| **V4-P3** | **Churn - Retencion de Ingresos** | **completa** | 68/68, TypeScript OK, 5/5 e2e |
 | **V4-P4** | **Monitor de Renovaciones** | **pendiente** | especificacion aprobada |
 
-**Tests backend:** `pytest -q` -> **65/65 OK**
+**Tests backend:** `pytest -q` -> **68/68 OK**
 **Frontend lint:** `npm.cmd run lint` -> **OK**
 **Frontend build/TypeScript:** `npm.cmd run build` -> **OK**
-**E2E:** `npm.cmd run test:e2e` -> **4/4 OK**
+**E2E:** `npm.cmd run test:e2e` -> **5/5 OK**
+
+---
+
+## Lo implementado en la sesion 27 (V4-P3 Churn)
+
+El modulo de retencion de ingresos esta disponible en `/churn` y reutiliza la granularidad `account_name x product_type` de Gagero.
+
+**Cambios principales:**
+- Nuevos endpoints `GET /api/churn/ratios`, `/rolling`, `/churned-accounts` y `/by-product-type`.
+- Metricas NRR, GRR, logo churn rate y ARR churneado con ventanas LTM/YTD sobre el cohort inicial.
+- Nueva pagina con KPIs, grafico rolling NRR/GRR, bajas por linea de negocio y tabla de clientes churneados.
+- Soporte de filtros globales de cliente y lineas agrupadas (`LMS & AIO`, `Author (Total)`) en Gagero y Churn.
+- Nota visible de exclusion de Author Online (Stripe), coherente con la especificacion.
+- Corregido Gagero para utilizar snapshots `completed`, el estado real generado por imports y sincronizaciones.
+- Ajustado Gagero para evitar estado derivado en un efecto y dejar lint limpio.
+
+**Verificacion:** `pytest -q` (68/68), `npx.cmd tsc --noEmit`, `npm.cmd run lint`, `npm.cmd run build` y `npm.cmd run test:e2e` (5/5).
 
 ---
 

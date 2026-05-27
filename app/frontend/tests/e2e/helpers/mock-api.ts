@@ -200,6 +200,45 @@ const snapshotReviewDetail = {
   summary: { new: 1, removed: 0, modified: 0, unchanged: 0, total_delta: 6000 },
 };
 
+const churnRatios = {
+  window: "ltm",
+  month_a: "2025-04-01",
+  month_b: "2026-04-01",
+  nrr: 104.2,
+  grr: 91.4,
+  logo_churn_rate: 6.3,
+  churned_arr: 36000,
+  arr_cohort_start: 420000,
+  churned_logos: 1,
+  total_logos: 16,
+  churn_eur: 36000,
+  down_selling_eur: 12000,
+  up_selling_eur: 65640,
+};
+
+const churnRolling = {
+  window: "ltm",
+  data: [
+    { month: "2026-03-01", nrr: 102.1, grr: 92.0, churned_arr: 22000, churned_logos: 1 },
+    { month: "2026-04-01", nrr: 104.2, grr: 91.4, churned_arr: 36000, churned_logos: 1 },
+  ],
+};
+
+const churnedAccounts = {
+  items: [
+    { account_name: "Beta Corp", product_type: "SaaS Skills", churn_month: "2026-04-01", arr_lost: 36000 },
+  ],
+  total_arr_lost: 36000,
+  count: 1,
+};
+
+const churnByProductType = {
+  data: [
+    { month: "2026-03-01", by_product_type: {}, total_churned_arr: 0 },
+    { month: "2026-04-01", by_product_type: { "SaaS Skills": 36000 }, total_churned_arr: 36000 },
+  ],
+};
+
 function json(route: Route, body: unknown) {
   return route.fulfill({
     status: 200,
@@ -242,6 +281,14 @@ export async function installDefaultMocks(page: Page) {
   await page.route(/.*\/api\/snapshot-review\/monthly-totals.*/, (route) => json(route, snapshotReviewTotals));
 
   await page.route(/.*\/api\/snapshot-review\/period-detail.*/, (route) => json(route, snapshotReviewDetail));
+
+  await page.route(/.*\/api\/churn\/ratios.*/, (route) => json(route, churnRatios));
+
+  await page.route(/.*\/api\/churn\/rolling.*/, (route) => json(route, churnRolling));
+
+  await page.route(/.*\/api\/churn\/churned-accounts.*/, (route) => json(route, churnedAccounts));
+
+  await page.route(/.*\/api\/churn\/by-product-type.*/, (route) => json(route, churnByProductType));
 
   await page.route(/.*\/api\/alerts\/.*/, async (route) => {
     if (route.request().method() === "PATCH") {

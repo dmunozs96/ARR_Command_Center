@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp, Download, Info } from "lucide-react";
 import { GageroWaterfall } from "@/components/GageroWaterfall";
@@ -9,7 +9,7 @@ import { GageroDetailTable } from "@/components/GageroDetailTable";
 import { api } from "@/lib/api";
 import { useAnalysisFilters } from "@/lib/analysis-filters-context";
 import { useSnapshotContext } from "@/lib/snapshot-context";
-import { formatMonth } from "@/lib/utils";
+import { formatMonth, productTypeFilterParams } from "@/lib/utils";
 
 type ComparisonMode = "mom" | "qoq" | "yoy" | "vs_year_close" | "free";
 type CategoryKey = "new_logo" | "churn" | "up_selling" | "down_selling";
@@ -46,25 +46,16 @@ const MODE_LABELS: Record<ComparisonMode, string> = {
 export default function GageroPage() {
   const { monthTo, productType, accountName } = useAnalysisFilters();
   const { activeSnapshot } = useSnapshotContext();
+  const productFilters = productTypeFilterParams(productType);
 
   const [mode, setMode] = useState<ComparisonMode>("mom");
-  const [monthA, setMonthA] = useState<string>(() => subMonths(monthTo, 1));
-  const [monthB, setMonthB] = useState<string>(monthTo);
+  const [freeMonthA, setFreeMonthA] = useState<string>(() => subMonths(monthTo, 1));
+  const [freeMonthB, setFreeMonthB] = useState<string>(monthTo);
   const [activeCategory, setActiveCategory] = useState<CategoryKey>("new_logo");
   const [downloading, setDownloading] = useState(false);
-
-  // When mode or monthTo changes, recalculate A and B
-  useEffect(() => {
-    if (mode !== "free") {
-      const result = applyMode(mode, monthTo);
-      if (result) {
-        setMonthA(result.a);
-        setMonthB(result.b);
-      }
-    } else {
-      setMonthB(monthTo);
-    }
-  }, [mode, monthTo]);
+  const calculatedMonths = applyMode(mode, monthTo);
+  const monthA = calculatedMonths?.a ?? freeMonthA;
+  const monthB = calculatedMonths?.b ?? freeMonthB;
 
   const bridgeQuery = useQuery({
     queryKey: ["gagero-bridge", activeSnapshot?.id, monthA, monthB, productType, accountName],
@@ -73,7 +64,7 @@ export default function GageroPage() {
         snapshot_id: activeSnapshot?.id,
         month_a: monthA,
         month_b: monthB,
-        product_type: productType || undefined,
+        ...productFilters,
         account_name: accountName || undefined,
       }),
     enabled: !!(monthA && monthB && monthA !== monthB),
@@ -132,7 +123,13 @@ export default function GageroPage() {
           {(Object.keys(MODE_LABELS) as ComparisonMode[]).map((m) => (
             <button
               key={m}
-              onClick={() => setMode(m)}
+              onClick={() => {
+                if (m === "free" && mode !== "free") {
+                  setFreeMonthA(subMonths(monthTo, 1));
+                  setFreeMonthB(monthTo);
+                }
+                setMode(m);
+              }}
               className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
                 mode === m
                   ? "bg-[#6d35ff] text-white"
@@ -151,7 +148,7 @@ export default function GageroPage() {
               type="month"
               value={monthA.slice(0, 7)}
               disabled={mode !== "free"}
-              onChange={(e) => setMonthA(e.target.value + "-01")}
+              onChange={(e) => setFreeMonthA(e.target.value + "-01")}
               className="rounded-lg border border-[#e7e1f2] px-3 py-2 text-sm font-semibold text-[#2f185f] focus:outline-none focus:ring-2 focus:ring-[#6d35ff] disabled:bg-[#f4f0fb] disabled:text-[#837a9f]"
             />
           </div>
@@ -162,7 +159,7 @@ export default function GageroPage() {
               type="month"
               value={monthB.slice(0, 7)}
               disabled={mode !== "free"}
-              onChange={(e) => setMonthB(e.target.value + "-01")}
+              onChange={(e) => setFreeMonthB(e.target.value + "-01")}
               className="rounded-lg border border-[#e7e1f2] px-3 py-2 text-sm font-semibold text-[#2f185f] focus:outline-none focus:ring-2 focus:ring-[#6d35ff] disabled:bg-[#f4f0fb] disabled:text-[#837a9f]"
             />
           </div>

@@ -53,7 +53,6 @@ function ItemRow({ item }: { item: BridgeItem }) {
 export function GageroDetailTable({ data, activeCategory, onCategoryChange }: Props) {
   const categories: CategoryKey[] = ["new_logo", "churn", "up_selling", "down_selling"];
   const items = data[activeCategory].items;
-  const color = CATEGORY_COLORS[activeCategory];
 
   return (
     <section className="rounded-3xl border border-[#e7e1f2] bg-white shadow-[0_18px_50px_rgba(49,24,95,0.06)] overflow-hidden">
