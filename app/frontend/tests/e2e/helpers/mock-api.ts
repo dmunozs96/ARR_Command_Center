@@ -239,6 +239,46 @@ const churnByProductType = {
   ],
 };
 
+const renewalMonitor = {
+  items: [
+    {
+      account_name: "Beta Corp",
+      product_type: "SaaS Skills",
+      consultant: "Maria Lopez",
+      current_arr: 36000,
+      expiry_month: "2026-06-30",
+      months_remaining: 1,
+      is_renewed: false,
+      renewal_arr: null,
+      renewal_delta_pct: null,
+      status: "at_risk",
+    },
+    {
+      account_name: "ACME Corp",
+      product_type: "SaaS LMS",
+      consultant: "Maria Lopez",
+      current_arr: 48000,
+      expiry_month: "2026-07-31",
+      months_remaining: 2,
+      is_renewed: true,
+      renewal_arr: 50000,
+      renewal_delta_pct: 4.2,
+      status: "renewed",
+    },
+  ],
+  summary: {
+    at_risk_arr: 36000,
+    at_risk_count: 1,
+    renewed_arr: 50000,
+    renewed_count: 1,
+    horizon_months: 6,
+  },
+  by_month: [
+    { month: "2026-06-01", at_risk_arr: 36000, renewed_arr: 0, at_risk_count: 1, renewed_count: 0 },
+    { month: "2026-07-01", at_risk_arr: 0, renewed_arr: 50000, at_risk_count: 0, renewed_count: 1 },
+  ],
+};
+
 function json(route: Route, body: unknown) {
   return route.fulfill({
     status: 200,
@@ -289,6 +329,8 @@ export async function installDefaultMocks(page: Page) {
   await page.route(/.*\/api\/churn\/churned-accounts.*/, (route) => json(route, churnedAccounts));
 
   await page.route(/.*\/api\/churn\/by-product-type.*/, (route) => json(route, churnByProductType));
+
+  await page.route(/.*\/api\/renewals\/monitor.*/, (route) => json(route, renewalMonitor));
 
   await page.route(/.*\/api\/alerts\/.*/, async (route) => {
     if (route.request().method() === "PATCH") {

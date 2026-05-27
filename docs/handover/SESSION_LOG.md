@@ -1,5 +1,29 @@
 # Session Log
 
+## 2026-05-27 - Sesion 28 (V4-P4 Monitor de Renovaciones)
+**Agente:** Codex
+
+### Trabajo realizado
+
+- Implementado `GET /api/renewals/monitor` con horizonte configurable, filtros globales y filtro de estado.
+- Incorporados schemas Pydantic, tipos TypeScript y cliente API para vencimientos y renovaciones.
+- Nueva pagina `/renewals` con KPIs, grafico por mes, tabla filtrable y exportacion CSV.
+- Anadida entrada "Renovaciones" al sidebar y nota funcional sobre el criterio de renovacion firmada.
+- Anadidas pruebas backend y smoke e2e para riesgo, renovacion y cambios de horizonte.
+
+### Verificacion
+
+- `pytest -q` -> **70/70 OK**
+- `npx.cmd tsc --noEmit` -> **OK**
+- `npm.cmd run lint` -> **OK**
+- `npm.cmd run build` -> **OK**
+- `npm.cmd run test:e2e` -> **6/6 OK**
+
+**Instruccion para la proxima conversacion:**
+Di al agente: "Lee CURRENT_STATE.md y NEXT_STEPS.md. V4 esta completa y verificada; continua con Fase E si hay credenciales Salesforce y PostgreSQL operativo."
+
+---
+
 ## 2026-05-27 - Sesion 27 (V4-P3 Churn)
 **Agente:** Codex
 

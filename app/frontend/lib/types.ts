@@ -288,6 +288,43 @@ export interface ChurnByProductTypeResponse {
   data: ChurnByProductTypePoint[];
 }
 
+export type RenewalStatus = "renewed" | "at_risk";
+
+export interface RenewalItem {
+  account_name: string;
+  product_type: string;
+  consultant: string | null;
+  current_arr: number;
+  expiry_month: string;
+  months_remaining: number;
+  is_renewed: boolean;
+  renewal_arr: number | null;
+  renewal_delta_pct: number | null;
+  status: RenewalStatus;
+}
+
+export interface RenewalSummary {
+  at_risk_arr: number;
+  at_risk_count: number;
+  renewed_arr: number;
+  renewed_count: number;
+  horizon_months: number;
+}
+
+export interface RenewalMonthPoint {
+  month: string;
+  at_risk_arr: number;
+  renewed_arr: number;
+  at_risk_count: number;
+  renewed_count: number;
+}
+
+export interface RenewalMonitorResponse {
+  items: RenewalItem[];
+  summary: RenewalSummary;
+  by_month: RenewalMonthPoint[];
+}
+
 export interface ExpertResponseBlock {
   type: "text" | "table" | "chart";
   content?: string;

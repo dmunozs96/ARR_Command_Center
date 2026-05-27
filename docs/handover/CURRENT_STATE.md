@@ -1,6 +1,6 @@
 # Current State
 **Ultima actualizacion:** 2026-05-27
-**Agente:** Codex (sesion 27)
+**Agente:** Codex (sesion 28)
 
 ---
 
@@ -46,12 +46,27 @@ La app calcula, visualiza y audita el ARR de isEazy.
 | **V4-P1** | **Revisor de Snapshot** | **completa** | 65/65, TypeScript OK, 4/4 e2e |
 | **V4-P2** | **Gagero - Analisis de Variaciones** | **completa** | incluida en HEAD; regresion cubierta |
 | **V4-P3** | **Churn - Retencion de Ingresos** | **completa** | 68/68, TypeScript OK, 5/5 e2e |
-| **V4-P4** | **Monitor de Renovaciones** | **pendiente** | especificacion aprobada |
+| **V4-P4** | **Monitor de Renovaciones** | **completa** | 70/70, TypeScript OK, 6/6 e2e |
 
-**Tests backend:** `pytest -q` -> **68/68 OK**
+**Tests backend:** `pytest -q` -> **70/70 OK**
 **Frontend lint:** `npm.cmd run lint` -> **OK**
 **Frontend build/TypeScript:** `npm.cmd run build` -> **OK**
-**E2E:** `npm.cmd run test:e2e` -> **5/5 OK**
+**E2E:** `npm.cmd run test:e2e` -> **6/6 OK**
+
+---
+
+## Lo implementado en la sesion 28 (V4-P4 Monitor de Renovaciones)
+
+El monitor forward-looking esta disponible en `/renewals` para detectar contratos SaaS activos que vencen en los proximos meses y distinguir los que ya tienen renovacion futura firmada en el snapshot.
+
+**Cambios principales:**
+- Nuevo endpoint `GET /api/renewals/monitor` con horizonte de 1 a 24 meses, filtros globales y filtro opcional de estado.
+- Calculo por `account_name x product_type`, con ARR en riesgo, ARR renovado, detalle y agregacion por mes de vencimiento.
+- Nueva pagina con selector 3/6/12/libre, KPIs, grafico mensual, tabla filtrable y exportacion CSV.
+- Entrada "Renovaciones" en el sidebar y nota visible que explica la deteccion de contratos renovados.
+- Pruebas backend de contratos en riesgo/renovados y smoke e2e de la nueva pantalla.
+
+**Verificacion:** `pytest -q` (70/70), `npx.cmd tsc --noEmit`, `npm.cmd run lint`, `npm.cmd run build` y `npm.cmd run test:e2e` (6/6).
 
 ---
 

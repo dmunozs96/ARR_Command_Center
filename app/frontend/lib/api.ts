@@ -20,6 +20,7 @@ import type {
   ChurnRatiosResponse,
   ChurnRollingResponse,
   ChurnedAccountsResponse,
+  RenewalMonitorResponse,
 } from "./types";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL
@@ -342,6 +343,17 @@ export const api = {
     account_name?: string;
   }) =>
     client.get<ChurnByProductTypeResponse>("/churn/by-product-type", { params }).then((r) => r.data),
+
+  // Renewals
+  getRenewalMonitor: (params: {
+    snapshot_id?: string;
+    horizon_months?: number;
+    product_type?: string;
+    product_types?: string;
+    account_name?: string;
+    status?: "all" | "at_risk" | "renewed";
+  }) =>
+    client.get<RenewalMonitorResponse>("/renewals/monitor", { params }).then((r) => r.data),
 
   // Health
   health: () => client.get("/health").then((r) => r.data),

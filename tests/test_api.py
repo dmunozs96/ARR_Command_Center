@@ -5,6 +5,7 @@ Uses FastAPI TestClient with a SQLite in-memory database so tests
 run without Docker/PostgreSQL. The get_db dependency is overridden.
 """
 
+import calendar
 import sys
 import uuid
 from datetime import date, datetime
@@ -1392,3 +1393,83 @@ def test_churn_detail_and_by_product_type_report_losses(client):
     ]
     assert monthly.status_code == 200
     assert monthly.json()["data"][0]["by_product_type"] == {"SaaS Skills": 3100.0}
+
+
+# ---------------------------------------------------------------------------
+# V4 Renewal Monitor
+# ---------------------------------------------------------------------------
+
+def _shift_month(month: date, months: int) -> date:
+    offset = month.year * 12 + month.month - 1 + months
+    return date(offset // 12, offset % 12 + 1, 1)
+
+
+def _month_end(month: date) -> date:
+    return date(month.year, month.month, calendar.monthrange(month.year, month.month)[1])
+
+
+def _seed_renewals(db):
+    snap = _make_snapshot(db)
+    current_month = date.today().replace(day=1)
+    expiry_month = _shift_month(current_month, 1)
+    renewal_month = _shift_month(current_month, 2)
+
+    def add_item(account, suffix, daily_price, start, end, product_type="SaaS LMS"):
+        raw = _make_raw(db, snap.id, sf_opp_id=f"OPP_{suffix}", sf_line_id=f"LI_{suffix}")
+        raw.account_name = account
+        arr = _make_arr(
+            db,
+            snap.id,
+            raw.id,
+            product_type=product_type,
+            start_month=start,
+            end_month_normalized=end,
+        )
+        arr.daily_price = Decimal(str(daily_price))
+
+    add_item("Risk Corp", "RISK", "100", current_month, _month_end(expiry_month), "SaaS Skills")
+    add_item("Renew Corp", "BASE", "100", current_month, _month_end(expiry_month))
+    add_item("Renew Corp", "RENEW", "120", renewal_month, _month_end(_shift_month(renewal_month, 11)))
+    add_item("Far Corp", "FAR", "75", current_month, _month_end(_shift_month(current_month, 10)))
+    db.commit()
+    return snap
+
+
+def test_renewal_monitor_reports_risk_and_signed_renewals(client):
+    db = TestingSessionLocal()
+    snap = _seed_renewals(db)
+    snap_id = snap.id
+    db.close()
+
+    response = client.get(f"/api/renewals/monitor?snapshot_id={snap_id}&horizon_months=3")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert [item["account_name"] for item in data["items"]] == ["Risk Corp", "Renew Corp"]
+    assert data["summary"]["at_risk_count"] == 1
+    assert data["summary"]["renewed_count"] == 1
+    renewed = next(item for item in data["items"] if item["status"] == "renewed")
+    assert renewed["renewal_arr"] > renewed["current_arr"]
+    assert renewed["renewal_delta_pct"] > 0
+    assert data["by_month"][0]["at_risk_count"] == 1
+    assert data["by_month"][0]["renewed_count"] == 1
+
+
+def test_renewal_monitor_applies_status_and_product_filters(client):
+    db = TestingSessionLocal()
+    snap = _seed_renewals(db)
+    snap_id = snap.id
+    db.close()
+
+    status_response = client.get(
+        f"/api/renewals/monitor?snapshot_id={snap_id}&horizon_months=3&status=renewed"
+    )
+    product_response = client.get(
+        f"/api/renewals/monitor?snapshot_id={snap_id}&horizon_months=3&product_type=SaaS%20Skills"
+    )
+
+    assert status_response.status_code == 200
+    assert [item["account_name"] for item in status_response.json()["items"]] == ["Renew Corp"]
+    assert status_response.json()["summary"]["at_risk_count"] == 1
+    assert product_response.status_code == 200
+    assert [item["account_name"] for item in product_response.json()["items"]] == ["Risk Corp"]

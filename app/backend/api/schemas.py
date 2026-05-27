@@ -428,6 +428,45 @@ class ChurnByProductTypeResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Renewals - Forward-looking Monitor
+# ---------------------------------------------------------------------------
+
+class RenewalItem(BaseModel):
+    account_name: str
+    product_type: str
+    consultant: Optional[str]
+    current_arr: JsonDecimal
+    expiry_month: date
+    months_remaining: int
+    is_renewed: bool
+    renewal_arr: Optional[JsonDecimal]
+    renewal_delta_pct: Optional[float]
+    status: Literal["renewed", "at_risk"]
+
+
+class RenewalSummary(BaseModel):
+    at_risk_arr: JsonDecimal
+    at_risk_count: int
+    renewed_arr: JsonDecimal
+    renewed_count: int
+    horizon_months: int
+
+
+class RenewalMonthPoint(BaseModel):
+    month: date
+    at_risk_arr: JsonDecimal
+    renewed_arr: JsonDecimal
+    at_risk_count: int
+    renewed_count: int
+
+
+class RenewalMonitorResponse(BaseModel):
+    items: List[RenewalItem]
+    summary: RenewalSummary
+    by_month: List[RenewalMonthPoint]
+
+
+# ---------------------------------------------------------------------------
 # Sync
 # ---------------------------------------------------------------------------
 
