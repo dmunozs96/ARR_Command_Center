@@ -15,6 +15,7 @@ import {
   GitCompare,
   LayoutDashboard,
   Settings,
+  TrendingUp,
   UsersRound,
   WalletCards,
 } from "lucide-react";
@@ -32,6 +33,7 @@ const NAV = [
   { href: "/clients", label: "Clientes", icon: Building2 },
   { href: "/snapshots", label: "Snapshots", icon: Database },
   { href: "/snapshot-review", label: "Revisor de Snapshot", icon: GitCompare },
+  { href: "/gagero", label: "Gagero", icon: TrendingUp },
   { href: "/consultants", label: "Consultores", icon: UsersRound },
   { href: "/stripe", label: "Stripe MRR", icon: WalletCards },
   { href: "/alerts", label: "Alertas", icon: Bell },

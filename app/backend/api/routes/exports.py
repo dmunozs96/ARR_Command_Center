@@ -1,5 +1,7 @@
 """GET /api/exports/excel?snapshot_id={uuid}"""
 
+from datetime import date
+from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -17,6 +19,8 @@ router = APIRouter()
 @router.get("/excel")
 def export_snapshot_excel(
     snapshot_id: UUID = Query(..., description="UUID del snapshot a exportar"),
+    gagero_month_a: Optional[date] = Query(None, description="Mes A para pestaña Gagero (YYYY-MM-DD)"),
+    gagero_month_b: Optional[date] = Query(None, description="Mes B para pestaña Gagero (YYYY-MM-DD)"),
     db: Session = Depends(get_db),
 ):
     snap = db.query(Snapshot).filter(Snapshot.id == snapshot_id).first()
@@ -24,7 +28,7 @@ def export_snapshot_excel(
         raise HTTPException(status_code=404, detail="Snapshot no encontrado")
 
     try:
-        xlsx_bytes = build_snapshot_excel(snapshot_id, db)
+        xlsx_bytes = build_snapshot_excel(snapshot_id, db, gagero_month_a, gagero_month_b)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Error generando Excel: {exc}") from exc
 

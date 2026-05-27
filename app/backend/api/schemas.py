@@ -339,6 +339,39 @@ class MastersImportResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Gagero — Bridge Analysis
+# ---------------------------------------------------------------------------
+
+class BridgeItem(BaseModel):
+    account_name: str
+    product_type: str
+    arr_a: JsonDecimal
+    arr_b: JsonDecimal
+    delta: JsonDecimal
+
+
+class BridgeCategory(BaseModel):
+    total_delta: JsonDecimal
+    count: int
+    items: List[BridgeItem]
+
+
+class BridgeResponse(BaseModel):
+    snapshot_id: UUID
+    month_a: date
+    month_b: date
+    arr_a: JsonDecimal
+    arr_b: JsonDecimal
+    net_change: JsonDecimal
+    net_change_pct: float
+    new_logo: BridgeCategory
+    churn: BridgeCategory
+    up_selling: BridgeCategory
+    down_selling: BridgeCategory
+    unchanged_count: int
+
+
+# ---------------------------------------------------------------------------
 # Sync
 # ---------------------------------------------------------------------------
 

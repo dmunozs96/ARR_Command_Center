@@ -129,7 +129,12 @@ def _apply_formats(ws) -> None:
                 ws.cell(row=row, column=col).number_format = _MONEY_FORMAT
 
 
-def build_snapshot_excel(snapshot_id: UUID, db: Session) -> bytes:
+def build_snapshot_excel(
+    snapshot_id: UUID,
+    db: Session,
+    gagero_month_a: "date | None" = None,
+    gagero_month_b: "date | None" = None,
+) -> bytes:
     snap = db.query(Snapshot).filter(Snapshot.id == snapshot_id).first()
     if not snap:
         raise ValueError(f"Snapshot {snapshot_id} not found")
@@ -139,6 +144,9 @@ def build_snapshot_excel(snapshot_id: UUID, db: Session) -> bytes:
 
     _sheet_calculated_arr(wb, snapshot_id, db, mode="from_start", sheet_name="Desde inicio")
     _sheet_calculated_arr(wb, snapshot_id, db, mode="from_close", sheet_name="Desde cierre")
+
+    if gagero_month_a and gagero_month_b:
+        _sheet_gagero(wb, snapshot_id, gagero_month_a, gagero_month_b, db)
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -250,3 +258,79 @@ def _sheet_calculated_arr(wb, snapshot_id: UUID, db: Session, mode: str, sheet_n
 
     ws.auto_filter.ref = ws.dimensions
     _set_export_column_widths(ws)
+
+
+def _sheet_gagero(wb, snapshot_id: UUID, month_a: date, month_b: date, db: Session) -> None:
+    import calendar
+    from sqlalchemy import func as sa_func
+    from app.backend.db.models import ARRLineItem as _ArrLI, RawOpportunityLineItem as _RawLI
+
+    def _days(m: date) -> int:
+        return calendar.monthrange(m.year, m.month)[1]
+
+    def _month_label(m: date) -> str:
+        MONTHS_ES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+        return f"{MONTHS_ES[m.month - 1]} {m.year}"
+
+    def _query_arr(month: date) -> dict:
+        days = _days(month)
+        rows = (
+            db.query(
+                _RawLI.account_name,
+                _ArrLI.product_type,
+                sa_func.sum(_ArrLI.daily_price * days).label("arr_total"),
+            )
+            .join(_ArrLI, _ArrLI.raw_line_item_id == _RawLI.id)
+            .filter(
+                _ArrLI.snapshot_id == snapshot_id,
+                _ArrLI.start_month <= month,
+                _ArrLI.end_month_normalized >= month,
+                _ArrLI.is_saas == True,
+                _ArrLI.excluded_from_arr == False,
+            )
+            .group_by(_RawLI.account_name, _ArrLI.product_type)
+            .all()
+        )
+        return {(r.account_name, r.product_type): Decimal(str(r.arr_total)) for r in rows}
+
+    arr_a = _query_arr(month_a)
+    arr_b = _query_arr(month_b)
+    zero = Decimal(0)
+    all_keys = set(arr_a) | set(arr_b)
+
+    DRIVER_ORDER = {"New Logo": 0, "Churn": 1, "Up Selling": 2, "Down Selling": 3}
+
+    rows_out = []
+    for key in all_keys:
+        a = arr_a.get(key, zero)
+        b = arr_b.get(key, zero)
+        delta = b - a
+        account, product_type = key
+
+        if a == zero and b > zero:
+            driver = "New Logo"
+        elif a > zero and b == zero:
+            driver = "Churn"
+        elif a > zero and b > a:
+            driver = "Up Selling"
+        elif a > zero and b < a:
+            driver = "Down Selling"
+        else:
+            continue  # unchanged — not included
+
+        rows_out.append((DRIVER_ORDER[driver], abs(delta), driver, account, product_type, a, b, delta))
+
+    rows_out.sort(key=lambda x: (x[0], -x[1]))
+
+    label_a = _month_label(month_a)
+    label_b = _month_label(month_b)
+
+    ws = wb.create_sheet("Gagero")
+    headers = ["driver", "cliente", "linea_negocio", "arr_periodo_a", "arr_periodo_b", "delta", "periodo_a", "periodo_b"]
+    _write_headers(ws, headers)
+
+    for _, _, driver, account, product_type, a, b, delta in rows_out:
+        _append_row(ws, [driver, account, product_type, float(a), float(b), float(delta), label_a, label_b])
+
+    _autofit(ws)

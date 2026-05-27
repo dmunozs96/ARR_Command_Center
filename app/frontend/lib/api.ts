@@ -15,6 +15,7 @@ import type {
   ExpertChatResponse,
   PeriodDetailResponse,
   SnapshotComparisonTotals,
+  BridgeResponse,
 } from "./types";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL
@@ -250,6 +251,43 @@ export const api = {
       response.headers["content-type"] ??
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     const url = window.URL.createObjectURL(new Blob([response.data], { type: contentType }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  },
+
+  // Gagero
+  getGageroBridge: (params: {
+    month_a: string;
+    month_b: string;
+    snapshot_id?: string;
+    product_type?: string;
+    account_name?: string;
+  }) =>
+    client
+      .get<BridgeResponse>("/gagero/bridge", { params })
+      .then((r) => r.data),
+
+  downloadGageroExcel: async (
+    snapshotId: string,
+    monthA: string,
+    monthB: string,
+  ): Promise<void> => {
+    const response = await client.get("/exports/excel", {
+      params: { snapshot_id: snapshotId, gagero_month_a: monthA, gagero_month_b: monthB },
+      responseType: "blob",
+    });
+    const contentDisposition = response.headers["content-disposition"];
+    const filenameMatch =
+      typeof contentDisposition === "string"
+        ? contentDisposition.match(/filename="?([^";]+)"?/i)
+        : null;
+    const filename = filenameMatch?.[1] ?? `arr-gagero-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    const url = window.URL.createObjectURL(new Blob([response.data as BlobPart]));
     const link = document.createElement("a");
     link.href = url;
     link.download = filename;

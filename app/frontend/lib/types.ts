@@ -207,6 +207,35 @@ export interface ARRByAccountResponse {
   total_arr: number;
 }
 
+export interface BridgeItem {
+  account_name: string;
+  product_type: string;
+  arr_a: number;
+  arr_b: number;
+  delta: number;
+}
+
+export interface BridgeCategory {
+  total_delta: number;
+  count: number;
+  items: BridgeItem[];
+}
+
+export interface BridgeResponse {
+  snapshot_id: string;
+  month_a: string;
+  month_b: string;
+  arr_a: number;
+  arr_b: number;
+  net_change: number;
+  net_change_pct: number;
+  new_logo: BridgeCategory;
+  churn: BridgeCategory;
+  up_selling: BridgeCategory;
+  down_selling: BridgeCategory;
+  unchanged_count: number;
+}
+
 export interface ExpertResponseBlock {
   type: "text" | "table" | "chart";
   content?: string;
