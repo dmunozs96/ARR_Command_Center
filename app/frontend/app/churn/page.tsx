@@ -136,13 +136,12 @@ function MonthlyBridge({ data }: { data: MonthlyChurnResponse }) {
   const chartData = bridgeSteps.map((step) => {
     if (step.total) {
       running = step.value;
-      return { ...step, base: 0, amount: step.value, displayValue: step.value };
+      return { ...step, range: [0, step.value], displayValue: step.value };
     }
     const next = running + step.value;
-    const base = Math.min(running, next);
-    const amount = Math.abs(step.value);
+    const range = [Math.min(running, next), Math.max(running, next)];
     running = next;
-    return { ...step, base, amount, displayValue: step.value };
+    return { ...step, range, displayValue: step.value };
   });
 
   return (
@@ -176,8 +175,7 @@ function MonthlyBridge({ data }: { data: MonthlyChurnResponse }) {
             labelStyle={{ color: "#151229", fontWeight: 800 }}
             contentStyle={{ fontSize: 12, borderRadius: 18, border: "1px solid #e7e1f2" }}
           />
-          <Bar dataKey="base" stackId="bridge" fill="transparent" />
-          <Bar dataKey="amount" stackId="bridge" radius={[8, 8, 0, 0]}>
+          <Bar dataKey="range" radius={[8, 8, 0, 0]}>
             {chartData.map((entry) => (
               <Cell key={entry.name} fill={entry.fill} />
             ))}
