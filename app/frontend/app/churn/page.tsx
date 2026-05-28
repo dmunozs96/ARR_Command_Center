@@ -124,79 +124,67 @@ function MonthlyKpis({ data }: { data: MonthlyChurnResponse }) {
 
 function MonthlyBridge({ data }: { data: MonthlyChurnResponse }) {
   const finalArr = data.arr_end_existing + data.new_logo_arr;
-  const totalData = [
-    { name: "ARR inicial", value: data.arr_start, fill: "#2f185f" },
-    { name: "ARR final", value: finalArr, fill: "#6d35ff" },
-  ];
-  const movementData = [
+  const bridgeSteps = [
+    { name: "ARR inicial", value: data.arr_start, fill: "#2f185f", total: true },
     { name: "Churn", value: -data.churn_arr, fill: "#d03932" },
     { name: "Downsell", value: -data.down_selling_arr, fill: "#f97316" },
     { name: "Upsell", value: data.up_selling_arr, fill: "#0c8f76" },
     { name: "New Logo", value: data.new_logo_arr, fill: "#22c55e" },
+    { name: "ARR final", value: finalArr, fill: "#6d35ff", total: true },
   ];
+  let running = 0;
+  const chartData = bridgeSteps.map((step) => {
+    if (step.total) {
+      running = step.value;
+      return { ...step, base: 0, amount: step.value, displayValue: step.value };
+    }
+    const next = running + step.value;
+    const base = Math.min(running, next);
+    const amount = Math.abs(step.value);
+    running = next;
+    return { ...step, base, amount, displayValue: step.value };
+  });
 
   return (
-    <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-      <section className="rounded-3xl border border-[#e7e1f2] bg-white p-5 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#6d35ff]">Puente ARR total</p>
-            <h2 className="mt-1 text-xl font-black tracking-tight text-[#151229]">
-              {formatMonth(data.previous_month)} -&gt; {formatMonth(data.month)}
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#6f6a80]">
-              Parte del ARR completo, incluyendo Author Online, y cierra contra el ARR final del periodo.
-            </p>
-          </div>
-          <div className="text-right text-sm font-semibold text-[#6f6a80]">
-            Variacion neta: <span className="font-black text-[#2f185f]">{signedEUR(finalArr - data.arr_start)}</span>
-            <br />
-            ARR final: <span className="font-black text-[#2f185f]">{formatEUR(finalArr)}</span>
-          </div>
+    <section className="rounded-3xl border border-[#e7e1f2] bg-white p-5 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#6d35ff]">Puente ARR total</p>
+          <h2 className="mt-1 text-xl font-black tracking-tight text-[#151229]">
+            {formatMonth(data.previous_month)} -&gt; {formatMonth(data.month)}
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#6f6a80]">
+            Parte del ARR completo, incluyendo Author Online, atraviesa los drivers y cierra contra el ARR final.
+          </p>
         </div>
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={totalData} margin={{ top: 24, right: 16, bottom: 8, left: 0 }}>
-            <CartesianGrid stroke="#eee8f8" strokeDasharray="4 6" vertical={false} />
-            <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#837a9f", fontWeight: 700 }} tickLine={false} axisLine={false} />
-            <YAxis tickFormatter={(value) => formatCompactEUR(value)} tick={{ fontSize: 11, fill: "#837a9f", fontWeight: 600 }} tickLine={false} axisLine={false} width={72} />
-            <Tooltip
-              formatter={(value) => [formatEUR(Number(value)), "ARR"]}
-              labelStyle={{ color: "#151229", fontWeight: 800 }}
-              contentStyle={{ fontSize: 12, borderRadius: 18, border: "1px solid #e7e1f2" }}
-            />
-            <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-              {totalData.map((entry) => (
-                <Cell key={entry.name} fill={entry.fill} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </section>
-
-      <section className="rounded-3xl border border-[#e7e1f2] bg-white p-5 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#6d35ff]">Drivers de variacion</p>
-        <p className="mt-2 text-sm font-semibold leading-6 text-[#6f6a80]">
-          Churn no se aplica a Author Online; su variacion se refleja como upsell o downsell neto.
-        </p>
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={movementData} margin={{ top: 24, right: 16, bottom: 8, left: 0 }}>
-            <CartesianGrid stroke="#eee8f8" strokeDasharray="4 6" vertical={false} />
-            <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#837a9f", fontWeight: 700 }} tickLine={false} axisLine={false} />
-            <YAxis tickFormatter={(value) => formatCompactEUR(value)} tick={{ fontSize: 11, fill: "#837a9f", fontWeight: 600 }} tickLine={false} axisLine={false} width={72} />
-            <Tooltip
-              formatter={(value) => [signedEUR(Number(value)), "ARR"]}
-              labelStyle={{ color: "#151229", fontWeight: 800 }}
-              contentStyle={{ fontSize: 12, borderRadius: 18, border: "1px solid #e7e1f2" }}
-            />
-            <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-              {movementData.map((entry) => (
-                <Cell key={entry.name} fill={entry.fill} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </section>
-    </div>
+        <div className="text-right text-sm font-semibold text-[#6f6a80]">
+          Variacion neta: <span className="font-black text-[#2f185f]">{signedEUR(finalArr - data.arr_start)}</span>
+          <br />
+          ARR final: <span className="font-black text-[#2f185f]">{formatEUR(finalArr)}</span>
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={320}>
+        <BarChart data={chartData} margin={{ top: 28, right: 16, bottom: 8, left: 0 }}>
+          <CartesianGrid stroke="#eee8f8" strokeDasharray="4 6" vertical={false} />
+          <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#837a9f", fontWeight: 700 }} tickLine={false} axisLine={false} />
+          <YAxis tickFormatter={(value) => formatCompactEUR(value)} tick={{ fontSize: 11, fill: "#837a9f", fontWeight: 600 }} tickLine={false} axisLine={false} width={72} />
+          <Tooltip
+            formatter={(_value, _name, props) => {
+              const payload = props.payload as { displayValue: number; total?: boolean };
+              return [payload.total ? formatEUR(payload.displayValue) : signedEUR(payload.displayValue), "ARR"];
+            }}
+            labelStyle={{ color: "#151229", fontWeight: 800 }}
+            contentStyle={{ fontSize: 12, borderRadius: 18, border: "1px solid #e7e1f2" }}
+          />
+          <Bar dataKey="base" stackId="bridge" fill="transparent" />
+          <Bar dataKey="amount" stackId="bridge" radius={[8, 8, 0, 0]}>
+            {chartData.map((entry) => (
+              <Cell key={entry.name} fill={entry.fill} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </section>
   );
 }
 
@@ -205,31 +193,53 @@ function MonthlyTrend({ data }: { data: MonthlyChurnSummary[] }) {
     ...point,
     label: formatMonth(point.month),
   }));
+  const nrrValues = chartData.map((point) => point.nrr);
+  const nrrMin = Math.min(...nrrValues, 80);
+  const nrrMax = Math.max(...nrrValues, 105);
 
   return (
-    <section className="rounded-3xl border border-[#e7e1f2] bg-white p-5 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="space-y-6">
+      <section className="rounded-3xl border border-[#e7e1f2] bg-white p-5 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#6d35ff]">Tendencia mensual</p>
-          <p className="mt-1 text-sm font-semibold text-[#6f6a80]">Evolucion de bajas, downsell y retencion neta de cartera.</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#6d35ff]">Tendencia NRR</p>
+          <p className="mt-1 text-sm font-semibold text-[#6f6a80]">Retencion neta de cartera en su propia escala.</p>
         </div>
-      </div>
-      <ResponsiveContainer width="100%" height={260}>
-        <LineChart data={chartData} margin={{ top: 22, right: 24, bottom: 8, left: 0 }}>
-          <CartesianGrid stroke="#eee8f8" strokeDasharray="4 6" vertical={false} />
-          <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#837a9f", fontWeight: 600 }} tickLine={false} axisLine={false} />
-          <YAxis tickFormatter={(value) => `${value}%`} tick={{ fontSize: 11, fill: "#837a9f", fontWeight: 600 }} tickLine={false} axisLine={false} width={56} />
-          <Tooltip
-            formatter={(value, name) => [`${Number(value).toFixed(1)}%`, String(name)]}
-            labelStyle={{ color: "#151229", fontWeight: 800 }}
-            contentStyle={{ fontSize: 12, borderRadius: 18, border: "1px solid #e7e1f2" }}
-          />
-          <Line type="monotone" dataKey="gross_arr_churn_rate" name="ARR perdido por bajas" stroke="#d03932" strokeWidth={3} dot={false} />
-          <Line type="monotone" dataKey="down_selling_rate" name="ARR erosionado por downsell" stroke="#f97316" strokeWidth={3} dot={false} />
-          <Line type="monotone" dataKey="nrr" name="Retencion neta de cartera" stroke="#6d35ff" strokeWidth={3} dot={false} />
-        </LineChart>
-      </ResponsiveContainer>
-    </section>
+        <ResponsiveContainer width="100%" height={230}>
+          <LineChart data={chartData} margin={{ top: 22, right: 24, bottom: 8, left: 0 }}>
+            <CartesianGrid stroke="#eee8f8" strokeDasharray="4 6" vertical={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#837a9f", fontWeight: 600 }} tickLine={false} axisLine={false} />
+            <YAxis domain={[Math.floor(nrrMin / 5) * 5, Math.ceil(nrrMax / 5) * 5]} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 11, fill: "#837a9f", fontWeight: 600 }} tickLine={false} axisLine={false} width={56} />
+            <Tooltip
+              formatter={(value, name) => [`${Number(value).toFixed(1)}%`, String(name)]}
+              labelStyle={{ color: "#151229", fontWeight: 800 }}
+              contentStyle={{ fontSize: 12, borderRadius: 18, border: "1px solid #e7e1f2" }}
+            />
+            <Line type="monotone" dataKey="nrr" name="Retencion neta de cartera" stroke="#6d35ff" strokeWidth={3} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </section>
+
+      <section className="rounded-3xl border border-[#e7e1f2] bg-white p-5 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#6d35ff]">Tendencia de erosion</p>
+          <p className="mt-1 text-sm font-semibold text-[#6f6a80]">Bajas y downsell, comparables en escala baja.</p>
+        </div>
+        <ResponsiveContainer width="100%" height={230}>
+          <LineChart data={chartData} margin={{ top: 22, right: 24, bottom: 8, left: 0 }}>
+            <CartesianGrid stroke="#eee8f8" strokeDasharray="4 6" vertical={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#837a9f", fontWeight: 600 }} tickLine={false} axisLine={false} />
+            <YAxis domain={[0, "dataMax + 2"]} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 11, fill: "#837a9f", fontWeight: 600 }} tickLine={false} axisLine={false} width={56} />
+            <Tooltip
+              formatter={(value, name) => [`${Number(value).toFixed(1)}%`, String(name)]}
+              labelStyle={{ color: "#151229", fontWeight: 800 }}
+              contentStyle={{ fontSize: 12, borderRadius: 18, border: "1px solid #e7e1f2" }}
+            />
+            <Line type="monotone" dataKey="gross_arr_churn_rate" name="ARR perdido por bajas" stroke="#d03932" strokeWidth={3} dot={false} />
+            <Line type="monotone" dataKey="down_selling_rate" name="ARR erosionado por downsell" stroke="#f97316" strokeWidth={3} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </section>
+    </div>
   );
 }
 
