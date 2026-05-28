@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp, Download, Info } from "lucide-react";
 import { GageroWaterfall } from "@/components/GageroWaterfall";
 import { GageroSummaryTable } from "@/components/GageroSummaryTable";
 import { GageroDetailTable } from "@/components/GageroDetailTable";
+import { buildProductTypeOptions } from "@/components/FilterBar";
 import { api } from "@/lib/api";
 import { useAnalysisFilters } from "@/lib/analysis-filters-context";
 import { useARRMode } from "@/lib/arr-mode-context";
+import { useBLGrouping } from "@/lib/bl-grouping-context";
 import { useSnapshotContext } from "@/lib/snapshot-context";
 import { formatMonth, productTypeFilterParams } from "@/lib/utils";
 
@@ -45,10 +47,15 @@ const MODE_LABELS: Record<ComparisonMode, string> = {
 };
 
 export default function GageroPage() {
-  const { monthTo, productType, accountName } = useAnalysisFilters();
+  const { monthTo, productType, setProductType, accountName } = useAnalysisFilters();
   const { arrMode } = useARRMode();
+  const { combineLmsAio, combineAuthor } = useBLGrouping();
   const { activeSnapshot } = useSnapshotContext();
   const productFilters = productTypeFilterParams(productType);
+  const productTypeOptions = useMemo(
+    () => buildProductTypeOptions(combineLmsAio, combineAuthor),
+    [combineAuthor, combineLmsAio],
+  );
 
   const [mode, setMode] = useState<ComparisonMode>("mom");
   const [freeMonthA, setFreeMonthA] = useState<string>(() => subMonths(monthTo, 1));
@@ -145,6 +152,20 @@ export default function GageroPage() {
         </div>
 
         <div className="flex items-center gap-4 flex-wrap">
+          <label className="flex min-w-56 flex-col gap-1">
+            <span className="text-xs font-semibold text-[#6f6a80]">Linea de negocio</span>
+            <select
+              value={productType}
+              onChange={(e) => setProductType(e.target.value)}
+              className="rounded-lg border border-[#e7e1f2] px-3 py-2 text-sm font-semibold text-[#2f185f] focus:outline-none focus:ring-2 focus:ring-[#6d35ff]"
+            >
+              {productTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-[#6f6a80]">Periodo A</label>
             <input

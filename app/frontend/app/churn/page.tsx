@@ -83,8 +83,9 @@ export default function ChurnPage() {
   });
 
   const ratios = ratiosQuery.data;
-  const isLoading = ratiosQuery.isLoading || rollingQuery.isLoading || accountsQuery.isLoading || byProductQuery.isLoading;
-  const hasError = ratiosQuery.isError || rollingQuery.isError || accountsQuery.isError || byProductQuery.isError;
+  const initialLoading = ratiosQuery.isLoading && !!activeSnapshot;
+  const hasBlockingError = ratiosQuery.isError;
+  const hasSupportingError = rollingQuery.isError || accountsQuery.isError || byProductQuery.isError;
 
   return (
     <main className="flex-1 space-y-6 p-6" data-testid="churn-page">
@@ -132,25 +133,31 @@ export default function ChurnPage() {
         </div>
       )}
 
-      {isLoading && activeSnapshot && (
+      {initialLoading && (
         <div className="flex h-48 items-center justify-center rounded-3xl border border-[#e7e1f2] bg-white">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#efe9ff] border-t-[#6d35ff]" />
         </div>
       )}
 
-      {hasError && (
+      {hasBlockingError && (
         <div className="rounded-3xl border border-[#fecaca] bg-[#fef2f2] p-6 text-sm font-semibold text-[#d03932]">
           No se han podido calcular las metricas de churn para el periodo seleccionado.
         </div>
       )}
 
-      {ratios && !isLoading && !hasError && ratios.total_logos === 0 && (
+      {hasSupportingError && ratios && (
+        <div className="rounded-3xl border border-[#fde68a] bg-[#fffbeb] p-6 text-sm font-semibold text-[#92400e]">
+          Algunas graficas o el detalle han tardado mas de lo esperado, pero las metricas principales ya estan disponibles.
+        </div>
+      )}
+
+      {ratios && !hasBlockingError && ratios.total_logos === 0 && (
         <div className="rounded-3xl border border-[#fde68a] bg-[#fffbeb] p-6 text-sm font-semibold text-[#92400e]">
           No hay datos suficientes para calcular {retentionWindow.toUpperCase()} en el periodo seleccionado.
         </div>
       )}
 
-      {ratios && !isLoading && !hasError && ratios.total_logos > 0 && (
+      {ratios && !hasBlockingError && ratios.total_logos > 0 && (
         <>
           <KpiCards data={ratios} />
           <div className="rounded-2xl border border-[#e7e1f2] bg-[#fbfaff] p-4 text-sm text-[#6f6a80]">
@@ -159,13 +166,27 @@ export default function ChurnPage() {
             {" | "}Down Selling: {formatEUR(ratios.down_selling_eur)}
             {" | "}Up Selling: {formatEUR(ratios.up_selling_eur)}
           </div>
-          <ChurnRollingChart data={rollingQuery.data?.data ?? []} />
-          <ChurnByBLChart data={byProductQuery.data?.data ?? []} />
+          {rollingQuery.isLoading ? (
+            <div className="flex h-[300px] items-center justify-center rounded-3xl border border-[#e7e1f2] bg-white">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#efe9ff] border-t-[#6d35ff]" />
+            </div>
+          ) : (
+            <ChurnRollingChart data={rollingQuery.data?.data ?? []} />
+          )}
+          {byProductQuery.isLoading ? (
+            <div className="flex h-[300px] items-center justify-center rounded-3xl border border-[#e7e1f2] bg-white">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#efe9ff] border-t-[#6d35ff]" />
+            </div>
+          ) : (
+            <ChurnByBLChart data={byProductQuery.data?.data ?? []} />
+          )}
 
           <section className="overflow-hidden rounded-3xl border border-[#e7e1f2] bg-white shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
             <div className="border-b border-[#e7e1f2] p-5">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#6d35ff]">Detalle de clientes churneados</p>
-              <p className="mt-1 text-sm font-semibold text-[#6f6a80]">{accountsQuery.data?.count ?? 0} bajas en la ventana seleccionada</p>
+              <p className="mt-1 text-sm font-semibold text-[#6f6a80]">
+                {accountsQuery.isLoading ? "Cargando detalle..." : `${accountsQuery.data?.count ?? 0} bajas en la ventana seleccionada`}
+              </p>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
@@ -178,14 +199,22 @@ export default function ChurnPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(accountsQuery.data?.items ?? []).map((item) => (
-                    <tr key={`${item.account_name}-${item.product_type}`} className="border-t border-[#f0ebf8]">
-                      <td className="px-5 py-3 font-semibold text-[#2f185f]">{item.account_name}</td>
-                      <td className="px-5 py-3 text-[#6f6a80]">{item.product_type}</td>
-                      <td className="px-5 py-3 text-[#6f6a80]">{formatMonth(item.churn_month)}</td>
-                      <td className="px-5 py-3 text-right font-bold text-[#d03932]">-{formatEUR(item.arr_lost)}</td>
+                  {accountsQuery.isLoading ? (
+                    <tr className="border-t border-[#f0ebf8]">
+                      <td className="px-5 py-6 text-center font-semibold text-[#837a9f]" colSpan={4}>
+                        Cargando detalle de clientes...
+                      </td>
                     </tr>
-                  ))}
+                  ) : (
+                    (accountsQuery.data?.items ?? []).map((item) => (
+                      <tr key={`${item.account_name}-${item.product_type}`} className="border-t border-[#f0ebf8]">
+                        <td className="px-5 py-3 font-semibold text-[#2f185f]">{item.account_name}</td>
+                        <td className="px-5 py-3 text-[#6f6a80]">{item.product_type}</td>
+                        <td className="px-5 py-3 text-[#6f6a80]">{formatMonth(item.churn_month)}</td>
+                        <td className="px-5 py-3 text-right font-bold text-[#d03932]">-{formatEUR(item.arr_lost)}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
                 <tfoot className="border-t-2 border-[#e7e1f2] bg-[#fbfaff] font-black text-[#2f185f]">
                   <tr>
