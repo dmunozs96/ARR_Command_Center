@@ -134,6 +134,7 @@ def build_snapshot_excel(
     db: Session,
     gagero_month_a: "date | None" = None,
     gagero_month_b: "date | None" = None,
+    gagero_mode: str = "from_start",
 ) -> bytes:
     snap = db.query(Snapshot).filter(Snapshot.id == snapshot_id).first()
     if not snap:
@@ -146,7 +147,7 @@ def build_snapshot_excel(
     _sheet_calculated_arr(wb, snapshot_id, db, mode="from_close", sheet_name="Desde cierre")
 
     if gagero_month_a and gagero_month_b:
-        _sheet_gagero(wb, snapshot_id, gagero_month_a, gagero_month_b, db)
+        _sheet_gagero(wb, snapshot_id, gagero_month_a, gagero_month_b, db, gagero_mode)
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -260,13 +261,8 @@ def _sheet_calculated_arr(wb, snapshot_id: UUID, db: Session, mode: str, sheet_n
     _set_export_column_widths(ws)
 
 
-def _sheet_gagero(wb, snapshot_id: UUID, month_a: date, month_b: date, db: Session) -> None:
-    import calendar
-    from sqlalchemy import func as sa_func
-    from app.backend.db.models import ARRLineItem as _ArrLI, RawOpportunityLineItem as _RawLI
-
-    def _days(m: date) -> int:
-        return calendar.monthrange(m.year, m.month)[1]
+def _sheet_gagero(wb, snapshot_id: UUID, month_a: date, month_b: date, db: Session, mode: str = "from_start") -> None:
+    from app.backend.api.routes.gagero import _get_arr_by_account_bl
 
     def _month_label(m: date) -> str:
         MONTHS_ES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -274,25 +270,7 @@ def _sheet_gagero(wb, snapshot_id: UUID, month_a: date, month_b: date, db: Sessi
         return f"{MONTHS_ES[m.month - 1]} {m.year}"
 
     def _query_arr(month: date) -> dict:
-        days = _days(month)
-        rows = (
-            db.query(
-                _RawLI.account_name,
-                _ArrLI.product_type,
-                sa_func.sum(_ArrLI.daily_price * days).label("arr_total"),
-            )
-            .join(_ArrLI, _ArrLI.raw_line_item_id == _RawLI.id)
-            .filter(
-                _ArrLI.snapshot_id == snapshot_id,
-                _ArrLI.start_month <= month,
-                _ArrLI.end_month_normalized >= month,
-                _ArrLI.is_saas == True,
-                _ArrLI.excluded_from_arr == False,
-            )
-            .group_by(_RawLI.account_name, _ArrLI.product_type)
-            .all()
-        )
-        return {(r.account_name, r.product_type): Decimal(str(r.arr_total)) for r in rows}
+        return _get_arr_by_account_bl(db, snapshot_id, month, None, None, None, mode)
 
     arr_a = _query_arr(month_a)
     arr_b = _query_arr(month_b)

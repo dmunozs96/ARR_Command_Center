@@ -21,6 +21,7 @@ def export_snapshot_excel(
     snapshot_id: UUID = Query(..., description="UUID del snapshot a exportar"),
     gagero_month_a: Optional[date] = Query(None, description="Mes A para pestaña Gagero (YYYY-MM-DD)"),
     gagero_month_b: Optional[date] = Query(None, description="Mes B para pestaña Gagero (YYYY-MM-DD)"),
+    gagero_mode: str = Query("from_start", description="from_start | from_close"),
     db: Session = Depends(get_db),
 ):
     snap = db.query(Snapshot).filter(Snapshot.id == snapshot_id).first()
@@ -28,7 +29,7 @@ def export_snapshot_excel(
         raise HTTPException(status_code=404, detail="Snapshot no encontrado")
 
     try:
-        xlsx_bytes = build_snapshot_excel(snapshot_id, db, gagero_month_a, gagero_month_b)
+        xlsx_bytes = build_snapshot_excel(snapshot_id, db, gagero_month_a, gagero_month_b, gagero_mode)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Error generando Excel: {exc}") from exc
 

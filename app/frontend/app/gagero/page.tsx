@@ -8,6 +8,7 @@ import { GageroSummaryTable } from "@/components/GageroSummaryTable";
 import { GageroDetailTable } from "@/components/GageroDetailTable";
 import { api } from "@/lib/api";
 import { useAnalysisFilters } from "@/lib/analysis-filters-context";
+import { useARRMode } from "@/lib/arr-mode-context";
 import { useSnapshotContext } from "@/lib/snapshot-context";
 import { formatMonth, productTypeFilterParams } from "@/lib/utils";
 
@@ -45,6 +46,7 @@ const MODE_LABELS: Record<ComparisonMode, string> = {
 
 export default function GageroPage() {
   const { monthTo, productType, accountName } = useAnalysisFilters();
+  const { arrMode } = useARRMode();
   const { activeSnapshot } = useSnapshotContext();
   const productFilters = productTypeFilterParams(productType);
 
@@ -58,7 +60,7 @@ export default function GageroPage() {
   const monthB = calculatedMonths?.b ?? freeMonthB;
 
   const bridgeQuery = useQuery({
-    queryKey: ["gagero-bridge", activeSnapshot?.id, monthA, monthB, productType, accountName],
+    queryKey: ["gagero-bridge", activeSnapshot?.id, monthA, monthB, productType, accountName, arrMode],
     queryFn: () =>
       api.getGageroBridge({
         snapshot_id: activeSnapshot?.id,
@@ -66,6 +68,7 @@ export default function GageroPage() {
         month_b: monthB,
         ...productFilters,
         account_name: accountName || undefined,
+        mode: arrMode,
       }),
     enabled: !!(monthA && monthB && monthA !== monthB),
   });
@@ -80,7 +83,7 @@ export default function GageroPage() {
     if (!activeSnapshot?.id) return;
     setDownloading(true);
     try {
-      await api.downloadGageroExcel(activeSnapshot.id, monthA, monthB);
+      await api.downloadGageroExcel(activeSnapshot.id, monthA, monthB, arrMode);
     } finally {
       setDownloading(false);
     }

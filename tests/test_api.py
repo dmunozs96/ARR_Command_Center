@@ -1308,26 +1308,27 @@ def test_cron_daily_sync_skips_when_data_unchanged(client, monkeypatch):
 def _seed_retention_cohort(db):
     snap = _make_snapshot(db)
 
-    def add_item(account, suffix, daily_price, start, end, product_type="SaaS LMS"):
+    def add_item(account, suffix, arr_value, start, end, product_type="SaaS LMS"):
         raw = _make_raw(db, snap.id, sf_opp_id=f"OPP_{suffix}", sf_line_id=f"LI_{suffix}")
         raw.account_name = account
         arr = _make_arr(
             db,
             snap.id,
             raw.id,
+            arr=Decimal(str(arr_value)),
             product_type=product_type,
             start_month=start,
             end_month_normalized=end,
         )
-        arr.daily_price = Decimal(str(daily_price))
+        arr.daily_price = Decimal(str(arr_value)) / Decimal("365")
 
     # Month A (Jan 2025) contains four cohort logos.
-    add_item("Churn Corp", "CHURN", "100", date(2025, 1, 1), date(2025, 12, 31), "SaaS Skills")
-    add_item("Expand Corp", "EXP_BASE", "100", date(2025, 1, 1), date(2026, 1, 31))
-    add_item("Expand Corp", "EXP_ADD", "50", date(2026, 1, 1), date(2026, 1, 31))
-    add_item("Reduce Corp", "RED_BASE", "200", date(2025, 1, 1), date(2025, 12, 31))
-    add_item("Reduce Corp", "RED_RENEW", "100", date(2026, 1, 1), date(2026, 1, 31))
-    add_item("Stable Corp", "STABLE", "100", date(2025, 1, 1), date(2026, 1, 31))
+    add_item("Churn Corp", "CHURN", "3100", date(2025, 1, 1), date(2025, 12, 31), "SaaS Skills")
+    add_item("Expand Corp", "EXP_BASE", "3100", date(2025, 1, 1), date(2026, 1, 31))
+    add_item("Expand Corp", "EXP_ADD", "1550", date(2026, 1, 1), date(2026, 1, 31))
+    add_item("Reduce Corp", "RED_BASE", "6200", date(2025, 1, 1), date(2025, 12, 31))
+    add_item("Reduce Corp", "RED_RENEW", "3100", date(2026, 1, 1), date(2026, 1, 31))
+    add_item("Stable Corp", "STABLE", "3100", date(2025, 1, 1), date(2026, 1, 31))
     db.commit()
     return snap
 
@@ -1344,6 +1345,43 @@ def test_gagero_accepts_completed_snapshots(client):
 
     assert response.status_code == 200
     assert response.json()["churn"]["count"] == 1
+
+
+def test_gagero_uses_annualized_arr_and_from_close_mode(client):
+    db = TestingSessionLocal()
+    snap = _make_snapshot(db)
+    raw = _make_raw(db, snap.id, sf_opp_id="OPP_UEM", sf_line_id="LI_UEM")
+    raw.account_name = "Universidad Europea de Madrid"
+    raw.opportunity_type = "Nuevo Negocio"
+    raw.close_date = date(2026, 3, 26)
+    raw.subscription_start_date = date(2026, 4, 20)
+    arr = _make_arr(
+        db,
+        snap.id,
+        raw.id,
+        product_type="SaaS Skills",
+        arr=Decimal("40000"),
+        start_month=date(2026, 4, 1),
+        end_month_normalized=date(2027, 3, 31),
+    )
+    arr.daily_price = Decimal("109.58904110")
+    snap_id = snap.id
+    db.commit()
+    db.close()
+
+    from_start = client.get(
+        f"/api/gagero/bridge?snapshot_id={snap_id}&month_a=2026-03-01&month_b=2026-04-01"
+    )
+    from_close = client.get(
+        f"/api/gagero/bridge?snapshot_id={snap_id}&month_a=2026-03-01&month_b=2026-04-01&mode=from_close"
+    )
+
+    assert from_start.status_code == 200
+    assert from_start.json()["new_logo"]["items"][0]["arr_b"] == 40000.0
+    assert from_close.status_code == 200
+    assert from_close.json()["new_logo"]["count"] == 0
+    assert from_close.json()["arr_a"] == 40000.0
+    assert from_close.json()["arr_b"] == 40000.0
 
 
 def test_churn_ratios_compute_cohort_retention(client):

@@ -1,24 +1,19 @@
 """GET /api/gagero/bridge — ARR waterfall bridge analysis."""
 
-import calendar
 from datetime import date
 from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.backend.api.routes.arr import _active_start_month
 from app.backend.api.schemas import BridgeCategory, BridgeItem, BridgeResponse
 from app.backend.db.connection import get_db
 from app.backend.db.models import ARRLineItem, RawOpportunityLineItem, Snapshot
 
 router = APIRouter()
-
-
-def _days_in_month(month: date) -> int:
-    return calendar.monthrange(month.year, month.month)[1]
 
 
 def _get_arr_by_account_bl(
@@ -28,33 +23,35 @@ def _get_arr_by_account_bl(
     product_type: Optional[str],
     account_name: Optional[str],
     product_types: Optional[str] = None,
+    mode: str = "from_start",
 ) -> dict:
-    days = _days_in_month(month)
+    product_type_list = [value.strip() for value in product_types.split(",") if value.strip()] if product_types else []
     query = (
-        db.query(
-            RawOpportunityLineItem.account_name,
-            ARRLineItem.product_type,
-            func.sum(ARRLineItem.daily_price * days).label("arr_total"),
-        )
+        db.query(ARRLineItem, RawOpportunityLineItem)
         .join(ARRLineItem, ARRLineItem.raw_line_item_id == RawOpportunityLineItem.id)
         .filter(
             ARRLineItem.snapshot_id == snapshot_id,
-            ARRLineItem.start_month <= month,
             ARRLineItem.end_month_normalized >= month,
             ARRLineItem.is_saas == True,
             ARRLineItem.excluded_from_arr == False,
         )
-        .group_by(RawOpportunityLineItem.account_name, ARRLineItem.product_type)
     )
     if product_type:
         query = query.filter(ARRLineItem.product_type == product_type)
-    if product_types:
-        values = [value.strip() for value in product_types.split(",") if value.strip()]
-        if values:
-            query = query.filter(ARRLineItem.product_type.in_(values))
+    if product_type_list:
+        query = query.filter(ARRLineItem.product_type.in_(product_type_list))
     if account_name:
         query = query.filter(RawOpportunityLineItem.account_name == account_name)
-    return {(row.account_name, row.product_type): Decimal(str(row.arr_total)) for row in query.all()}
+
+    totals: dict[tuple[str, str], Decimal] = {}
+    for arr, raw in query.all():
+        active_start = _active_start_month(arr, raw, mode)
+        if active_start > month:
+            continue
+        key = (raw.account_name or "Sin cuenta", arr.product_type)
+        totals[key] = totals.get(key, Decimal("0")) + Decimal(str(arr.annualized_value))
+
+    return totals
 
 
 def _classify_bridge(arr_a: dict, arr_b: dict) -> dict:
@@ -114,8 +111,12 @@ def get_bridge(
     product_type: Optional[str] = Query(None),
     product_types: Optional[str] = Query(None, description="Lista CSV de lineas de negocio"),
     account_name: Optional[str] = Query(None),
+    mode: str = Query("from_start", description="from_start | from_close"),
     db: Session = Depends(get_db),
 ):
+    if mode not in {"from_start", "from_close"}:
+        raise HTTPException(status_code=400, detail="mode debe ser from_start o from_close")
+
     if snapshot_id:
         snap = db.query(Snapshot).filter(Snapshot.id == snapshot_id, Snapshot.status == "completed").first()
     else:
@@ -127,8 +128,8 @@ def get_bridge(
     month_a = month_a.replace(day=1)
     month_b = month_b.replace(day=1)
 
-    arr_a = _get_arr_by_account_bl(db, snap.id, month_a, product_type, account_name, product_types)
-    arr_b = _get_arr_by_account_bl(db, snap.id, month_b, product_type, account_name, product_types)
+    arr_a = _get_arr_by_account_bl(db, snap.id, month_a, product_type, account_name, product_types, mode)
+    arr_b = _get_arr_by_account_bl(db, snap.id, month_b, product_type, account_name, product_types, mode)
 
     classified = _classify_bridge(arr_a, arr_b)
 

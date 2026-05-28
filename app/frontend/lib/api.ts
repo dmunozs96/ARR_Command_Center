@@ -273,6 +273,7 @@ export const api = {
     product_type?: string;
     product_types?: string;
     account_name?: string;
+    mode?: "from_start" | "from_close";
   }) =>
     client
       .get<BridgeResponse>("/gagero/bridge", { params })
@@ -282,9 +283,10 @@ export const api = {
     snapshotId: string,
     monthA: string,
     monthB: string,
+    mode: "from_start" | "from_close" = "from_start",
   ): Promise<void> => {
     const response = await client.get("/exports/excel", {
-      params: { snapshot_id: snapshotId, gagero_month_a: monthA, gagero_month_b: monthB },
+      params: { snapshot_id: snapshotId, gagero_month_a: monthA, gagero_month_b: monthB, gagero_mode: mode },
       responseType: "blob",
     });
     const contentDisposition = response.headers["content-disposition"];
