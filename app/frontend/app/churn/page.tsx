@@ -38,8 +38,10 @@ const MODE_LABELS: Record<ComparisonMode, string> = {
 
 function subMonths(isoDate: string, amount: number): string {
   const [year, month] = isoDate.split("-").map(Number);
-  const result = new Date(year, month - 1 - amount, 1);
-  return result.toISOString().slice(0, 10);
+  const zeroBased = year * 12 + month - 1 - amount;
+  const resultYear = Math.floor(zeroBased / 12);
+  const resultMonth = (zeroBased % 12) + 1;
+  return `${resultYear}-${String(resultMonth).padStart(2, "0")}-01`;
 }
 
 function yearStart(isoDate: string): string {
@@ -72,8 +74,10 @@ function rateColor(value: number, goodWhenLow = true): string {
 
 function moveMonth(isoDate: string, amount: number): string {
   const [year, month] = isoDate.split("-").map(Number);
-  const result = new Date(year, month - 1 + amount, 1);
-  return result.toISOString().slice(0, 10);
+  const zeroBased = year * 12 + month - 1 + amount;
+  const resultYear = Math.floor(zeroBased / 12);
+  const resultMonth = (zeroBased % 12) + 1;
+  return `${resultYear}-${String(resultMonth).padStart(2, "0")}-01`;
 }
 
 function MonthlyKpis({ data }: { data: MonthlyChurnResponse }) {
