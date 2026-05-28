@@ -18,6 +18,10 @@ from app.backend.api.schemas import (
     ChurnRollingResponse,
     ChurnedAccount,
     ChurnedAccountsResponse,
+    MonthlyChurnItem,
+    MonthlyChurnResponse,
+    MonthlyChurnSummary,
+    MonthlyChurnTrendResponse,
 )
 from app.backend.db.connection import get_db
 from app.backend.db.models import ARRLineItem, Snapshot
@@ -118,6 +122,156 @@ def _data_bounds(db: Session, snapshot_id: UUID) -> tuple[Optional[date], Option
         )
         .one()
     )
+
+
+def _compute_monthly_churn(
+    db: Session,
+    snapshot_id: UUID,
+    month: date,
+    product_type: Optional[str],
+    account_name: Optional[str],
+    product_types: Optional[str] = None,
+) -> MonthlyChurnResponse:
+    month = month.replace(day=1)
+    previous_month = _add_months(month, -1)
+    previous = _get_arr_by_account_bl(db, snapshot_id, previous_month, product_type, account_name, product_types)
+    current = _get_arr_by_account_bl(db, snapshot_id, month, product_type, account_name, product_types)
+
+    churn_arr = ZERO
+    down_selling_arr = ZERO
+    up_selling_arr = ZERO
+    new_logo_arr = ZERO
+    churned_logos = 0
+    items: list[MonthlyChurnItem] = []
+
+    for key in sorted(set(previous.keys()) | set(current.keys())):
+        previous_arr = previous.get(key, ZERO)
+        current_arr = current.get(key, ZERO)
+        if previous_arr == ZERO and current_arr == ZERO:
+            continue
+
+        movement_type: str | None = None
+        delta = current_arr - previous_arr
+
+        if previous_arr == ZERO and current_arr > ZERO:
+            movement_type = "new_logo"
+            new_logo_arr += current_arr
+        elif previous_arr > ZERO and current_arr == ZERO:
+            movement_type = "churn"
+            churn_arr += previous_arr
+            churned_logos += 1
+        elif previous_arr > ZERO and current_arr < previous_arr:
+            movement_type = "down_selling"
+            down_selling_arr += previous_arr - current_arr
+        elif previous_arr > ZERO and current_arr > previous_arr:
+            movement_type = "up_selling"
+            up_selling_arr += current_arr - previous_arr
+
+        if movement_type:
+            items.append(
+                MonthlyChurnItem(
+                    account_name=key[0],
+                    product_type=key[1],
+                    arr_previous=previous_arr,
+                    arr_current=current_arr,
+                    delta=delta,
+                    movement_type=movement_type,
+                )
+            )
+
+    arr_start = sum(previous.values(), ZERO)
+    arr_end_existing = sum((current.get(key, ZERO) for key in previous), ZERO)
+    net_existing_change = up_selling_arr - churn_arr - down_selling_arr
+    total_logos_start = len([value for value in previous.values() if value > ZERO])
+
+    if arr_start:
+        gross_arr_churn_rate = float(churn_arr / arr_start * 100)
+        down_selling_rate = float(down_selling_arr / arr_start * 100)
+        up_selling_rate = float(up_selling_arr / arr_start * 100)
+        net_arr_churn_rate = float((churn_arr + down_selling_arr - up_selling_arr) / arr_start * 100)
+        grr = float((arr_start - churn_arr - down_selling_arr) / arr_start * 100)
+        nrr = float((arr_start - churn_arr - down_selling_arr + up_selling_arr) / arr_start * 100)
+        logo_churn_rate = float(Decimal(churned_logos) / Decimal(total_logos_start) * 100) if total_logos_start else 0.0
+    else:
+        gross_arr_churn_rate = down_selling_rate = up_selling_rate = net_arr_churn_rate = 0.0
+        grr = nrr = logo_churn_rate = 0.0
+
+    items.sort(key=lambda item: abs(item.delta), reverse=True)
+    return MonthlyChurnResponse(
+        month=month,
+        previous_month=previous_month,
+        arr_start=arr_start,
+        arr_end_existing=arr_end_existing,
+        new_logo_arr=new_logo_arr,
+        churn_arr=churn_arr,
+        down_selling_arr=down_selling_arr,
+        up_selling_arr=up_selling_arr,
+        net_existing_change=net_existing_change,
+        gross_arr_churn_rate=gross_arr_churn_rate,
+        down_selling_rate=down_selling_rate,
+        up_selling_rate=up_selling_rate,
+        net_arr_churn_rate=net_arr_churn_rate,
+        grr=min(grr, 100.0),
+        nrr=nrr,
+        logo_churn_rate=logo_churn_rate,
+        churned_logos=churned_logos,
+        total_logos_start=total_logos_start,
+        items=items,
+    )
+
+
+def _monthly_summary(response: MonthlyChurnResponse) -> MonthlyChurnSummary:
+    return MonthlyChurnSummary(
+        month=response.month,
+        previous_month=response.previous_month,
+        arr_start=response.arr_start,
+        arr_end_existing=response.arr_end_existing,
+        new_logo_arr=response.new_logo_arr,
+        churn_arr=response.churn_arr,
+        down_selling_arr=response.down_selling_arr,
+        up_selling_arr=response.up_selling_arr,
+        net_existing_change=response.net_existing_change,
+        gross_arr_churn_rate=response.gross_arr_churn_rate,
+        down_selling_rate=response.down_selling_rate,
+        up_selling_rate=response.up_selling_rate,
+        net_arr_churn_rate=response.net_arr_churn_rate,
+        grr=response.grr,
+        nrr=response.nrr,
+        logo_churn_rate=response.logo_churn_rate,
+        churned_logos=response.churned_logos,
+        total_logos_start=response.total_logos_start,
+    )
+
+
+@router.get("/monthly", response_model=MonthlyChurnResponse)
+def churn_monthly(
+    month: date = Query(...),
+    snapshot_id: Optional[UUID] = Query(None),
+    product_type: Optional[str] = Query(None),
+    product_types: Optional[str] = Query(None, description="Lista CSV de lineas de negocio"),
+    account_name: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    snapshot = _snapshot_or_404(db, snapshot_id)
+    return _compute_monthly_churn(db, snapshot.id, month, product_type, account_name, product_types)
+
+
+@router.get("/monthly-trend", response_model=MonthlyChurnTrendResponse)
+def churn_monthly_trend(
+    month_from: date = Query(...),
+    month_to: date = Query(...),
+    snapshot_id: Optional[UUID] = Query(None),
+    product_type: Optional[str] = Query(None),
+    product_types: Optional[str] = Query(None, description="Lista CSV de lineas de negocio"),
+    account_name: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    snapshot = _snapshot_or_404(db, snapshot_id)
+    points = [
+        _monthly_summary(_compute_monthly_churn(db, snapshot.id, month, product_type, account_name, product_types))
+        for month in _month_range(month_from, month_to)
+    ]
+    return MonthlyChurnTrendResponse(data=points)
 
 
 @router.get("/ratios", response_model=ChurnRatiosResponse)

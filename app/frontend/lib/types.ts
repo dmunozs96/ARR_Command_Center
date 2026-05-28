@@ -288,6 +288,46 @@ export interface ChurnByProductTypeResponse {
   data: ChurnByProductTypePoint[];
 }
 
+export type MonthlyChurnMovement = "churn" | "down_selling" | "up_selling" | "new_logo";
+
+export interface MonthlyChurnItem {
+  account_name: string;
+  product_type: string;
+  arr_previous: number;
+  arr_current: number;
+  delta: number;
+  movement_type: MonthlyChurnMovement;
+}
+
+export interface MonthlyChurnSummary {
+  month: string;
+  previous_month: string;
+  arr_start: number;
+  arr_end_existing: number;
+  new_logo_arr: number;
+  churn_arr: number;
+  down_selling_arr: number;
+  up_selling_arr: number;
+  net_existing_change: number;
+  gross_arr_churn_rate: number;
+  down_selling_rate: number;
+  up_selling_rate: number;
+  net_arr_churn_rate: number;
+  grr: number;
+  nrr: number;
+  logo_churn_rate: number;
+  churned_logos: number;
+  total_logos_start: number;
+}
+
+export interface MonthlyChurnResponse extends MonthlyChurnSummary {
+  items: MonthlyChurnItem[];
+}
+
+export interface MonthlyChurnTrendResponse {
+  data: MonthlyChurnSummary[];
+}
+
 export type RenewalStatus = "renewed" | "at_risk";
 
 export interface RenewalItem {

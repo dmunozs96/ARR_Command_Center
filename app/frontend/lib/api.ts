@@ -20,6 +20,8 @@ import type {
   ChurnRatiosResponse,
   ChurnRollingResponse,
   ChurnedAccountsResponse,
+  MonthlyChurnResponse,
+  MonthlyChurnTrendResponse,
   RenewalMonitorResponse,
 } from "./types";
 
@@ -306,6 +308,25 @@ export const api = {
   },
 
   // Churn
+  getChurnMonthly: (params: {
+    month: string;
+    snapshot_id?: string;
+    product_type?: string;
+    product_types?: string;
+    account_name?: string;
+  }) =>
+    client.get<MonthlyChurnResponse>("/churn/monthly", { params }).then((r) => r.data),
+
+  getChurnMonthlyTrend: (params: {
+    month_from: string;
+    month_to: string;
+    snapshot_id?: string;
+    product_type?: string;
+    product_types?: string;
+    account_name?: string;
+  }) =>
+    client.get<MonthlyChurnTrendResponse>("/churn/monthly-trend", { params }).then((r) => r.data),
+
   getChurnRatios: (params: {
     month_b: string;
     window: "ltm" | "ytd";

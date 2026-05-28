@@ -1407,6 +1407,53 @@ def test_churn_ratios_compute_cohort_retention(client):
     assert data["logo_churn_rate"] == 25.0
 
 
+def test_monthly_churn_computes_modelable_rates(client):
+    db = TestingSessionLocal()
+    snap = _seed_retention_cohort(db)
+    snap_id = snap.id
+    db.close()
+
+    response = client.get(
+        f"/api/churn/monthly?snapshot_id={snap_id}&month=2026-01-01"
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["previous_month"] == "2025-12-01"
+    assert data["arr_start"] == 15500.0
+    assert data["churn_arr"] == 3100.0
+    assert data["down_selling_arr"] == 3100.0
+    assert data["up_selling_arr"] == 1550.0
+    assert data["new_logo_arr"] == 0.0
+    assert data["gross_arr_churn_rate"] == 20.0
+    assert data["down_selling_rate"] == 20.0
+    assert data["up_selling_rate"] == 10.0
+    assert data["net_arr_churn_rate"] == 30.0
+    assert data["grr"] == 60.0
+    assert data["nrr"] == 70.0
+    assert data["logo_churn_rate"] == 25.0
+    assert data["churned_logos"] == 1
+    assert data["total_logos_start"] == 4
+    assert {item["movement_type"] for item in data["items"]} == {"churn", "down_selling", "up_selling"}
+
+
+def test_monthly_churn_trend_returns_monthly_points(client):
+    db = TestingSessionLocal()
+    snap = _seed_retention_cohort(db)
+    snap_id = snap.id
+    db.close()
+
+    response = client.get(
+        f"/api/churn/monthly-trend?snapshot_id={snap_id}&month_from=2025-12-01&month_to=2026-01-01"
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert [point["month"] for point in data["data"]] == ["2025-12-01", "2026-01-01"]
+    assert "items" not in data["data"][0]
+    assert data["data"][1]["gross_arr_churn_rate"] == 20.0
+
+
 def test_churn_detail_and_by_product_type_report_losses(client):
     db = TestingSessionLocal()
     snap = _seed_retention_cohort(db)

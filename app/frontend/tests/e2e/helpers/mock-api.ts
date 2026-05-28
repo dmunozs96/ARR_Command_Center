@@ -216,6 +216,82 @@ const churnRatios = {
   up_selling_eur: 65640,
 };
 
+const churnMonthly = {
+  month: "2026-04-01",
+  previous_month: "2026-03-01",
+  arr_start: 420000,
+  arr_end_existing: 426000,
+  new_logo_arr: 18000,
+  churn_arr: 36000,
+  down_selling_arr: 12000,
+  up_selling_arr: 54000,
+  net_existing_change: 6000,
+  gross_arr_churn_rate: 8.6,
+  down_selling_rate: 2.9,
+  up_selling_rate: 12.9,
+  net_arr_churn_rate: -1.4,
+  grr: 88.6,
+  nrr: 101.4,
+  logo_churn_rate: 6.3,
+  churned_logos: 1,
+  total_logos_start: 16,
+  items: [
+    {
+      account_name: "Beta Corp",
+      product_type: "SaaS Skills",
+      arr_previous: 36000,
+      arr_current: 0,
+      delta: -36000,
+      movement_type: "churn",
+    },
+  ],
+};
+
+const churnMonthlyTrend = {
+  data: [
+    {
+      month: "2026-03-01",
+      previous_month: "2026-02-01",
+      arr_start: 410000,
+      arr_end_existing: 405000,
+      new_logo_arr: 12000,
+      churn_arr: 21000,
+      down_selling_arr: 5000,
+      up_selling_arr: 21000,
+      net_existing_change: -5000,
+      gross_arr_churn_rate: 5.2,
+      down_selling_rate: 1.2,
+      up_selling_rate: 5.1,
+      net_arr_churn_rate: 1.1,
+      grr: 93.6,
+      nrr: 98.7,
+      logo_churn_rate: 4.4,
+      churned_logos: 1,
+      total_logos_start: 23,
+    },
+    {
+      month: churnMonthly.month,
+      previous_month: churnMonthly.previous_month,
+      arr_start: churnMonthly.arr_start,
+      arr_end_existing: churnMonthly.arr_end_existing,
+      new_logo_arr: churnMonthly.new_logo_arr,
+      churn_arr: churnMonthly.churn_arr,
+      down_selling_arr: churnMonthly.down_selling_arr,
+      up_selling_arr: churnMonthly.up_selling_arr,
+      net_existing_change: churnMonthly.net_existing_change,
+      gross_arr_churn_rate: churnMonthly.gross_arr_churn_rate,
+      down_selling_rate: churnMonthly.down_selling_rate,
+      up_selling_rate: churnMonthly.up_selling_rate,
+      net_arr_churn_rate: churnMonthly.net_arr_churn_rate,
+      grr: churnMonthly.grr,
+      nrr: churnMonthly.nrr,
+      logo_churn_rate: churnMonthly.logo_churn_rate,
+      churned_logos: churnMonthly.churned_logos,
+      total_logos_start: churnMonthly.total_logos_start,
+    },
+  ],
+};
+
 const churnRolling = {
   window: "ltm",
   data: [
@@ -323,6 +399,10 @@ export async function installDefaultMocks(page: Page) {
   await page.route(/.*\/api\/snapshot-review\/period-detail.*/, (route) => json(route, snapshotReviewDetail));
 
   await page.route(/.*\/api\/churn\/ratios.*/, (route) => json(route, churnRatios));
+
+  await page.route(/.*\/api\/churn\/monthly-trend.*/, (route) => json(route, churnMonthlyTrend));
+
+  await page.route(/.*\/api\/churn\/monthly.*/, (route) => json(route, churnMonthly));
 
   await page.route(/.*\/api\/churn\/rolling.*/, (route) => json(route, churnRolling));
 

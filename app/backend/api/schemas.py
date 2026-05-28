@@ -427,6 +427,44 @@ class ChurnByProductTypeResponse(BaseModel):
     data: List[ChurnByProductTypePoint]
 
 
+class MonthlyChurnItem(BaseModel):
+    account_name: str
+    product_type: str
+    arr_previous: JsonDecimal
+    arr_current: JsonDecimal
+    delta: JsonDecimal
+    movement_type: Literal["churn", "down_selling", "up_selling", "new_logo"]
+
+
+class MonthlyChurnSummary(BaseModel):
+    month: date
+    previous_month: date
+    arr_start: JsonDecimal
+    arr_end_existing: JsonDecimal
+    new_logo_arr: JsonDecimal
+    churn_arr: JsonDecimal
+    down_selling_arr: JsonDecimal
+    up_selling_arr: JsonDecimal
+    net_existing_change: JsonDecimal
+    gross_arr_churn_rate: float
+    down_selling_rate: float
+    up_selling_rate: float
+    net_arr_churn_rate: float
+    grr: float
+    nrr: float
+    logo_churn_rate: float
+    churned_logos: int
+    total_logos_start: int
+
+
+class MonthlyChurnResponse(MonthlyChurnSummary):
+    items: List[MonthlyChurnItem]
+
+
+class MonthlyChurnTrendResponse(BaseModel):
+    data: List[MonthlyChurnSummary]
+
+
 # ---------------------------------------------------------------------------
 # Renewals - Forward-looking Monitor
 # ---------------------------------------------------------------------------
