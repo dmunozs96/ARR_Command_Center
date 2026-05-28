@@ -24,12 +24,13 @@ from app.backend.api.schemas import (
     MonthlyChurnTrendResponse,
 )
 from app.backend.db.connection import get_db
-from app.backend.db.models import ARRLineItem, Snapshot
+from app.backend.db.models import ARRLineItem, Snapshot, SnapshotStripeMRR
 
 router = APIRouter()
 
 Window = Literal["ltm", "ytd"]
 ZERO = Decimal("0")
+ONLINE_KEY = ("[Author Online Stripe]", "Author Online")
 
 
 def _add_months(month: date, months: int) -> date:
@@ -124,6 +125,39 @@ def _data_bounds(db: Session, snapshot_id: UUID) -> tuple[Optional[date], Option
     )
 
 
+def _includes_author_online(
+    product_type: Optional[str],
+    product_types: Optional[str],
+    account_name: Optional[str],
+) -> bool:
+    if account_name:
+        return False
+    product_type_list = [value.strip() for value in product_types.split(",") if value.strip()] if product_types else []
+    return (
+        (not product_type and not product_type_list)
+        or product_type == "Author Online"
+        or "Author Online" in product_type_list
+    )
+
+
+def _get_author_online_arr(
+    db: Session,
+    snapshot_id: UUID,
+    month: date,
+    product_type: Optional[str],
+    account_name: Optional[str],
+    product_types: Optional[str] = None,
+) -> Decimal:
+    if not _includes_author_online(product_type, product_types, account_name):
+        return ZERO
+    row = (
+        db.query(SnapshotStripeMRR)
+        .filter(SnapshotStripeMRR.snapshot_id == snapshot_id, SnapshotStripeMRR.month == month.replace(day=1))
+        .first()
+    )
+    return Decimal(str(row.mrr)) if row else ZERO
+
+
 def _compute_monthly_churn(
     db: Session,
     snapshot_id: UUID,
@@ -131,11 +165,20 @@ def _compute_monthly_churn(
     product_type: Optional[str],
     account_name: Optional[str],
     product_types: Optional[str] = None,
+    month_from: Optional[date] = None,
+    mode: str = "from_start",
 ) -> MonthlyChurnResponse:
     month = month.replace(day=1)
-    previous_month = _add_months(month, -1)
-    previous = _get_arr_by_account_bl(db, snapshot_id, previous_month, product_type, account_name, product_types)
-    current = _get_arr_by_account_bl(db, snapshot_id, month, product_type, account_name, product_types)
+    previous_month = month_from.replace(day=1) if month_from else _add_months(month, -1)
+    previous = _get_arr_by_account_bl(db, snapshot_id, previous_month, product_type, account_name, product_types, mode)
+    current = _get_arr_by_account_bl(db, snapshot_id, month, product_type, account_name, product_types, mode)
+    salesforce_previous = dict(previous)
+
+    previous_online_arr = _get_author_online_arr(db, snapshot_id, previous_month, product_type, account_name, product_types)
+    current_online_arr = _get_author_online_arr(db, snapshot_id, month, product_type, account_name, product_types)
+    if previous_online_arr or current_online_arr:
+        previous[ONLINE_KEY] = previous_online_arr
+        current[ONLINE_KEY] = current_online_arr
 
     churn_arr = ZERO
     down_selling_arr = ZERO
@@ -153,7 +196,14 @@ def _compute_monthly_churn(
         movement_type: str | None = None
         delta = current_arr - previous_arr
 
-        if previous_arr == ZERO and current_arr > ZERO:
+        if key == ONLINE_KEY:
+            if current_arr > previous_arr:
+                movement_type = "up_selling"
+                up_selling_arr += current_arr - previous_arr
+            elif current_arr < previous_arr:
+                movement_type = "down_selling"
+                down_selling_arr += previous_arr - current_arr
+        elif previous_arr == ZERO and current_arr > ZERO:
             movement_type = "new_logo"
             new_logo_arr += current_arr
         elif previous_arr > ZERO and current_arr == ZERO:
@@ -182,7 +232,7 @@ def _compute_monthly_churn(
     arr_start = sum(previous.values(), ZERO)
     arr_end_existing = sum((current.get(key, ZERO) for key in previous), ZERO)
     net_existing_change = up_selling_arr - churn_arr - down_selling_arr
-    total_logos_start = len([value for value in previous.values() if value > ZERO])
+    total_logos_start = len([value for value in salesforce_previous.values() if value > ZERO])
 
     if arr_start:
         gross_arr_churn_rate = float(churn_arr / arr_start * 100)
@@ -246,14 +296,18 @@ def _monthly_summary(response: MonthlyChurnResponse) -> MonthlyChurnSummary:
 @router.get("/monthly", response_model=MonthlyChurnResponse)
 def churn_monthly(
     month: date = Query(...),
+    month_from: Optional[date] = Query(None, description="Primer dia del periodo de partida"),
     snapshot_id: Optional[UUID] = Query(None),
     product_type: Optional[str] = Query(None),
     product_types: Optional[str] = Query(None, description="Lista CSV de lineas de negocio"),
     account_name: Optional[str] = Query(None),
+    mode: str = Query("from_start", description="from_start | from_close"),
     db: Session = Depends(get_db),
 ):
+    if mode not in {"from_start", "from_close"}:
+        raise HTTPException(status_code=400, detail="mode debe ser from_start o from_close")
     snapshot = _snapshot_or_404(db, snapshot_id)
-    return _compute_monthly_churn(db, snapshot.id, month, product_type, account_name, product_types)
+    return _compute_monthly_churn(db, snapshot.id, month, product_type, account_name, product_types, month_from, mode)
 
 
 @router.get("/monthly-trend", response_model=MonthlyChurnTrendResponse)
@@ -264,11 +318,14 @@ def churn_monthly_trend(
     product_type: Optional[str] = Query(None),
     product_types: Optional[str] = Query(None, description="Lista CSV de lineas de negocio"),
     account_name: Optional[str] = Query(None),
+    mode: str = Query("from_start", description="from_start | from_close"),
     db: Session = Depends(get_db),
 ):
+    if mode not in {"from_start", "from_close"}:
+        raise HTTPException(status_code=400, detail="mode debe ser from_start o from_close")
     snapshot = _snapshot_or_404(db, snapshot_id)
     points = [
-        _monthly_summary(_compute_monthly_churn(db, snapshot.id, month, product_type, account_name, product_types))
+        _monthly_summary(_compute_monthly_churn(db, snapshot.id, month, product_type, account_name, product_types, None, mode))
         for month in _month_range(month_from, month_to)
     ]
     return MonthlyChurnTrendResponse(data=points)

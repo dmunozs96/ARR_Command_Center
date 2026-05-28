@@ -310,10 +310,12 @@ export const api = {
   // Churn
   getChurnMonthly: (params: {
     month: string;
+    month_from?: string;
     snapshot_id?: string;
     product_type?: string;
     product_types?: string;
     account_name?: string;
+    mode?: "from_start" | "from_close";
   }) =>
     client.get<MonthlyChurnResponse>("/churn/monthly", { params }).then((r) => r.data),
 
@@ -324,6 +326,7 @@ export const api = {
     product_type?: string;
     product_types?: string;
     account_name?: string;
+    mode?: "from_start" | "from_close";
   }) =>
     client.get<MonthlyChurnTrendResponse>("/churn/monthly-trend", { params }).then((r) => r.data),
 

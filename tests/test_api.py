@@ -1437,6 +1437,80 @@ def test_monthly_churn_computes_modelable_rates(client):
     assert {item["movement_type"] for item in data["items"]} == {"churn", "down_selling", "up_selling"}
 
 
+def test_monthly_churn_includes_stripe_as_total_variation_not_churn(client):
+    db = TestingSessionLocal()
+    snap = _seed_retention_cohort(db)
+    db.add(
+        SnapshotStripeMRR(
+            snapshot_id=snap.id,
+            month=date(2025, 12, 1),
+            mrr=Decimal("1000"),
+            entered_by="test",
+        )
+    )
+    db.add(
+        SnapshotStripeMRR(
+            snapshot_id=snap.id,
+            month=date(2026, 1, 1),
+            mrr=Decimal("700"),
+            entered_by="test",
+        )
+    )
+    snap_id = snap.id
+    db.commit()
+    db.close()
+
+    response = client.get(
+        f"/api/churn/monthly?snapshot_id={snap_id}&month=2026-01-01"
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["arr_start"] == 16500.0
+    assert data["churn_arr"] == 3100.0
+    assert data["down_selling_arr"] == 3400.0
+    assert data["up_selling_arr"] == 1550.0
+    assert data["total_logos_start"] == 4
+    assert data["churned_logos"] == 1
+    online_item = next(item for item in data["items"] if item["product_type"] == "Author Online")
+    assert online_item["movement_type"] == "down_selling"
+
+
+def test_monthly_churn_respects_from_close_mode(client):
+    db = TestingSessionLocal()
+    snap = _make_snapshot(db)
+    raw = _make_raw(db, snap.id, sf_opp_id="OPP_CHURN_MODE", sf_line_id="LI_CHURN_MODE")
+    raw.account_name = "Close Mode Corp"
+    raw.opportunity_type = "Nuevo Negocio"
+    raw.close_date = date(2026, 3, 15)
+    raw.subscription_start_date = date(2026, 4, 1)
+    _make_arr(
+        db,
+        snap.id,
+        raw.id,
+        product_type="SaaS Skills",
+        arr=Decimal("40000"),
+        start_month=date(2026, 4, 1),
+        end_month_normalized=date(2026, 12, 31),
+    )
+    snap_id = snap.id
+    db.commit()
+    db.close()
+
+    from_start = client.get(
+        f"/api/churn/monthly?snapshot_id={snap_id}&month_from=2026-03-01&month=2026-04-01&mode=from_start"
+    )
+    from_close = client.get(
+        f"/api/churn/monthly?snapshot_id={snap_id}&month_from=2026-03-01&month=2026-04-01&mode=from_close"
+    )
+
+    assert from_start.status_code == 200
+    assert from_close.status_code == 200
+    assert from_start.json()["new_logo_arr"] == 40000.0
+    assert from_close.json()["arr_start"] == 40000.0
+    assert from_close.json()["new_logo_arr"] == 0.0
+
+
 def test_monthly_churn_trend_returns_monthly_points(client):
     db = TestingSessionLocal()
     snap = _seed_retention_cohort(db)
