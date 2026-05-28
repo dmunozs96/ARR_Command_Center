@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   Bar,
   BarChart,
@@ -30,6 +30,20 @@ import type { MonthlyChurnSummary, RenewalItem, RenewalMonthPoint } from "@/lib/
 import { formatCompactEUR, formatEUR, formatMonth, productTypeFilterParams } from "@/lib/utils";
 
 type Scenario = "base" | "conservative" | "aggressive";
+
+type LineForecastModel = {
+  productType: string;
+  initialArr: number;
+  trend: MonthlyChurnSummary[];
+  renewalByMonth: RenewalMonthPoint[];
+  renewalItems: RenewalItem[];
+  rates: {
+    churn: number;
+    down: number;
+    up: number;
+  };
+  projectedArr: number;
+};
 
 const SCENARIO_LABELS: Record<Scenario, string> = {
   base: "Base",
@@ -71,6 +85,14 @@ function applyScenario(value: number, scenario: Scenario, type: "loss" | "gain")
   if (scenario === "base") return value;
   if (scenario === "conservative") return type === "loss" ? value * 1.25 : value * 0.75;
   return type === "loss" ? value * 0.8 : value * 1.2;
+}
+
+function scenarioRatesFromTrend(data: MonthlyChurnSummary[], scenario: Scenario) {
+  return {
+    churn: applyScenario(weightedRate(data, "churn_arr"), scenario, "loss"),
+    down: applyScenario(weightedRate(data, "down_selling_arr"), scenario, "loss"),
+    up: applyScenario(weightedRate(data, "up_selling_arr"), scenario, "gain"),
+  };
 }
 
 function ForecastCards({
@@ -380,17 +402,162 @@ function RenewalRisk({
   );
 }
 
+function BusinessLineForecastSection({
+  lines,
+  selectedLine,
+  setSelectedLine,
+  scenario,
+}: {
+  lines: LineForecastModel[];
+  selectedLine: string;
+  setSelectedLine: (line: string) => void;
+  scenario: Scenario;
+}) {
+  const activeLine = lines.find((line) => line.productType === selectedLine) ?? lines[0];
+
+  if (lines.length === 0 || !activeLine) {
+    return (
+      <section className="rounded-3xl border border-[#e7e1f2] bg-white p-6 text-sm font-semibold text-[#837a9f]">
+        No hay lineas de negocio con ARR para desglosar el modelo.
+      </section>
+    );
+  }
+
+  const activeChurn = activeLine.initialArr * activeLine.rates.churn;
+  const activeDown = activeLine.initialArr * activeLine.rates.down;
+  const activeUp = activeLine.initialArr * activeLine.rates.up;
+
+  return (
+    <section className="space-y-6">
+      <div className="rounded-3xl border border-[#e7e1f2] bg-[#fbfaff] p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#6d35ff]">Modelo por linea de negocio</p>
+            <h2 className="mt-1 text-xl font-black tracking-tight text-[#151229]">Misma logica, bajada a cada BL</h2>
+            <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-[#6f6a80]">
+              Compara el ARR inicial, el ARR base proyectado y las tasas usadas por linea. El filtro local de abajo cambia todo el detalle sin alterar el filtro global.
+            </p>
+          </div>
+          <span className="rounded-lg bg-white px-3 py-2 text-sm font-bold text-[#2f185f]">
+            Escenario {SCENARIO_LABELS[scenario]}
+          </span>
+        </div>
+      </div>
+
+      <section className="overflow-hidden rounded-3xl border border-[#e7e1f2] bg-white shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
+        <div className="border-b border-[#e7e1f2] p-5">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#6d35ff]">Comparativa por BL</p>
+          <p className="mt-1 text-sm font-semibold text-[#6f6a80]">{lines.length} lineas con ARR inicial en el mes seleccionado.</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-[1050px] w-full text-sm">
+            <thead className="bg-[#fbfaff] text-left text-xs font-black uppercase tracking-[0.12em] text-[#837a9f]">
+              <tr>
+                <th className="px-5 py-3">Linea</th>
+                <th className="px-5 py-3 text-right">ARR inicial</th>
+                <th className="px-5 py-3 text-right">Churn rate</th>
+                <th className="px-5 py-3 text-right">Downsell rate</th>
+                <th className="px-5 py-3 text-right">Upsell rate</th>
+                <th className="px-5 py-3 text-right">ARR proyectado</th>
+                <th className="px-5 py-3 text-right">Delta</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#f0ebf8]">
+              {lines.map((line) => {
+                const delta = line.projectedArr - line.initialArr;
+                return (
+                  <tr key={line.productType}>
+                    <td className="px-5 py-3">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedLine(line.productType)}
+                        className={`rounded-lg px-3 py-2 text-left font-bold transition ${
+                          activeLine.productType === line.productType
+                            ? "bg-[#efe9ff] text-[#2f185f]"
+                            : "text-[#2f185f] hover:bg-[#f7f3ff]"
+                        }`}
+                      >
+                        {line.productType}
+                      </button>
+                    </td>
+                    <td className="px-5 py-3 text-right text-[#6f6a80]">{formatEUR(line.initialArr)}</td>
+                    <td className="px-5 py-3 text-right font-bold text-[#d03932]">{pct(line.rates.churn)}</td>
+                    <td className="px-5 py-3 text-right font-bold text-[#f97316]">{pct(line.rates.down)}</td>
+                    <td className="px-5 py-3 text-right font-bold text-[#0c8f76]">{pct(line.rates.up)}</td>
+                    <td className="px-5 py-3 text-right font-bold text-[#2f185f]">{formatEUR(line.projectedArr)}</td>
+                    <td className={`px-5 py-3 text-right font-bold ${delta >= 0 ? "text-[#0c8f76]" : "text-[#d03932]"}`}>
+                      {signedEUR(delta)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-[#e7e1f2] bg-white p-5 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
+        <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-[#6d35ff]">Filtro de linea</p>
+        <div className="flex flex-wrap gap-2">
+          {lines.map((line) => (
+            <button
+              key={line.productType}
+              type="button"
+              onClick={() => setSelectedLine(line.productType)}
+              className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+                activeLine.productType === line.productType
+                  ? "bg-[#6d35ff] text-white"
+                  : "bg-[#f4f0fb] text-[#6d35ff] hover:bg-[#efe9ff]"
+              }`}
+            >
+              {line.productType}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-[#e7e1f2] bg-[#fbfaff] p-5">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#6d35ff]">Detalle por BL</p>
+        <h2 className="mt-1 text-xl font-black tracking-tight text-[#151229]">{activeLine.productType}</h2>
+        <p className="mt-1 text-sm font-semibold text-[#6f6a80]">
+          Forecast aislado de esta linea: ARR inicial, churn, downselling, upselling, riesgo de renovacion e historico propio.
+        </p>
+      </section>
+
+      <ForecastCards
+        initialArr={activeLine.initialArr}
+        churnRate={activeLine.rates.churn}
+        downRate={activeLine.rates.down}
+        upRate={activeLine.rates.up}
+      />
+      <ForecastBridge initialArr={activeLine.initialArr} churn={activeChurn} down={activeDown} up={activeUp} />
+      <RenewalRisk
+        byMonth={activeLine.renewalByMonth}
+        items={activeLine.renewalItems}
+        churnRate={activeLine.rates.churn}
+        downRate={activeLine.rates.down}
+      />
+      <HistoricalTable data={activeLine.trend} />
+    </section>
+  );
+}
+
 export function CohortRetentionView() {
   const { monthTo, productType, accountName } = useAnalysisFilters();
   const { arrMode } = useARRMode();
   const { activeSnapshot } = useSnapshotContext();
   const [selectedMonthOverride, setSelectedMonthOverride] = useState<string | null>(null);
   const [scenario, setScenario] = useState<Scenario>("base");
+  const [selectedLine, setSelectedLine] = useState("");
   const selectedMonth = selectedMonthOverride ?? monthTo;
   const productFilters = productTypeFilterParams(productType);
   const commonParams = {
     snapshot_id: activeSnapshot?.id,
     ...productFilters,
+    account_name: accountName || undefined,
+  };
+  const allLinesParams = {
+    snapshot_id: activeSnapshot?.id,
     account_name: accountName || undefined,
   };
 
@@ -425,6 +592,17 @@ export function CohortRetentionView() {
       }),
     enabled: !!activeSnapshot,
   });
+  const allLinesArrQuery = useQuery({
+    queryKey: ["installed-base-all-lines-arr", activeSnapshot?.id, selectedMonth, accountName, arrMode],
+    queryFn: () =>
+      api.getARRSummary({
+        ...allLinesParams,
+        month_from: selectedMonth,
+        month_to: selectedMonth,
+        mode: arrMode,
+      }),
+    enabled: !!activeSnapshot,
+  });
 
   const initialArr = arrQuery.data?.months[0]?.total_arr ?? 0;
   const trend = useMemo(() => trendQuery.data?.data ?? [], [trendQuery.data?.data]);
@@ -444,6 +622,61 @@ export function CohortRetentionView() {
   const churn = initialArr * scenarioRates.churn;
   const down = initialArr * scenarioRates.down;
   const up = initialArr * scenarioRates.up;
+  const productLines = useMemo(() => {
+    const byProductType = allLinesArrQuery.data?.months[0]?.by_product_type ?? {};
+    return Object.entries(byProductType)
+      .filter(([, value]) => Number(value) > 0)
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .map(([line]) => line);
+  }, [allLinesArrQuery.data?.months]);
+  const lineTrendQueries = useQueries({
+    queries: productLines.map((line) => ({
+      queryKey: ["installed-base-line-trend", activeSnapshot?.id, selectedMonth, accountName, arrMode, line],
+      queryFn: () =>
+        api.getChurnMonthlyTrend({
+          ...allLinesParams,
+          product_type: line,
+          month_from: subMonths(selectedMonth, 11),
+          month_to: selectedMonth,
+          mode: arrMode,
+        }),
+      enabled: !!activeSnapshot,
+    })),
+  });
+  const lineRenewalQueries = useQueries({
+    queries: productLines.map((line) => ({
+      queryKey: ["installed-base-line-renewals", activeSnapshot?.id, selectedMonth, accountName, line],
+      queryFn: () =>
+        api.getRenewalMonitor({
+          ...allLinesParams,
+          product_type: line,
+          horizon_months: 12,
+        }),
+      enabled: !!activeSnapshot,
+    })),
+  });
+  const lineModels = useMemo<LineForecastModel[]>(() => {
+    const byProductType = allLinesArrQuery.data?.months[0]?.by_product_type ?? {};
+    return productLines.map((line, index) => {
+      const lineTrend = lineTrendQueries[index]?.data?.data ?? [];
+      const lineRates = scenarioRatesFromTrend(lineTrend, scenario);
+      const lineInitialArr = Number(byProductType[line] ?? 0);
+      return {
+        productType: line,
+        initialArr: lineInitialArr,
+        trend: lineTrend,
+        renewalByMonth: lineRenewalQueries[index]?.data?.by_month ?? [],
+        renewalItems: lineRenewalQueries[index]?.data?.items ?? [],
+        rates: lineRates,
+        projectedArr: lineInitialArr - lineInitialArr * lineRates.churn - lineInitialArr * lineRates.down + lineInitialArr * lineRates.up,
+      };
+    });
+  }, [allLinesArrQuery.data?.months, lineRenewalQueries, lineTrendQueries, productLines, scenario]);
+  const currentSelectedLine = selectedLine && productLines.includes(selectedLine) ? selectedLine : productLines[0] ?? "";
+  const linesAreLoading =
+    allLinesArrQuery.isLoading || lineTrendQueries.some((query) => query.isLoading) || lineRenewalQueries.some((query) => query.isLoading);
+  const linesHaveError =
+    allLinesArrQuery.isError || lineTrendQueries.some((query) => query.isError) || lineRenewalQueries.some((query) => query.isError);
 
   return (
     <>
@@ -559,6 +792,23 @@ export function CohortRetentionView() {
           )}
 
           <HistoricalTable data={trend} />
+
+          {linesAreLoading ? (
+            <div className="flex h-[300px] items-center justify-center rounded-3xl border border-[#e7e1f2] bg-white">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#efe9ff] border-t-[#6d35ff]" />
+            </div>
+          ) : linesHaveError ? (
+            <div className="rounded-3xl border border-[#fecaca] bg-[#fef2f2] p-6 text-sm font-semibold text-[#d03932]">
+              No se han podido cargar los analisis por linea de negocio.
+            </div>
+          ) : (
+            <BusinessLineForecastSection
+              lines={lineModels}
+              selectedLine={currentSelectedLine}
+              setSelectedLine={setSelectedLine}
+              scenario={scenario}
+            />
+          )}
         </>
       )}
     </>
