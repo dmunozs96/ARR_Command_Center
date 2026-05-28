@@ -4,15 +4,11 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CalendarRange, ChevronLeft, ChevronRight, Info, TrendingDown } from "lucide-react";
-import { ChurnByBLChart } from "@/components/ChurnByBLChart";
-import { ChurnRollingChart } from "@/components/ChurnRollingChart";
 import { api } from "@/lib/api";
 import { useAnalysisFilters } from "@/lib/analysis-filters-context";
 import { useSnapshotContext } from "@/lib/snapshot-context";
-import type { ChurnRatiosResponse, MonthlyChurnItem, MonthlyChurnResponse, MonthlyChurnSummary } from "@/lib/types";
+import type { MonthlyChurnItem, MonthlyChurnResponse, MonthlyChurnSummary } from "@/lib/types";
 import { formatCompactEUR, formatEUR, formatMonth, productTypeFilterParams } from "@/lib/utils";
-
-type RetentionWindow = "ltm" | "ytd";
 
 const MOVEMENT_LABELS: Record<MonthlyChurnItem["movement_type"], string> = {
   churn: "Churn",
@@ -181,26 +177,6 @@ function MonthlyTrend({ data }: { data: MonthlyChurnSummary[] }) {
   );
 }
 
-function CohortKpis({ data }: { data: ChurnRatiosResponse }) {
-  const cards = [
-    { label: "Cohort NRR", value: pct(data.nrr), className: rateColor(data.nrr, false) },
-    { label: "Cohort GRR", value: pct(data.grr), className: rateColor(data.grr, false) },
-    { label: "Logo churn cohorte", value: pct(data.logo_churn_rate), className: rateColor(data.logo_churn_rate) },
-    { label: "ARR churneado cohorte", value: formatEUR(data.churned_arr), className: "text-[#d03932]" },
-  ];
-
-  return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-      {cards.map((card) => (
-        <section key={card.label} className="rounded-2xl border border-[#e7e1f2] bg-white p-5 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#837a9f]">{card.label}</p>
-          <p className={`mt-3 text-3xl font-black tracking-tight ${card.className}`}>{card.value}</p>
-        </section>
-      ))}
-    </div>
-  );
-}
-
 function MonthlyDetailTable({ items }: { items: MonthlyChurnItem[] }) {
   return (
     <section className="overflow-hidden rounded-3xl border border-[#e7e1f2] bg-white shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
@@ -252,7 +228,6 @@ export default function ChurnPage() {
   const { monthTo, productType, accountName } = useAnalysisFilters();
   const { activeSnapshot } = useSnapshotContext();
   const [selectedMonthOverride, setSelectedMonthOverride] = useState<string | null>(null);
-  const [retentionWindow, setRetentionWindow] = useState<RetentionWindow>("ltm");
   const selectedMonth = selectedMonthOverride ?? monthTo;
   const productFilters = productTypeFilterParams(productType);
   const commonParams = {
@@ -276,29 +251,7 @@ export default function ChurnPage() {
       }),
     enabled: !!activeSnapshot,
   });
-  const ratiosQuery = useQuery({
-    queryKey: ["churn-ratios", activeSnapshot?.id, selectedMonth, retentionWindow, productType, accountName],
-    queryFn: () => api.getChurnRatios({ ...commonParams, month_b: selectedMonth, window: retentionWindow }),
-    enabled: !!activeSnapshot,
-  });
-  const rollingQuery = useQuery({
-    queryKey: ["churn-rolling", activeSnapshot?.id, selectedMonth, retentionWindow, productType, accountName],
-    queryFn: () => api.getChurnRolling({ ...commonParams, month_to: selectedMonth, window: retentionWindow }),
-    enabled: !!activeSnapshot,
-  });
-  const byProductQuery = useQuery({
-    queryKey: ["churn-by-product", activeSnapshot?.id, selectedMonth, productType, accountName],
-    queryFn: () =>
-      api.getChurnByProductType({
-        ...commonParams,
-        month_from: subMonths(selectedMonth, 11),
-        month_to: selectedMonth,
-      }),
-    enabled: !!activeSnapshot,
-  });
-
   const monthly = monthlyQuery.data;
-  const ratios = ratiosQuery.data;
 
   return (
     <main className="flex-1 space-y-6 p-6" data-testid="churn-page">
@@ -314,7 +267,7 @@ export default function ChurnPage() {
         </div>
         <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-[#6f6a80]">
           <Info size={14} />
-          Vista mensual para modelar y vista de cohorte para retencion historica. Excluye Author Online (Stripe).
+          Vista mensual para modelar bajas, downsell, upsell y new logo. Excluye Author Online (Stripe).
         </p>
       </header>
 
@@ -402,72 +355,6 @@ export default function ChurnPage() {
           </div>
 
           <MonthlyDetailTable items={monthly.items} />
-        </>
-      )}
-
-      <section className="rounded-3xl border border-[#e7e1f2] bg-white p-5 shadow-[0_18px_50px_rgba(49,24,95,0.06)]">
-        <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-[#6d35ff]">Retencion de cohorte</p>
-        <div className="flex flex-wrap items-center gap-2">
-          {(["ltm", "ytd"] as const).map((value) => (
-            <button
-              key={value}
-              onClick={() => setRetentionWindow(value)}
-              className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
-                retentionWindow === value ? "bg-[#6d35ff] text-white" : "bg-[#f4f0fb] text-[#6d35ff]"
-              }`}
-            >
-              {value.toUpperCase()}
-            </button>
-          ))}
-          {ratios && (
-            <p className="ml-3 text-sm font-semibold text-[#6f6a80]">
-              Cohorte: {formatMonth(ratios.month_a)} -&gt; {formatMonth(ratios.month_b)}
-            </p>
-          )}
-        </div>
-      </section>
-
-      {ratiosQuery.isLoading && activeSnapshot && (
-        <div className="flex h-48 items-center justify-center rounded-3xl border border-[#e7e1f2] bg-white">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#efe9ff] border-t-[#6d35ff]" />
-        </div>
-      )}
-
-      {ratiosQuery.isError && (
-        <div className="rounded-3xl border border-[#fecaca] bg-[#fef2f2] p-6 text-sm font-semibold text-[#d03932]">
-          No se han podido calcular las metricas de cohorte para el periodo seleccionado.
-        </div>
-      )}
-
-      {ratios && !ratiosQuery.isError && ratios.total_logos === 0 && (
-        <div className="rounded-3xl border border-[#fde68a] bg-[#fffbeb] p-6 text-sm font-semibold text-[#92400e]">
-          No hay datos suficientes para calcular {retentionWindow.toUpperCase()} en el periodo seleccionado.
-        </div>
-      )}
-
-      {ratios && !ratiosQuery.isError && ratios.total_logos > 0 && (
-        <>
-          <CohortKpis data={ratios} />
-          <div className="rounded-2xl border border-[#e7e1f2] bg-[#fbfaff] p-4 text-sm text-[#6f6a80]">
-            Cohort inicial: <strong className="text-[#2f185f]">{formatEUR(ratios.arr_cohort_start)}</strong>
-            {" | "}Churn: {formatEUR(ratios.churn_eur)}
-            {" | "}Down Selling: {formatEUR(ratios.down_selling_eur)}
-            {" | "}Up Selling: {formatEUR(ratios.up_selling_eur)}
-          </div>
-          {rollingQuery.isLoading ? (
-            <div className="flex h-[300px] items-center justify-center rounded-3xl border border-[#e7e1f2] bg-white">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#efe9ff] border-t-[#6d35ff]" />
-            </div>
-          ) : (
-            <ChurnRollingChart data={rollingQuery.data?.data ?? []} />
-          )}
-          {byProductQuery.isLoading ? (
-            <div className="flex h-[300px] items-center justify-center rounded-3xl border border-[#e7e1f2] bg-white">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#efe9ff] border-t-[#6d35ff]" />
-            </div>
-          ) : (
-            <ChurnByBLChart data={byProductQuery.data?.data ?? []} />
-          )}
         </>
       )}
     </main>

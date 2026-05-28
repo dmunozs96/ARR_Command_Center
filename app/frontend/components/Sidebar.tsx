@@ -37,6 +37,7 @@ const NAV = [
   { href: "/snapshot-review", label: "Revisor de Snapshot", icon: GitCompare },
   { href: "/gagero", label: "Gagero", icon: TrendingUp },
   { href: "/churn", label: "Churn", icon: TrendingDown },
+  { href: "/cohort-retention", label: "Retencion de cohorte", icon: UsersRound },
   { href: "/renewals", label: "Renovaciones", icon: CalendarClock },
   { href: "/consultants", label: "Consultores", icon: UsersRound },
   { href: "/stripe", label: "Stripe MRR", icon: WalletCards },
