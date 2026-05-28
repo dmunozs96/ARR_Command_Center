@@ -1,4 +1,4 @@
-import { Info, UsersRound } from "lucide-react";
+import { Info, Target } from "lucide-react";
 import { CohortRetentionView } from "@/components/CohortRetentionView";
 
 export default function CohortRetentionPage() {
@@ -7,16 +7,16 @@ export default function CohortRetentionPage() {
       <header>
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#efe9ff] text-[#6d35ff]">
-            <UsersRound size={22} />
+            <Target size={22} />
           </span>
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#6d35ff]">Retencion historica</p>
-            <h1 className="text-2xl font-black tracking-tight text-[#151229]">Retencion de cohorte</h1>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#6d35ff]">Forecast de ARR existente</p>
+            <h1 className="text-2xl font-black tracking-tight text-[#151229]">Base Instalada Predictiva</h1>
           </div>
         </div>
         <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-[#6f6a80]">
           <Info size={14} />
-          Analisis LTM/YTD de la base existente entre el mes inicial de cohorte y el mes de medicion.
+          Convierte el ARR actual en supuestos de churn, downselling y upselling para el modelo de revenue.
         </p>
       </header>
 
