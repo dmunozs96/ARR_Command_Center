@@ -39,6 +39,7 @@ const NAV = [
   { href: "/gagero", label: "Gagero", icon: TrendingUp },
   { href: "/churn", label: "Churn", icon: TrendingDown },
   { href: "/cohort-retention", label: "Base Instalada Predictiva", icon: Target },
+  { href: "/committed-vs-real", label: "Committed vs Real", icon: GitCompare },
   { href: "/renewals", label: "Renovaciones", icon: CalendarClock },
   { href: "/consultants", label: "Consultores", icon: UsersRound },
   { href: "/stripe", label: "Stripe MRR", icon: WalletCards },

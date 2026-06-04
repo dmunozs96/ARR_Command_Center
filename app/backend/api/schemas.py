@@ -505,6 +505,70 @@ class RenewalMonitorResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Delta (Committed vs Real)
+# ---------------------------------------------------------------------------
+
+class DeltaMonthPoint(BaseModel):
+    month: date
+    committed_arr: JsonDecimal
+    real_arr: JsonDecimal
+    delta_total: JsonDecimal
+    contracts_in_transit: int
+    delta_by_product_type: Dict[str, JsonDecimal]
+
+
+class DeltaMonthlyTrendResponse(BaseModel):
+    months: List[DeltaMonthPoint]
+    trend_note: Literal["ascendente", "descendente", "estable", "mixta"]
+
+
+class DeltaContractItem(BaseModel):
+    opportunity_name: Optional[str]
+    account_name: Optional[str]
+    product_type: Optional[str]
+    arr_value: JsonDecimal
+    close_date: date
+    subscription_start_date: Optional[date]
+    days_since_close: int
+
+
+class DeltaMonthBreakdownResponse(BaseModel):
+    month: date
+    total_delta: JsonDecimal
+    contracts: List[DeltaContractItem]
+
+
+class BLDistributionStats(BaseModel):
+    product_type: str
+    median_days: float
+    p75_days: float
+    p90_days: float
+    sample_size: int
+    is_reliable: bool
+
+
+class ImplementationAlertItem(BaseModel):
+    opportunity_name: Optional[str]
+    account_name: Optional[str]
+    product_type: Optional[str]
+    arr_value: JsonDecimal
+    close_date: date
+    subscription_start_date: Optional[date]
+    days_since_close: int
+    percentile_rank: Optional[float]
+    bl_median_days: float
+    bl_p90_days: float
+    is_statistically_reliable: bool
+
+
+class ImplementationAlertsResponse(BaseModel):
+    alerts: List[ImplementationAlertItem]
+    bl_distributions: Dict[str, BLDistributionStats]
+    total_contracts_in_transit: int
+    as_of_date: date
+
+
+# ---------------------------------------------------------------------------
 # Sync
 # ---------------------------------------------------------------------------
 

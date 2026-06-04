@@ -23,6 +23,9 @@ import type {
   MonthlyChurnResponse,
   MonthlyChurnTrendResponse,
   RenewalMonitorResponse,
+  DeltaMonthlyTrendResponse,
+  DeltaMonthBreakdownResponse,
+  ImplementationAlertsResponse,
 } from "./types";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL
@@ -380,6 +383,33 @@ export const api = {
     status?: "all" | "at_risk" | "renewed";
   }) =>
     client.get<RenewalMonitorResponse>("/renewals/monitor", { params }).then((r) => r.data),
+
+  // Delta (Committed vs Real)
+  getDeltaMonthlyTrend: (params: {
+    snapshot_id?: string;
+    month_from: string;
+    month_to: string;
+    product_type?: string;
+    product_types?: string;
+  }) =>
+    client.get<DeltaMonthlyTrendResponse>("/delta/monthly-trend", { params }).then((r) => r.data),
+
+  getDeltaMonthBreakdown: (params: {
+    snapshot_id?: string;
+    month: string;
+    product_type?: string;
+    product_types?: string;
+    account_name?: string;
+  }) =>
+    client.get<DeltaMonthBreakdownResponse>("/delta/month-breakdown", { params }).then((r) => r.data),
+
+  getImplementationAlerts: (params: {
+    snapshot_id?: string;
+    product_type?: string;
+    product_types?: string;
+    limit?: number;
+  }) =>
+    client.get<ImplementationAlertsResponse>("/delta/implementation-alerts", { params }).then((r) => r.data),
 
   // Health
   health: () => client.get("/health").then((r) => r.data),

@@ -384,3 +384,69 @@ export interface ExpertChatResponse {
   tokens_used: number;
   model: string;
 }
+
+// ---------------------------------------------------------------------------
+// Delta (Committed vs Real)
+// ---------------------------------------------------------------------------
+
+export interface DeltaMonthPoint {
+  month: string;
+  committed_arr: number;
+  real_arr: number;
+  delta_total: number;
+  contracts_in_transit: number;
+  delta_by_product_type: Record<string, number>;
+}
+
+export type TrendNote = "ascendente" | "descendente" | "estable" | "mixta";
+
+export interface DeltaMonthlyTrendResponse {
+  months: DeltaMonthPoint[];
+  trend_note: TrendNote;
+}
+
+export interface DeltaContractItem {
+  opportunity_name: string | null;
+  account_name: string | null;
+  product_type: string | null;
+  arr_value: number;
+  close_date: string;
+  subscription_start_date: string | null;
+  days_since_close: number;
+}
+
+export interface DeltaMonthBreakdownResponse {
+  month: string;
+  total_delta: number;
+  contracts: DeltaContractItem[];
+}
+
+export interface BLDistributionStats {
+  product_type: string;
+  median_days: number;
+  p75_days: number;
+  p90_days: number;
+  sample_size: number;
+  is_reliable: boolean;
+}
+
+export interface ImplementationAlertItem {
+  opportunity_name: string | null;
+  account_name: string | null;
+  product_type: string | null;
+  arr_value: number;
+  close_date: string;
+  subscription_start_date: string | null;
+  days_since_close: number;
+  percentile_rank: number | null;
+  bl_median_days: number;
+  bl_p90_days: number;
+  is_statistically_reliable: boolean;
+}
+
+export interface ImplementationAlertsResponse {
+  alerts: ImplementationAlertItem[];
+  bl_distributions: Record<string, BLDistributionStats>;
+  total_contracts_in_transit: number;
+  as_of_date: string;
+}
