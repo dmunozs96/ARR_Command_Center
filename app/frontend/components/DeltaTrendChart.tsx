@@ -86,12 +86,14 @@ export function DeltaTrendChart({ months, trendNote, productType }: Props) {
             width={68}
           />
           <Tooltip
-            formatter={(value: number | undefined, name: string) => {
-              const v = value ?? 0;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            formatter={(value: any, name: any) => {
+              const v = Number(value) || 0;
               if (name === "real_arr") return [formatCompactEUR(v), "Real ARR"];
-              return [formatCompactEUR(v), name];
+              return [formatCompactEUR(v), String(name)];
             }}
-            labelFormatter={(label: string) => formatMonth(label)}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            labelFormatter={(label: any) => formatMonth(String(label))}
             contentStyle={{ fontSize: 12, borderRadius: 8 }}
           />
           {productType ? (
