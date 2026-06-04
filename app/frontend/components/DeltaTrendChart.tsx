@@ -86,9 +86,10 @@ export function DeltaTrendChart({ months, trendNote, productType }: Props) {
             width={68}
           />
           <Tooltip
-            formatter={(value: number, name: string) => {
-              if (name === "real_arr") return [formatCompactEUR(value), "Real ARR"];
-              return [formatCompactEUR(value), name];
+            formatter={(value: number | undefined, name: string) => {
+              const v = value ?? 0;
+              if (name === "real_arr") return [formatCompactEUR(v), "Real ARR"];
+              return [formatCompactEUR(v), name];
             }}
             labelFormatter={(label: string) => formatMonth(label)}
             contentStyle={{ fontSize: 12, borderRadius: 8 }}
