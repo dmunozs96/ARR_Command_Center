@@ -1632,3 +1632,146 @@ def test_renewal_monitor_applies_status_and_product_filters(client):
     assert status_response.json()["summary"]["at_risk_count"] == 1
     assert product_response.status_code == 200
     assert [item["account_name"] for item in product_response.json()["items"]] == ["Risk Corp"]
+
+
+# ---------------------------------------------------------------------------
+# V6 Parent-account (business group) consolidation
+# ---------------------------------------------------------------------------
+
+def _seed_group_moving_between_societies(db, *, consolidate: bool):
+    """Two societies of one group: Norte active in 2025, Sur active in 2026.
+
+    Same product and ARR, so once consolidated by group root the client is
+    perfectly stable across the year. With consolidate=False (legacy snapshot,
+    client_name = NULL) each society is its own client, reproducing the bug.
+    """
+    snap = _make_snapshot(db)
+    group = "Grupo X"
+
+    def add_society(account, suffix, start, end):
+        raw = _make_raw(db, snap.id, sf_opp_id=f"OPP_{suffix}", sf_line_id=f"LI_{suffix}")
+        raw.account_name = account
+        raw.parent_account_name = group if consolidate else None
+        raw.client_name = group if consolidate else None
+        _make_arr(
+            db,
+            snap.id,
+            raw.id,
+            product_type="SaaS LMS",
+            arr=Decimal("10000"),
+            start_month=start,
+            end_month_normalized=end,
+        )
+
+    add_society("Sociedad Norte", "NORTE", date(2025, 1, 1), date(2025, 12, 31))
+    add_society("Sociedad Sur", "SUR", date(2026, 1, 1), date(2026, 12, 31))
+    db.commit()
+    return snap
+
+
+def test_parent_consolidation_prevents_phantom_churn_and_new_logo(client):
+    db = TestingSessionLocal()
+    snap_id = _seed_group_moving_between_societies(db, consolidate=True).id
+    db.close()
+
+    response = client.get(
+        f"/api/gagero/bridge?snapshot_id={snap_id}&month_a=2025-06-01&month_b=2026-06-01"
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    # The group never left: one stable client, zero phantom churn / new logo.
+    assert body["churn"]["count"] == 0
+    assert body["new_logo"]["count"] == 0
+    assert body["arr_a"] == 10000.0
+    assert body["arr_b"] == 10000.0
+
+
+def test_legacy_snapshot_without_client_name_still_splits(client):
+    """Regression guard: same data, no consolidation → the old inflated result."""
+    db = TestingSessionLocal()
+    snap_id = _seed_group_moving_between_societies(db, consolidate=False).id
+    db.close()
+
+    response = client.get(
+        f"/api/gagero/bridge?snapshot_id={snap_id}&month_a=2025-06-01&month_b=2026-06-01"
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["churn"]["count"] == 1
+    assert body["new_logo"]["count"] == 1
+    # Invariant: consolidation reshapes the breakdown but NOT the ARR totals.
+    assert body["arr_a"] == 10000.0
+    assert body["arr_b"] == 10000.0
+
+
+def test_filter_by_group_matches_all_societies(client):
+    """Filtering by the group root returns all its societies' ARR."""
+    db = TestingSessionLocal()
+    snap_id = _seed_group_moving_between_societies(db, consolidate=True).id
+    db.close()
+
+    response = client.get(
+        f"/api/arr/summary?snapshot_id={snap_id}&account_name=Grupo%20X&month_from=2025-06-01&month_to=2025-06-01"
+    )
+
+    assert response.status_code == 200
+    months = response.json()["months"]
+    assert months and months[0]["total_arr"] == 10000.0
+
+
+def _build_excel_bytes_with_parent() -> bytes:
+    """Workbook with a 'Cuenta principal' column: two societies of one group."""
+    wb = openpyxl.Workbook()
+    ws_products = wb.active
+    ws_products.title = "Productos SF SAAS"
+    ws_products.append(["A", "Nombre producto", "Codigo", "D", "Linea negocio", "Categoria", "Subcategoria", "Tipo producto"])
+    ws_products.append(["", "Licencias LMS", "LMS-001", "", "isEazy LMS", "SaaS", "LMS", "SaaS LMS"])
+
+    ws_opos = wb.create_sheet("Opos con Productos")
+    ws_opos.append(
+        [
+            "Propietario de oportunidad", "Nombre de la cuenta", "Nombre de la oportunidad",
+            "Tipo", "Tipo de oportunidad", "Importe", "Fecha de cierre", "Creacion", "Etapa",
+            "Nombre del producto", "Precio de venta", "Subscription Start Date",
+            "Subscription End Date", "Licence period (months)", "Línea de negocio", "Cantidad",
+            "Product", "Creado por", "Cuenta principal",
+        ]
+    )
+    # Two societies of "Grupo X"; parent informed only in one of Norte's rows (global map).
+    common = ["New Business", "Inbound", 10000, "15/01/2025", "10/01/2025", "Ganada",
+              "Licencias LMS", 10000, "01/01/2025", "31/12/2025", 12, "isEazy LMS", 1, "LMS-001", "Maria"]
+    ws_opos.append(["Maria Lopez", "Sociedad Norte", "Opp Norte 1", *common, "Grupo X"])
+    ws_opos.append(["Maria Lopez", "Sociedad Norte", "Opp Norte 2", *common, None])
+    ws_opos.append(["Maria Lopez", "Sociedad Sur", "Opp Sur 1", *common, "Grupo X"])
+    ws_opos.append(["Maria Lopez", "Grupo X", "Opp Matriz", *common, None])
+
+    buffer = BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
+
+
+def test_import_reads_parent_account_and_persists_group_client_name(client):
+    r = client.post(
+        "/api/imports/excel",
+        files={"file": ("grupo.xlsx", _build_excel_bytes_with_parent(),
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+    )
+    assert r.status_code == 200
+    assert r.json()["status"] == "completed"
+
+    db = TestingSessionLocal()
+    try:
+        raws = db.query(RawOpportunityLineItem).all()
+        by_account = {}
+        for raw in raws:
+            by_account.setdefault(raw.account_name, raw)
+        # Every society (incl. the parent's own rows) consolidates to the group root.
+        assert by_account["Sociedad Norte"].client_name == "Grupo X"
+        assert by_account["Sociedad Sur"].client_name == "Grupo X"
+        assert by_account["Grupo X"].client_name == "Grupo X"
+        # Raw parent value is kept for audit; Norte's blank row still resolves via global map.
+        assert by_account["Sociedad Norte"].parent_account_name == "Grupo X"
+    finally:
+        db.close()

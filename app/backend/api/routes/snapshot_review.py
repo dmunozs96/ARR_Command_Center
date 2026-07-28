@@ -16,6 +16,7 @@ from app.backend.api.schemas import (
     SnapshotComparisonTotals,
 )
 from app.backend.db.connection import get_db
+from app.backend.core.client_identity import client_name_expr
 from app.backend.db.models import ARRLineItem, RawOpportunityLineItem, Snapshot
 
 router = APIRouter()
@@ -66,7 +67,7 @@ def _filtered_items(
         if values:
             query = query.filter(ARRLineItem.product_type.in_(values))
     if account_name:
-        query = query.filter(RawOpportunityLineItem.account_name == account_name)
+        query = query.filter(client_name_expr() == account_name)
     return query.all()
 
 

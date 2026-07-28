@@ -15,6 +15,7 @@ from app.backend.api.schemas import (
     RenewalMonthPoint,
     RenewalSummary,
 )
+from app.backend.core.client_identity import client_name_expr, client_name_of
 from app.backend.db.connection import get_db
 from app.backend.db.models import ARRLineItem, RawOpportunityLineItem, Snapshot
 
@@ -86,13 +87,13 @@ def get_renewal_monitor(
         if values:
             query = query.filter(ARRLineItem.product_type.in_(values))
     if account_name:
-        query = query.filter(RawOpportunityLineItem.account_name == account_name)
+        query = query.filter(client_name_expr() == account_name)
 
     grouped: dict[tuple[str, str], list[tuple[ARRLineItem, RawOpportunityLineItem]]] = {}
     for arr_item, raw_item in query.all():
         if not raw_item.account_name or not arr_item.product_type:
             continue
-        grouped.setdefault((raw_item.account_name, arr_item.product_type), []).append((arr_item, raw_item))
+        grouped.setdefault((client_name_of(raw_item), arr_item.product_type), []).append((arr_item, raw_item))
 
     all_items: list[RenewalItem] = []
     for (account, item_type), rows in grouped.items():

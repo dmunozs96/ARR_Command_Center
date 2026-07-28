@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.backend.api.routes.arr import _active_start_month
 from app.backend.api.schemas import BridgeCategory, BridgeItem, BridgeResponse
+from app.backend.core.client_identity import client_name_expr, client_name_of
 from app.backend.db.connection import get_db
 from app.backend.db.models import ARRLineItem, RawOpportunityLineItem, Snapshot
 
@@ -41,14 +42,14 @@ def _get_arr_by_account_bl(
     if product_type_list:
         query = query.filter(ARRLineItem.product_type.in_(product_type_list))
     if account_name:
-        query = query.filter(RawOpportunityLineItem.account_name == account_name)
+        query = query.filter(client_name_expr() == account_name)
 
     totals: dict[tuple[str, str], Decimal] = {}
     for arr, raw in query.all():
         active_start = _active_start_month(arr, raw, mode)
         if active_start > month:
             continue
-        key = (raw.account_name or "Sin cuenta", arr.product_type)
+        key = (client_name_of(raw), arr.product_type)
         totals[key] = totals.get(key, Decimal("0")) + Decimal(str(arr.annualized_value))
 
     return totals

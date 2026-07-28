@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 
 from app.backend.api.routes.arr import _latest_snapshot_id, _last_day_of_month, _month_range
+from app.backend.core.client_identity import client_name_of
 from app.backend.db.connection import get_db
 from app.backend.db.models import ARRLineItem, RawOpportunityLineItem, Snapshot, SnapshotAlert, SnapshotStripeMRR
 
@@ -297,7 +298,7 @@ def _tool_get_top_accounts(
             continue
         if d_to and item.start_month > d_to:
             continue
-        account = (item.raw_line_item.account_name if item.raw_line_item else None) or "Sin cuenta"
+        account = client_name_of(item.raw_line_item) if item.raw_line_item else "Sin cuenta"
         account_totals[account] = account_totals.get(account, 0.0) + float(item.annualized_value)
 
     sorted_accounts = sorted(account_totals.items(), key=lambda x: x[1], reverse=True)
@@ -379,7 +380,7 @@ def _tool_get_upcoming_renewals(
 
     grouped: dict[str, dict[str, Any]] = {}
     for arr, raw in q.all():
-        account = raw.account_name or "Sin cuenta"
+        account = client_name_of(raw)
         if account not in grouped:
             grouped[account] = {
                 "account_name": account,
@@ -444,7 +445,7 @@ def _tool_get_arr_mom_changes(
         by_account: dict[str, float] = {}
         for i in items:
             pt = i.product_type or "Unknown"
-            acc = (i.raw_line_item.account_name if i.raw_line_item else None) or "Sin cuenta"
+            acc = client_name_of(i.raw_line_item) if i.raw_line_item else "Sin cuenta"
             by_type[pt] = by_type.get(pt, 0.0) + float(i.annualized_value)
             by_account[acc] = by_account.get(acc, 0.0) + float(i.annualized_value)
         return {"total": sum(by_type.values()), "by_product_type": by_type, "by_account": by_account}

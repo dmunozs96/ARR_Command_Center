@@ -17,6 +17,7 @@ from app.backend.api.schemas import (
     ImplementationAlertItem,
     ImplementationAlertsResponse,
 )
+from app.backend.core.client_identity import client_name_expr
 from app.backend.db.connection import get_db
 from app.backend.db.models import ARRLineItem, RawOpportunityLineItem, Snapshot
 
@@ -198,7 +199,7 @@ def get_month_breakdown(
     )
     base_q = _apply_pt_filter(base_q, product_type, product_types)
     if account_name:
-        base_q = base_q.filter(RawOpportunityLineItem.account_name == account_name)
+        base_q = base_q.filter(client_name_expr() == account_name)
 
     rows = base_q.all()
 

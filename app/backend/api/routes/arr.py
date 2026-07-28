@@ -26,6 +26,7 @@ from app.backend.api.schemas import (
     ConsultantARR,
     LineItemExcludePatch,
 )
+from app.backend.core.client_identity import client_name_expr, client_name_of
 from app.backend.db.connection import get_db
 from app.backend.db.models import ARRLineItem, ARRMonthlySummary, RawOpportunityLineItem, Snapshot, SnapshotStripeMRR
 
@@ -119,7 +120,7 @@ def arr_summary(
             )
         )
         if account_name:
-            q_close = q_close.filter(RawOpportunityLineItem.account_name == account_name)
+            q_close = q_close.filter(client_name_expr() == account_name)
         rows = q_close.all()
         # "Fecha de Cierre" logic (mirrors Excel col30 / f.inicial si es NN):
         # For Nuevo Negocio deals where close_date precedes subscription_start_date,
@@ -146,7 +147,7 @@ def arr_summary(
             )
         )
         if account_name:
-            q = q.filter(RawOpportunityLineItem.account_name == account_name)
+            q = q.filter(client_name_expr() == account_name)
         rows = q.all()
         active_items = [
             (
@@ -274,7 +275,7 @@ def arr_by_account(
         if consultant:
             q_close = q_close.filter(RawOpportunityLineItem.opportunity_owner == consultant)
         if account_name:
-            q_close = q_close.filter(RawOpportunityLineItem.account_name == account_name)
+            q_close = q_close.filter(client_name_expr() == account_name)
         rows = q_close.all()
         active_items = []
         for arr, raw in rows:
@@ -289,7 +290,7 @@ def arr_by_account(
                     arr.end_month_normalized,
                     arr.product_type,
                     Decimal(str(arr.annualized_value)),
-                    raw.account_name or "Sin cuenta",
+                    client_name_of(raw),
                 ))
     else:
         q = (
@@ -308,7 +309,7 @@ def arr_by_account(
         if consultant:
             q = q.filter(RawOpportunityLineItem.opportunity_owner == consultant)
         if account_name:
-            q = q.filter(RawOpportunityLineItem.account_name == account_name)
+            q = q.filter(client_name_expr() == account_name)
         rows = q.all()
         active_items = [
             (
@@ -316,7 +317,7 @@ def arr_by_account(
                 arr.end_month_normalized,
                 arr.product_type,
                 Decimal(str(arr.annualized_value)),
-                raw.account_name or "Sin cuenta",
+                client_name_of(raw),
             )
             for arr, raw in rows
         ]
@@ -470,7 +471,7 @@ def arr_by_consultant(
         if values:
             q = q.filter(ARRLineItem.product_type.in_(values))
     if account_name:
-        q = q.filter(RawOpportunityLineItem.account_name == account_name)
+        q = q.filter(client_name_expr() == account_name)
     if country:
         q = q.filter(ARRLineItem.consultant_country == country)
 

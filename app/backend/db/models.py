@@ -79,6 +79,14 @@ class RawOpportunityLineItem(Base):
 
     opportunity_name = Column(Text)
     account_name = Column(Text)
+    # Raw "Cuenta principal" (parent account) from Salesforce/Excel; NULL when the
+    # account is its own parent (not part of a business group). Kept for audit.
+    parent_account_name = Column(Text)
+    # Consolidated client identity resolved to the GROUP ROOT at import time
+    # (see core/client_identity.py). All by-client analytics (churn, new logo,
+    # up/down, gagero, top accounts) group by this instead of account_name.
+    # NULL only on legacy snapshots imported before V6 → callers COALESCE to account_name.
+    client_name = Column(Text)
     opportunity_owner = Column(Text)
     opportunity_type = Column(String(100))
     channel_type = Column(String(50))

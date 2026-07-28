@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.backend.core.alert_checker import summarize_snapshot_quality
 from app.backend.core.arr_calculator import ARRCalculator, RawLineItem
+from app.backend.core.client_identity import assign_client_names
 from app.backend.db.models import (
     ARRLineItem,
     ARRMonthlySummary,
@@ -332,6 +333,9 @@ def load_opos_rows(wb):
                 "business_line": _str(_cell(row, headers, "Línea de negocio", "Linea de negocio", "Product2.Family")),
                 "quantity": quantity,
                 "product_code": _str(_cell(row, headers, "Product", "ProductCode", "Código producto", "Codigo")),
+                "parent_account_name": _str(
+                    _cell(row, headers, "Cuenta principal", "Cuenta Principal", "Parent Account", "Account.Parent.Name")
+                ),
             }
             continue
 
@@ -372,6 +376,7 @@ def load_opos_rows(wb):
             "business_line": _str(row[14]),
             "quantity": quantity,
             "product_code": _str(row[16]),
+            "parent_account_name": _str(row[18]) if len(row) > 18 else None,
         }
 
 
@@ -476,6 +481,26 @@ def add_missing_consultant_placeholders(session: Session, countries: dict, rows:
     return merged
 
 
+def store_parent_conflict_alerts(session: Session, snapshot_id, conflicts: list[dict]):
+    for conflict in conflicts:
+        session.add(
+            SnapshotAlert(
+                id=uuid.uuid4(),
+                snapshot_id=snapshot_id,
+                alert_type="PARENT_ACCOUNT_CONFLICT",
+                severity="warning",
+                account_name=conflict["account_name"],
+                description=(
+                    f"La cuenta '{conflict['account_name']}' aparece con varias cuentas "
+                    f"principales distintas: {', '.join(conflict['parents'])}. Se ha usado "
+                    f"'{conflict['parents'][0]}' de forma determinista; revisa Salesforce."
+                ),
+            )
+        )
+    if conflicts:
+        session.flush()
+
+
 def create_snapshot(session: Session, *, triggered_by: str, notes: str) -> Snapshot:
     snap = Snapshot(
         id=uuid.uuid4(),
@@ -542,6 +567,8 @@ def insert_raw_items(session: Session, snapshot_id, rows) -> list[RawOpportunity
             sf_line_item_id=row["sf_line_item_id"],
             opportunity_name=row["opportunity_name"],
             account_name=row["account_name"],
+            parent_account_name=row.get("parent_account_name"),
+            client_name=row.get("client_name"),
             opportunity_owner=row["opportunity_owner"],
             opportunity_type=row["opportunity_type"],
             channel_type=row["channel_type"],
@@ -713,6 +740,9 @@ def import_excel_workbook(
     if not rows:
         raise ExcelImportError("El Excel no contiene filas validas en 'Opos con Productos'.")
 
+    # Resolve consolidated client identity (group root) for every row before persisting.
+    parent_conflicts = assign_client_names(rows)
+
     try:
         previous_snapshot_id = latest_completed_snapshot_id(session)
         products = add_inferred_product_classifications(
@@ -732,6 +762,7 @@ def import_excel_workbook(
             notes=notes or "Importado manualmente desde Excel",
         )
         raw_items = insert_raw_items(session, snapshot.id, rows)
+        store_parent_conflict_alerts(session, snapshot.id, parent_conflicts)
         run_calculation_and_store(session, snapshot, raw_items)
         if stripe_mrr:
             store_stripe_mrr(session, snapshot.id, stripe_mrr, entered_by=triggered_by)
