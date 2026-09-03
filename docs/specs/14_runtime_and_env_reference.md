@@ -1,5 +1,6 @@
 # Runtime And Env Reference
-**Fecha:** 2026-04-18
+**Fecha original:** 2026-04-18
+**Ultima actualizacion:** 2026-09-03
 **Objetivo:** Tener en un solo sitio las variables de entorno necesarias para desarrollo y produccion.
 
 ---
@@ -13,9 +14,18 @@ Variables:
 
 | Variable | Requerida | Ejemplo | Uso |
 |----------|-----------|---------|-----|
-| `DATABASE_URL` | Si | `postgresql://arruser:arrpass@localhost:5432/arrdb` | Conexion de SQLAlchemy a PostgreSQL |
+| `DATABASE_URL` | **Si** | `postgresql://arruser:arrpass@localhost:5432/arrdb` | Conexion de SQLAlchemy a PostgreSQL. **Sin ella la app no arranca** (`os.environ[...]`, no tiene default) |
 | `APP_ENV` | No | `development` | Entorno logico de la app |
 | `LOG_LEVEL` | No | `INFO` | Nivel de logging backend |
+| `ANTHROPIC_API_KEY` | Solo para el ARR Expert | `sk-ant-...` | Clave de la API de Claude usada por `POST /api/expert/chat`. Si falta, ese endpoint devuelve **503** con mensaje explicativo; el resto de la app funciona con normalidad |
+| `CRON_SECRET` | Solo para la sync programada | cadena aleatoria larga | Secreto compartido que protege `POST /api/sync/cron/daily`. Se envia en la cabecera `X-Cron-Secret`. Si esta vacia o no coincide → **401** |
+| `FRONTEND_ORIGIN` | Recomendada en produccion | `https://mi-frontend.up.railway.app` | Origen adicional que se añade a la lista blanca de CORS, ademas de `localhost:3000`, `localhost:3001` y el dominio de Railway ya fijado en `main.py` |
+
+Notas:
+- El modelo de IA usado por el ARR Expert esta fijado en codigo
+  (`app/backend/api/routes/expert.py`), no es configurable por entorno.
+- La cabecera `Content-Disposition` se expone explicitamente en CORS para que la descarga del
+  Excel funcione desde el navegador.
 
 ---
 
@@ -91,10 +101,15 @@ Backend:
 - `DATABASE_URL`
 - `APP_ENV=production`
 - `LOG_LEVEL`
+- `FRONTEND_ORIGIN` con el dominio real del frontend
+- `ANTHROPIC_API_KEY` si se quiere el ARR Expert operativo
+- `CRON_SECRET` si se activa la sync diaria programada
 - Todas las `SF_*` si se va a usar sync real
 
 Frontend:
 - `NEXT_PUBLIC_API_URL` si no se usa proxy/rewrite interno
+
+Ver [17_railway_deploy.md](./17_railway_deploy.md) para el detalle del despliegue.
 
 ---
 

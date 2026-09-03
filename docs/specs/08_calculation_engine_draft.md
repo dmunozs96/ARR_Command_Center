@@ -1,7 +1,35 @@
 # Motor de Cálculo ARR — Especificación Funcional
 **Versión:** 0.1 (derivada del análisis del Excel)
 **Fecha:** 2026-04-17
-**Estado:** BORRADOR — pendiente de validación con el negocio
+**Última revisión:** 2026-09-03
+**Estado:** ⚠️ **HISTÓRICO / SUPERADO** — se conserva por su valor de trazabilidad
+(muestra cómo se derivaron las reglas del Excel original), pero **no describe el código actual**.
+
+> ## 🚩 Documento superado
+>
+> La especificación vigente y completa del motor de cálculo —y de todos los módulos analíticos
+> añadidos después (churn, gágero, renovaciones, committed vs real, forecast)— es:
+>
+> ### → **[19_calculation_reference.md](./19_calculation_reference.md)**
+>
+> **Divergencias conocidas entre este documento y el código actual:**
+>
+> | Punto | Lo que dice este documento | Lo que hace el código |
+> |---|---|---|
+> | Lookup de producto | Solo por `product_name` | Clave compuesta `"nombre\|línea_de_negocio"` con fallback al nombre; `[SIN ASIGNAR]` = no clasificado |
+> | Duración 0 | `raw_days <= 0` → fallback 30 días | Solo `raw_days == 0` → `end = start_month + 30d`. El caso negativo se corta antes con `INVALID_DATES` |
+> | Validación de fechas | Solo listada en la tabla de validaciones | Corte explícito: `effective_start > effective_end` ⇒ ARR 0 + `exclude_from_arr` |
+> | Precio negativo | "excluir" | `NEGATIVE_PRICE` + `exclude_from_arr = True` (el ARR se calcula pero no suma) |
+> | `DURATION_ANOMALY_HIGH` (>730 días) | Flag para revisión manual | **Suprimido siempre** en la API: los contratos plurianuales son normales |
+> | `HIGH_ARR_FLAG` | Cualquier línea > 1 M€ | Solo líneas SaaS |
+> | Modo B (ARR desde close won) | "NO implementado, pendiente de validación" | **Implementado** como `mode=from_close`, con regla precisa (solo `"nuevo negocio"` y solo si `close_date < subscription_start_date`); `end_month_normalized` **no** se recalcula |
+> | Author Online / Stripe | `MRR × 12` | El valor almacenado se trata como **ARR anual ya anualizado** (sin ×12) — ver INC-01 |
+> | `New_ARR(mes)` | Líneas con `start_month = mes` | Sustituido por `new_logo` del motor de movimientos por `(cliente_consolidado, línea)` |
+> | `Churned_ARR(mes)` | Líneas cuyo `end_month_normalized` cae ese mes | **Obsoleto**: el churn se calcula comparando dos fotografías de ARR por cliente×línea, no por fecha de fin |
+> | `Net ARR Movement` | `New − Churned + Expansion` | `net_existing_change = up_selling − churn − down_selling` (excluye new logo, que se reporta aparte) |
+> | Identidad de cliente | `account_name` | `client_name` = raíz del grupo empresarial (V6) |
+> | Exclusión manual | No contemplada | Flag `excluded_from_arr` editable por línea, respetado por todos los endpoints |
+> | Preguntas abiertas (final) | 6 abiertas | Q-01 a Q-07 resueltas; ver [12_open_questions_and_risks.md](./12_open_questions_and_risks.md) |
 
 ---
 

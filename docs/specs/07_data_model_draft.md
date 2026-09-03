@@ -1,7 +1,45 @@
-# Modelo de Datos — Borrador
-**Versión:** 1.0
-**Fecha:** 2026-04-17
+# Modelo de Datos
+**Versión:** 1.1
+**Fecha original:** 2026-04-17
+**Última actualización:** 2026-09-03
 **Base de datos:** PostgreSQL
+
+> El `CREATE TABLE` de más abajo es el schema inicial (migración `0001`). Desde entonces se han
+> aplicado cinco migraciones más. **La verdad del schema es
+> [`app/backend/db/models.py`](../../app/backend/db/models.py)**; el delta acumulado está en la
+> sección siguiente.
+
+---
+
+## Delta de schema aplicado después del borrador inicial
+
+| Migración | Cambio | Motivo |
+|---|---|---|
+| `0002_add_snapshot_data_hash` | `snapshots.data_hash VARCHAR(64)` | SHA-256 de los datos crudos de Salesforce; permite **saltar el snapshot si no hay cambios** en la sync diaria, y detectar en el Revisor que dos snapshots son idénticos ([19 §1.B](./19_calculation_reference.md#1b-sincronización-con-salesforce--implementada-pendiente-de-credenciales)) |
+| `0003_add_overlaps` | `arr_line_items.excluded_from_arr BOOLEAN NOT NULL DEFAULT FALSE` | Exclusión **manual** de una línea del ARR (F-24). Respetada por todos los endpoints analíticos |
+| `0003_add_overlaps` | `snapshot_alerts.arr_line_item_id UUID NULL` + FK `ON DELETE SET NULL` | Enlaza la alerta `OVERLAPPING_CONTRACTS` con la línea concreta que propone excluir |
+| `0004_widen_master_text_fields` | 10 columnas de maestros `VARCHAR(n)` → `TEXT` | Nombres reales de productos y consultores desbordaban los límites |
+| `0005_widen_arr_text_fields` | 6 columnas de ARR/raw `VARCHAR(n)` → `TEXT` | Igual: nombres de oportunidad y cuenta muy largos |
+| `0006_add_parent_and_client` | `raw_opportunity_line_items.parent_account_name TEXT NULL` | Texto crudo de la columna "Cuenta principal" del Excel; solo auditoría |
+| `0006_add_parent_and_client` | `raw_opportunity_line_items.client_name TEXT NULL` | **Identidad de cliente consolidada**, ya resuelta a la raíz del grupo empresarial en el import ([19 §3](./19_calculation_reference.md#3-identidad-de-cliente-consolidada-grupo-empresarial)) |
+
+### Notas de compatibilidad
+
+- `client_name` es NULL en snapshots anteriores a V6 y en los creados por la vía Salesforce. Todos
+  los endpoints usan `COALESCE(client_name, account_name)` (`client_name_expr()` /
+  `client_name_of()`), de modo que esos snapshots se comportan como antes de V6.
+- `excluded_from_arr` **no** existe en `raw_opportunity_line_items`: la exclusión se marca en la
+  línea calculada (`arr_line_items`), no en el dato crudo, para que el crudo siga siendo un
+  reflejo fiel del origen.
+- Las columnas de `arr_line_items` que no aparecen en el `CREATE TABLE` original y sí en el modelo
+  actual son `used_start_fallback`, `used_end_fallback` (trazabilidad de los fallbacks AS-01/AS-02)
+  y `excluded_from_arr`.
+- Precisiones numéricas relevantes: `daily_price NUMERIC(20,8)`, `annualized_value NUMERIC(15,4)`,
+  `real_price NUMERIC(15,2)`, `quantity NUMERIC(10,4)`. El backend opera con `Decimal` de extremo a
+  extremo y no redondea en pasos intermedios.
+- `snapshot_stripe_mrr.mrr` guarda, por convención de facto, el **ARR anual** de Author Online —
+  no un MRR mensual. El nombre de la columna es engañoso: ver
+  [19 INC-01](./19_calculation_reference.md#inc-01).
 
 ---
 
